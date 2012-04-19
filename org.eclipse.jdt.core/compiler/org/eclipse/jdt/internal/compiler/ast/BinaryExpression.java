@@ -116,6 +116,13 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 		codeStream.recordPositionsFrom(pc, this.sourceStart);
 		return;
 	}
+	if (this.overloadMethod != null) {
+		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
+		if (valueRequired)
+			codeStream.generateImplicitConversion(this.implicitConversion);
+		codeStream.recordPositionsFrom(pc, this.sourceStart);
+		return;
+	}
 	switch ((this.bits & ASTNode.OperatorMASK) >> ASTNode.OperatorSHIFT) {
 		case PLUS :
 			switch (this.bits & ASTNode.ReturnTypeIDMASK) {
@@ -1788,6 +1795,67 @@ public StringBuffer printExpressionNoParenthesis(int indent, StringBuffer output
 	return this.right.printExpression(0, output);
 }
 
+final static java.util.Map binaryOperators = new java.util.HashMap() {{
+	put("+", "add");
+	put("-", "substract");
+	put("*", "multiply");
+	put("/", "divide");
+	put("%", "remainder");
+	put("&", "and");
+	put("|", "or");
+	put("^", "xor");
+	put("<<", "shiftLeft");
+	put(">>", "shiftRight");
+	put("<", "compareTo");
+	put(">", "compareTo");
+	put("<=", "compareTo");
+	put(">=", "compareTo");
+}};
+MessageSend overloadMethod;
+public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockScope scope) {
+	// try operator overloading
+	String op = that.operatorToString();
+	String method = (String) binaryOperators.get(op);
+	if (method != null) {
+		// find method
+		MessageSend ms = new MessageSend();
+		ms.receiver = that.left;
+		ms.selector = method.toCharArray();
+		ms.arguments = new Expression[]{that.right};
+		ms.actualReceiverType = that.left.resolvedType;
+		ms.binding = scope.getMethod(that.left.resolvedType, ms.selector, new TypeBinding[]{that.right.resolvedType}, ms);
+		if (ms.binding != null) { // found
+			ms.resolvedType = ms.binding.returnType;
+			ms.constant = Constant.NotAConstant;
+			ms.sourceStart = that.sourceStart;
+			ms.sourceEnd = that.sourceEnd;
+			that.constant = Constant.NotAConstant;
+			if ("compareTo".equals(method)) {
+				// rewrite to `left.compareTo(right) </> 0`
+				that.left = ms;
+				that.right = IntLiteral.buildIntLiteral("0".toCharArray(), that.sourceStart, that.sourceEnd);
+				that.right.resolve(scope);
+				int leftTypeID = that.left.resolvedType.id;
+				int rightTypeID = that.right.resolvedType.id;
+				if (leftTypeID == rightTypeID) { // if compareTo really returns int
+					// resolve rest info about `left </> 0`
+					int operator = (that.bits & ASTNode.OperatorMASK) >> ASTNode.OperatorSHIFT;
+					int operatorSignature = OperatorExpression.OperatorSignatures[operator][(leftTypeID << 4) + rightTypeID];
+					that.left.computeConversion(scope, TypeBinding.wellKnownType(scope, (operatorSignature >>> 16) & 0x0000F), that.left.resolvedType);
+					that.right.computeConversion(scope, TypeBinding.wellKnownType(scope, (operatorSignature >>> 8) & 0x0000F), that.right.resolvedType);
+					that.bits |= operatorSignature & 0xF;
+					that.computeConstant(scope, leftTypeID, rightTypeID);
+					return that.resolvedType = TypeBinding.BOOLEAN;
+				}
+			} else {
+				that.overloadMethod = ms;
+				return that.resolvedType = ms.resolvedType = ms.binding.returnType;
+			}
+		}
+	}
+	return null;
+}
+
 public TypeBinding resolveType(BlockScope scope) {
 	// keep implementation in sync with CombinedBinaryExpression#resolveType
 	// and nonRecursiveResolveTypeUpwards
@@ -1824,6 +1892,9 @@ public TypeBinding resolveType(BlockScope scope) {
 		} else if (rightTypeID == TypeIds.T_JavaLangString) {
 			leftTypeID = TypeIds.T_JavaLangObject;
 		} else {
+			TypeBinding res = overloadBinaryOperator(this, scope);
+			if (res != null)
+				return res;
 			this.constant = Constant.NotAConstant;
 			scope.problemReporter().invalidOperator(this, leftType, rightType);
 			return null;

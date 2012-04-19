@@ -71,6 +71,13 @@ public FlowInfo analyseCode(
 			codeStream.recordPositionsFrom(pc, this.sourceStart);
 			return;
 		}
+		if (this.overloadMethod != null) {
+			this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
+			if (valueRequired)
+				codeStream.generateImplicitConversion(this.implicitConversion);
+			codeStream.recordPositionsFrom(pc, this.sourceStart);
+			return;
+		}
 		switch ((this.bits & OperatorMASK) >> OperatorSHIFT) {
 			case NOT :
 				switch ((this.expression.implicitConversion & IMPLICIT_CONVERSION_MASK) >> 4) /* runtime type */ {
@@ -205,6 +212,32 @@ public FlowInfo analyseCode(
 		return this.expression.printExpression(0, output);
 	}
 
+	static java.util.Map unaryOperators = new java.util.HashMap() {{
+		put("-", "negate");
+		put("~", "not");
+	}};
+	MessageSend overloadMethod;
+	public static TypeBinding overloadUnaryOperator(UnaryExpression that, BlockScope scope) {
+		// similar to #overloadBinaryOperator
+		String method = (String) unaryOperators.get(that.operatorToString());
+		if (method != null) {
+			// find method
+			MessageSend ms = new MessageSend();
+			ms.receiver = that.expression;
+			ms.selector = method.toCharArray();
+			ms.arguments = new Expression[0];
+			ms.actualReceiverType = that.expression.resolvedType;
+			ms.constant = Constant.NotAConstant;
+			ms.binding = scope.getMethod(that.expression.resolvedType, ms.selector, new TypeBinding[0], ms);
+			if (ms.binding != null) {
+				that.overloadMethod = ms;
+				that.constant = Constant.NotAConstant;
+				return that.resolvedType = ms.resolvedType = ms.binding.returnType;
+			}
+		}
+		return null;
+	}
+
 	public TypeBinding resolveType(BlockScope scope) {
 		boolean expressionIsCast;
 		if ((expressionIsCast = this.expression instanceof CastExpression) == true) this.expression.bits |= DisableUnnecessaryCastCheck; // will check later on
@@ -222,6 +255,9 @@ public FlowInfo analyseCode(
 			}
 		}
 		if (expressionTypeID > 15) {
+			TypeBinding res = overloadUnaryOperator(this, scope);
+			if (res != null)
+				return res;
 			this.constant = Constant.NotAConstant;
 			scope.problemReporter().invalidOperator(this, expressionType);
 			return null;
