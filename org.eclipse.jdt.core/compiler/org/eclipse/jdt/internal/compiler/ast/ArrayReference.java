@@ -24,6 +24,7 @@ public class ArrayReference extends Reference {
 
 	public Expression receiver;
 	public Expression position;
+	public MessageSend overloadMethod;
 
 public ArrayReference(Expression rec, Expression pos) {
 	this.receiver = rec;
@@ -71,13 +72,18 @@ public void generateAssignment(BlockScope currentScope, CodeStream codeStream, A
  */
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	int pc = codeStream.position;
-	this.receiver.generateCode(currentScope, codeStream, true);
-	if (this.receiver instanceof CastExpression	// ((type[])null)[0]
-			&& ((CastExpression)this.receiver).innermostCastedExpression().resolvedType == TypeBinding.NULL){
-		codeStream.checkcast(this.receiver.resolvedType);
+	if (this.overloadMethod != null) {
+		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
+		codeStream.checkcast(this.overloadMethod.resolvedType);
+	} else {
+		this.receiver.generateCode(currentScope, codeStream, true);
+		if (this.receiver instanceof CastExpression	// ((type[])null)[0]
+				&& ((CastExpression)this.receiver).innermostCastedExpression().resolvedType == TypeBinding.NULL){
+			codeStream.checkcast(this.receiver.resolvedType);
+		}
+		this.position.generateCode(currentScope, codeStream, true);
+		codeStream.arrayAt(this.resolvedType.id);
 	}
-	this.position.generateCode(currentScope, codeStream, true);
-	codeStream.arrayAt(this.resolvedType.id);
 	// Generating code for the potential runtime type checking
 	if (valueRequired) {
 		codeStream.generateImplicitConversion(this.implicitConversion);
@@ -182,7 +188,24 @@ public TypeBinding resolveType(BlockScope scope) {
 			TypeBinding elementType = ((ArrayBinding) arrayType).elementsType();
 			this.resolvedType = ((this.bits & ASTNode.IsStrictlyAssigned) == 0) ? elementType.capture(scope, this.sourceEnd) : elementType;
 		} else {
-			scope.problemReporter().referenceMustBeArrayTypeAt(arrayType, this);
+			char[] get = "get".toCharArray();
+			MessageSend ms = new MessageSend();
+			ms.receiver = this.receiver;
+			ms.selector = get;
+			ms.arguments = new Expression[]{this.position};
+			ms.actualReceiverType = arrayType;
+			TypeBinding positionType = this.position.resolveType(scope);
+			ms.binding = scope.getMethod(arrayType, get, new TypeBinding[]{positionType}, ms);
+			if (ms.binding == null)
+				scope.problemReporter().referenceMustBeArrayTypeAt(arrayType, this);
+			else {
+				ms.resolvedType = ms.binding.returnType;
+				ms.constant = Constant.NotAConstant;
+				ms.sourceStart = this.sourceStart;
+				ms.sourceEnd = this.sourceEnd;
+				this.overloadMethod = ms;
+				return this.resolvedType = ms.resolvedType;
+			}
 		}
 	}
 	TypeBinding positionType = this.position.resolveTypeExpecting(scope, TypeBinding.INT);

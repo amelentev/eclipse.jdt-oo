@@ -12,5 +12,7 @@ public class OOTest {
 	public static void main(String[] args) {
 		compile("MathTest.java");
 		compile("CmpTest.java");
+		compile("ListIndexGetTest.java");
+		// TODO: compile("ListIndexSetTest.java");
 	}
 }
