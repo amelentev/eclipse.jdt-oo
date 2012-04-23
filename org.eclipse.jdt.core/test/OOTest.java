@@ -13,6 +13,7 @@ public class OOTest {
 		compile("MathTest.java");
 		compile("CmpTest.java");
 		compile("ListIndexGetTest.java");
-		// TODO: compile("ListIndexSetTest.java");
+		compile("ListIndexSetTest.java");
+		compile("MapIndexTest.java");
 	}
 }

@@ -155,6 +155,27 @@ public StringBuffer printStatement(int indent, StringBuffer output) {
 	return print(indent, output).append(';');
 }
 
+public static MessageSend findMethod(Scope scope, Expression receiver, String selector, Expression[] args) {
+	char[] s = selector.toCharArray();
+	MessageSend ms = new MessageSend();
+	ms.receiver = receiver;
+	ms.selector = s;
+	ms.arguments = args;
+	ms.actualReceiverType = receiver.resolvedType;
+	TypeBinding[] targs = new TypeBinding[args.length];
+	for (int i = 0; i < args.length; i++)
+		targs[i] = args[i].resolvedType;
+	ms.binding = scope.getMethod(ms.receiver.resolvedType, s, targs, ms);
+	if (ms.binding != null && !(ms.binding instanceof ProblemMethodBinding)) {
+		ms.resolvedType = ms.binding.returnType;
+		ms.constant = Constant.NotAConstant;
+		ms.sourceStart = receiver.sourceStart;
+		ms.sourceEnd = receiver.sourceEnd;
+		return ms;
+	}
+	return null;
+}
+
 public TypeBinding resolveType(BlockScope scope) {
 	// due to syntax lhs may be only a NameReference, a FieldReference or an ArrayReference
 	this.constant = Constant.NotAConstant;
@@ -180,7 +201,23 @@ public TypeBinding resolveType(BlockScope scope) {
 	if (left != null && !left.isVolatile() && left == getDirectBinding(this.expression)) {
 		scope.problemReporter().assignmentHasNoEffect(this, left.shortReadableName());
 	}
-
+	
+	if (this.lhs instanceof ArrayReference) {
+		ArrayReference alhs = (ArrayReference) this.lhs;
+		if (!alhs.receiver.resolvedType.isArrayType()) {
+			Expression[] args = new Expression[]{alhs.position, this.expression}; 
+			MessageSend ms = findMethod(scope, alhs.receiver, "set", args); //$NON-NLS-1$
+			if (ms==null)
+				ms = findMethod(scope, alhs.receiver, "put", args); //$NON-NLS-1$
+			if (ms==null)
+				scope.problemReporter().referenceMustBeArrayTypeAt(alhs.receiver.resolvedType, alhs);
+			else {
+				alhs.overloadMethod = ms;
+				this.resolvedType = ms.resolvedType;
+			}
+		}
+	}
+	
 	// Compile-time conversion of base-types : implicit narrowing integer into byte/short/character
 	// may require to widen the rhs expression at runtime
 	if (lhsType != rhsType) { // must call before computeConversion() and typeMismatchError()

@@ -53,6 +53,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 
 public void generateAssignment(BlockScope currentScope, CodeStream codeStream, Assignment assignment, boolean valueRequired) {
 	int pc = codeStream.position;
+	if (this.overloadMethod != null) {
+		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
+		return;
+	}
 	this.receiver.generateCode(currentScope, codeStream, true);
 	if (this.receiver instanceof CastExpression	// ((type[])null)[0]
 			&& ((CastExpression)this.receiver).innermostCastedExpression().resolvedType == TypeBinding.NULL){
