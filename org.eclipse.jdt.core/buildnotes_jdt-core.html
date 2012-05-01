@@ -42,17 +42,144 @@
 	</td>
   </tr>
 </table>
+<a name="v_C50"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - April 30, 2012 - 3.8.0 M7
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=376930">376930</a>
+FUP of bug 24804: Organize imports does not work when folding imports into on-demand import
+
+<a name="v_C49"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - April 30, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=374176">374176</a>
+Sticky default nullness diagnostics.
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=371832">371832</a>
+The preference &quot;Suppress optional errors with '@SuppressWarnings'&quot; ends up silencing warnings it shouldn't
+
+<a name="v_C48"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - April 27, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=377806">377806</a>
+ExternalFoldersManager standalone regression
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=322977">322977</a>
+Documentation about use of &quot;SearchPattern.R_REGEXP_MATCH&quot; is wrong
+
+<a name="v_C47"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - April 26, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=376724">376724</a>
+ExternalFoldersManager still has synchronization gaps
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=374129">374129</a>
+more tests for bug 372011
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=365710">365710</a>
+FUP of bug 363293: Fix the incorrect added resource close
+
 <a name="v_C46"></a>
 <hr><h1>
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
-Eclipse SDK 3.8.0 - %date% - April 10, 2012
-<br>Project org.eclipse.jdt.core v_C46
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C46">cvs</a>).
+Eclipse SDK 3.8.0 - April 24, 2012 - April 10, 2012
+<br>
 <h2>What's new in this drop</h2>
+<ul>
+<li>New/changed options in JavaCore to control warnings relating to incomplete switch statements:
+<pre>
+	/**
+	 * Compiler option ID: Reporting Incomplete Enum Switch.
+	 * When enabled, the compiler will issue an error or a warning
+	 * 		regarding each enum constant for which a corresponding case label is lacking.
+	 * 		Reporting is further controlled by the option {@link #COMPILER_PB_MISSING_ENUM_CASE_DESPITE_DEFAULT}.
+	 *
+	 * Option id:"org.eclipse.jdt.core.compiler.problem.incompleteEnumSwitch"
+	 * Possible values:{ "error", "warning", "ignore" }
+	 * Default:"warning"
+	 * 
+	 * @since 3.1
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_INCOMPLETE_ENUM_SWITCH = PLUGIN_ID + ".compiler.problem.incompleteEnumSwitch"; //$NON-NLS-1$
+	/**
+	 * Compiler option ID: Reporting Missing Enum Case In Switch Despite An Existing Default Case.
+	 * This option further controls the option {@link #COMPILER_PB_INCOMPLETE_ENUM_SWITCH}:
+	 * 	
+	 *  - If enabled the compiler will report problems about missing enum constants even if a default case exists
+	 * 		in the same switch statement.
+	 *  - If disabled existence of a default case is considered as sufficient to make a switch statement complete.
+	 * 
+	 *  This option has no effect if {@link #COMPILER_PB_INCOMPLETE_ENUM_SWITCH} is set to "ignore".
+	 *
+	 * Option id:"org.eclipse.jdt.core.compiler.problem.missingEnumCaseDespiteDefault"
+	 * Possible values:{ "enabled", "disabled" }
+	 * Default:"disabled"
+	 *
+	 * @since 3.8
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_MISSING_ENUM_CASE_DESPITE_DEFAULT = PLUGIN_ID + ".compiler.problem.missingEnumCaseDespiteDefault"; //$NON-NLS-1$
+	/**
+	 * Compiler option ID: Reporting Missing Default Case In Switch.
+	 * When enabled, the compiler will issue an error or a warning 
+	 * 		against each switch statement that lacks a default case.
+	 * 
+	 * Option id:"org.eclipse.jdt.core.compiler.problem.missingDefaultCase"
+	 * Possible values:{ "error", "warning", "ignore" }
+	 * Default:"ignore"
+	 *
+	 * @since 3.8
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_SWITCH_MISSING_DEFAULT_CASE = PLUGIN_ID + ".compiler.problem.missingDefaultCase"; //$NON-NLS-1$
+</pre>
+</li>
+<li> New IProblems relating to incomplete switch statements.
+<pre>
+	/** @since 3.8 */
+	int MissingEnumDefaultCase = Internal + 766;
+	/** @since 3.8 */
+	int MissingDefaultCase = Internal + 767;
+	/** @since 3.8 */
+	int MissingEnumConstantCaseDespiteDefault = FieldRelated + 768;
+	/** @since 3.8 */
+	int UninitializedLocalVariableHintMissingDefault = Internal + 769;
+	/** @since 3.8 */
+	int UninitializedBlankFinalFieldHintMissingDefault = FieldRelated + 770;
+	/** @since 3.8 */
+	int ShouldReturnValueHintMissingDefault = MethodRelated + 771;
+</pre>
+</li>
 
 <h3>Problem Reports Fixed</h3>
-<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=374605">374605</a>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=377401">377401</a>
+FuP of bug 372418: &quot;The type ... cannot be resolved&quot; error when there is a $ in the class name.
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=376429">376429</a>
+AIOOBE when trying to create AST for invalid annotation declaration
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=376673">376673</a>
+DBCS4.2 Can not rename the class names when DBCS (Surrogate e.g. U+20B9F) is in it
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=374605">374605</a>
 Unreasonable warning for enum-based switch statements
 <br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=372694">372694</a>
 Adjust parser generator tools
@@ -62,8 +189,7 @@ Adjust parser generator tools
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - April 17, 2012
-<br>Project org.eclipse.jdt.core v_C45
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C45">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -81,8 +207,7 @@ Incorrect type checking for parameterized types
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0
-<br>Project org.eclipse.jdt.core v_C44
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C44">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -96,8 +221,7 @@ try-with-resources assignment in statement produces stack map exception
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - April 3, 2012
-<br>Project org.eclipse.jdt.core v_C43
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C43">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -137,8 +261,7 @@ Unexpected 'The local variable i may not have been initialized' compile error
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - March 13, 2012 - 3.8.0 M6
-<br>Project org.eclipse.jdt.core v_C40
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C40">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
