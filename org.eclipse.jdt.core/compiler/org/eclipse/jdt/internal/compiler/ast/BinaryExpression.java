@@ -1814,26 +1814,15 @@ final static java.util.Map binaryOperators = new java.util.HashMap() {{
 MessageSend overloadMethod;
 public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockScope scope) {
 	// try operator overloading
-	String op = that.operatorToString();
-	String method = (String) binaryOperators.get(op);
+	String method = (String) binaryOperators.get(that.operatorToString());
 	if (method != null) {
 		// find method
-		MessageSend ms = new MessageSend();
-		ms.receiver = that.left;
-		ms.selector = method.toCharArray();
-		ms.arguments = new Expression[]{that.right};
-		ms.actualReceiverType = that.left.resolvedType;
-		ms.binding = scope.getMethod(that.left.resolvedType, ms.selector, new TypeBinding[]{that.right.resolvedType}, ms);
-		if (ms.binding != null) { // found
-			ms.resolvedType = ms.binding.returnType;
-			ms.constant = Constant.NotAConstant;
-			ms.sourceStart = that.sourceStart;
-			ms.sourceEnd = that.sourceEnd;
-			that.constant = Constant.NotAConstant;
-			if ("compareTo".equals(method)) {
+		MessageSend ms = Assignment.findMethod(scope, that.left, method, new Expression[]{that.right});
+		if (ms != null) { // found
+			if ("compareTo".equals(method)) { //$NON-NLS-1$
 				// rewrite to `left.compareTo(right) </> 0`
 				that.left = ms;
-				that.right = IntLiteral.buildIntLiteral("0".toCharArray(), that.sourceStart, that.sourceEnd);
+				that.right = IntLiteral.buildIntLiteral("0".toCharArray(), that.sourceStart, that.sourceEnd); //$NON-NLS-1$
 				that.right.resolve(scope);
 				int leftTypeID = that.left.resolvedType.id;
 				int rightTypeID = that.right.resolvedType.id;
@@ -1849,7 +1838,8 @@ public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockSco
 				}
 			} else {
 				that.overloadMethod = ms;
-				return that.resolvedType = ms.resolvedType = ms.binding.returnType;
+				that.constant = Constant.NotAConstant;
+				return that.resolvedType = ms.resolvedType;
 			}
 		}
 	}

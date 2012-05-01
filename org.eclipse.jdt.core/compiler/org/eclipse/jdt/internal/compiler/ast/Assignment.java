@@ -165,8 +165,8 @@ public static MessageSend findMethod(Scope scope, Expression receiver, String se
 	TypeBinding[] targs = new TypeBinding[args.length];
 	for (int i = 0; i < args.length; i++)
 		targs[i] = args[i].resolvedType;
-	ms.binding = scope.getMethod(ms.receiver.resolvedType, s, targs, ms);
-	if (ms.binding != null && !(ms.binding instanceof ProblemMethodBinding)) {
+	ms.binding = scope.getMethod(ms.actualReceiverType, s, targs, ms);
+	if (ms.binding != null && ms.binding.isValidBinding()) {
 		ms.resolvedType = ms.binding.returnType;
 		ms.constant = Constant.NotAConstant;
 		ms.sourceStart = receiver.sourceStart;

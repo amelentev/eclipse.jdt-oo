@@ -192,21 +192,11 @@ public TypeBinding resolveType(BlockScope scope) {
 			TypeBinding elementType = ((ArrayBinding) arrayType).elementsType();
 			this.resolvedType = ((this.bits & ASTNode.IsStrictlyAssigned) == 0) ? elementType.capture(scope, this.sourceEnd) : elementType;
 		} else {
-			char[] get = "get".toCharArray();
-			MessageSend ms = new MessageSend();
-			ms.receiver = this.receiver;
-			ms.selector = get;
-			ms.arguments = new Expression[]{this.position};
-			ms.actualReceiverType = arrayType;
 			TypeBinding positionType = this.position.resolveType(scope);
-			ms.binding = scope.getMethod(arrayType, get, new TypeBinding[]{positionType}, ms);
-			if (ms.binding == null)
+			MessageSend ms = Assignment.findMethod(scope, this.receiver, "get", new Expression[]{this.position}); //$NON-NLS-1$
+			if (ms == null)
 				scope.problemReporter().referenceMustBeArrayTypeAt(arrayType, this);
 			else {
-				ms.resolvedType = ms.binding.returnType;
-				ms.constant = Constant.NotAConstant;
-				ms.sourceStart = this.sourceStart;
-				ms.sourceEnd = this.sourceEnd;
 				this.overloadMethod = ms;
 				return this.resolvedType = ms.resolvedType;
 			}

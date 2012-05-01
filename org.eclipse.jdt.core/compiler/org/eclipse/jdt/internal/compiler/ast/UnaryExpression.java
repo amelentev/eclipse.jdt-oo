@@ -222,17 +222,10 @@ public FlowInfo analyseCode(
 		String method = (String) unaryOperators.get(that.operatorToString());
 		if (method != null) {
 			// find method
-			MessageSend ms = new MessageSend();
-			ms.receiver = that.expression;
-			ms.selector = method.toCharArray();
-			ms.arguments = new Expression[0];
-			ms.actualReceiverType = that.expression.resolvedType;
-			ms.constant = Constant.NotAConstant;
-			ms.binding = scope.getMethod(that.expression.resolvedType, ms.selector, new TypeBinding[0], ms);
-			if (ms.binding != null) {
+			MessageSend ms = Assignment.findMethod(scope, that.expression, method, new Expression[0]);
+			if (ms != null) {
 				that.overloadMethod = ms;
-				that.constant = Constant.NotAConstant;
-				return that.resolvedType = ms.resolvedType = ms.binding.returnType;
+				return that.resolvedType = ms.resolvedType;
 			}
 		}
 		return null;
