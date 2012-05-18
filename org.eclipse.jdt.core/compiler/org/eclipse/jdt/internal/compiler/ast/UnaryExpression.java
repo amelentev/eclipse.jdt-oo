@@ -225,6 +225,7 @@ public FlowInfo analyseCode(
 			MessageSend ms = Assignment.findMethod(scope, that.expression, method, new Expression[0]);
 			if (ms != null) {
 				that.overloadMethod = ms;
+				that.constant = Constant.NotAConstant;
 				return that.resolvedType = ms.resolvedType;
 			}
 		}
