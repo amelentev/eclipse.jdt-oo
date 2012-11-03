@@ -365,14 +365,13 @@ public void test012() throws Exception {
 		"        [pc: 4, line: 6]\n" +
 		"        [pc: 28, line: 8]\n" +
 		"        [pc: 31, line: 10]\n" +
-		"        [pc: 33, line: 12]\n" +
-		"        [pc: 36, line: 13]\n" +
+		"        [pc: 33, line: 13]\n" +
 		"        [pc: 37, line: 15]\n" +
 		"        [pc: 45, line: 16]\n" +
 		"      Local variable table:\n" +
 		"        [pc: 0, pc: 46] local: args index: 0 type: java.lang.String[]\n" +
 		"        [pc: 2, pc: 46] local: x index: 1 type: boolean\n" +
-		"        [pc: 4, pc: 36] local: i index: 2 type: int\n";
+		"        [pc: 4, pc: 33] local: i index: 2 type: int\n";
 
 	File f = new File(OUTPUT_DIR + File.separator + "X.class");
 	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(f);
@@ -484,6 +483,7 @@ public void test013() throws Exception {
 			"        [pc: 13, line: 8]\n" +
 			"        [pc: 21, line: 9]\n" +
 			"        [pc: 26, line: 10]\n" +
+			"        [pc: 34, line: 11]\n" +
 			"        [pc: 37, line: 12]\n" +
 			"        [pc: 39, line: 14]\n" +
 			"        [pc: 60, line: 16]\n" +
@@ -559,6 +559,7 @@ public void test013() throws Exception {
 			"        [pc: 13, line: 8]\n" +
 			"        [pc: 21, line: 9]\n" +
 			"        [pc: 26, line: 10]\n" +
+			"        [pc: 34, line: 11]\n" +
 			"        [pc: 37, line: 12]\n" +
 			"        [pc: 39, line: 14]\n" +
 			"        [pc: 60, line: 16]\n" +
@@ -2157,12 +2158,468 @@ public void testBug374605() {
 			"1. WARNING in p\\X.java (at line 4)\n" +
 			"	switch (i) {\n" +
 			"	        ^\n" +
-			"The switch over the type int should have a default case\n" +
+			"The switch statement should have a default case\n" +
 			"----------\n",
 			null,
 			true,
 			options
 		);	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public final static Object f() {\n" +
+				"        final Object a = null;\n" +
+				"        Object b;\n" +
+				"        label: do {\n" +
+				"            switch (0) {\n" +
+				"            case 1: {\n" +
+				"                b = a;\n" +
+				"            }\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        } while (true);\n" +
+				"        return a;\n" +
+				"    }\n" +
+				"    public static void main(final String[] args) {\n" +
+				"        f();\n" +
+				"        System.out.println(\"Success\");\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"Success");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927a() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public final static Object f() {\n" +
+				"        final Object a = null;\n" +
+				"        Object b;\n" +
+				"        label: while (true) {\n" +
+				"            switch (0) {\n" +
+				"            case 1: {\n" +
+				"                b = a;\n" +
+				"            }\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        return a;\n" +
+				"    }\n" +
+				"    public static void main(final String[] args) {\n" +
+				"        f();\n" +
+				"        System.out.println(\"Success\");\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"Success");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927b() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public final static Object f() {\n" +
+				"        final Object a = null;\n" +
+				"        Object b;\n" +
+				"        label: for(;;) {\n" +
+				"            switch (0) {\n" +
+				"            case 1: {\n" +
+				"                b = a;\n" +
+				"            }\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        return a;\n" +
+				"    }\n" +
+				"    public static void main(final String[] args) {\n" +
+				"        f();\n" +
+				"        System.out.println(\"Success\");\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"Success");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927c() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public final static Object f() {\n" +
+				"        final Object a = null;\n" +
+				"        Object b;\n" +
+				"        label: for(int i : new int [] { 10 }) {\n" +
+				"            switch (0) {\n" +
+				"            case 1: {\n" +
+				"                b = a;\n" +
+				"            }\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        return a;\n" +
+				"    }\n" +
+				"    public static void main(final String[] args) {\n" +
+				"        f();\n" +
+				"        System.out.println(\"Success\");\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"Success");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927d() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public static void main(String [] args) {\n" +
+				"        Object b;\n" +
+				"        label: do {\n" +
+				"            switch (0) {\n" +
+				"            case 1:\n" +
+				"                b = null;\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        } while (true);\n" +
+				"        System.out.println(b);\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 13)\n" + 
+			"	System.out.println(b);\n" + 
+			"	                   ^\n" + 
+			"The local variable b may not have been initialized\n" + 
+			"----------\n");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927e() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public static void main(String [] args) {\n" +
+				"        Object b;\n" +
+				"        label: while (true) {\n" +
+				"            switch (0) {\n" +
+				"            case 1:\n" +
+				"                b = null;\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        System.out.println(b);\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 13)\n" + 
+			"	System.out.println(b);\n" + 
+			"	                   ^\n" + 
+			"The local variable b may not have been initialized\n" + 
+			"----------\n");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927f() {
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public static void main(String [] args) {\n" +
+				"        Object b;\n" +
+				"        label: for(;;) {\n" +
+				"            switch (0) {\n" +
+				"            case 1:\n" +
+				"                b = null;\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        System.out.println(b);\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 13)\n" + 
+			"	System.out.println(b);\n" + 
+			"	                   ^\n" + 
+			"The local variable b may not have been initialized\n" + 
+			"----------\n");	
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+public void testBug380927g() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"    public static void main(String [] args) {\n" +
+				"        Object b;\n" +
+				"        label: for(int i : new int [] { 10 }) {\n" +
+				"            switch (0) {\n" +
+				"            case 1:\n" +
+				"                b = null;\n" +
+				"                break;\n" +
+				"            default:\n" +
+				"                break label;\n" +
+				"            }\n" +
+				"        }\n" +
+				"        System.out.println(b);\n" +
+				"    }\n" +
+				"}\n",
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 13)\n" + 
+			"	System.out.println(b);\n" + 
+			"	                   ^\n" + 
+			"The local variable b may not have been initialized\n" + 
+			"----------\n");	
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=383629
+// To check that code gen is ok
+public void testBug383629() throws Exception {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	  public static void main(String[] args) {\n" +           
+			"	    char  chc;         \n" +
+			"	     do {      \n" +                   
+			"	        if (args == null) {      \n" +                                       
+			"	           switch ('a') {     \n" +                                        
+			"	           case '\\n':      \n" +            
+			"	                 chc = 'b';\n" +
+			"	           }               \n" +
+			"	        } else {            \n" +   
+			"	           switch ('a') {       \n" +           
+			"	              case '\\r':\n" +
+			"	           }          \n" +     
+			"	        }\n" +
+			"	     } while (false);\n" +
+			"	     System.out.println(\"Done\");\n" +
+			"	  }\n" +
+			"}",
+		}); // custom requestor
+	
+	String expectedOutput = this.complianceLevel < ClassFileConstants.JDK1_6 ?
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 61] local: args index: 0 type: java.lang.String[]\n":
+				"      Local variable table:\n" + 
+				"        [pc: 0, pc: 61] local: args index: 0 type: java.lang.String[]\n" + 
+				"      Stack map table: number of frames 4\n" + 
+				"        [pc: 24, same]\n" + 
+				"        [pc: 27, same]\n" + 
+				"        [pc: 30, same]\n" + 
+				"        [pc: 52, same]\n";
+	
+	File f = new File(OUTPUT_DIR + File.separator + "X.class");
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(f);
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	String result = disassembler.disassemble(classFileBytes, "\n", ClassFileBytesDisassembler.DETAILED);
+	int index = result.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(result, 3));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, result);
+	}
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=381172
+// To check that code gen is ok
+public void testBug381172() throws Exception {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" + 
+			"    public static void main(String[] args){\n" + 
+			"        System.out.println(\"Test\");\n" + 
+			"    }\n" + 
+			"    public void method() {\n" + 
+			"        try {\n" + 
+			"            int rc;\n" + 
+			"            switch ( 0 )\n" + 
+			"            {\n" + 
+			"                case 0:\n" + 
+			"                    rc = 0;\n" + 
+			"                    setRC( rc );\n" + 
+			"                    break;\n" + 
+			"                case 1:\n" + 
+			"                    rc = 1;\n" + 
+			"                    setRC( 0 );\n" + 
+			"                    break;\n" + 
+			"                case 2:\n" + 
+			"                    rc = 2;\n" + 
+			"                    setRC( 0 );\n" + 
+			"                    break;\n" + 
+			"                default:\n" + 
+			"                    break;\n" + 
+			"            }\n" + 
+			"        }\n" + 
+			"        catch ( final Exception ex ) {}\n" + 
+			"    }\n" + 
+			"    private void setRC(int rc) {}\n" + 
+			"}",
+		}); // custom requestor
+	
+	String expectedOutput = this.complianceLevel < ClassFileConstants.JDK1_6 ?
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 1] local: this index: 0 type: X\n" + 
+			"        [pc: 0, pc: 1] local: rc index: 1 type: int\n":
+				"      Local variable table:\n" + 
+				"        [pc: 0, pc: 63] local: this index: 0 type: X\n" + 
+				"        [pc: 30, pc: 38] local: rc index: 1 type: int\n" + 
+				"        [pc: 40, pc: 48] local: rc index: 1 type: int\n" + 
+				"        [pc: 50, pc: 58] local: rc index: 1 type: int\n" + 
+				"      Stack map table: number of frames 6\n" + 
+				"        [pc: 28, same]\n" + 
+				"        [pc: 38, same]\n" + 
+				"        [pc: 48, same]\n" + 
+				"        [pc: 58, same]\n" + 
+				"        [pc: 61, same_locals_1_stack_item, stack: {java.lang.Exception}]\n" + 
+				"        [pc: 62, same]\n";
+	
+	File f = new File(OUTPUT_DIR + File.separator + "X.class");
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(f);
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	String result = disassembler.disassemble(classFileBytes, "\n", ClassFileBytesDisassembler.DETAILED);
+	int index = result.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(result, 3));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, result);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=383643, NPE in problem reporter.
+public void test383643() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_SWITCH_MISSING_DEFAULT_CASE, JavaCore.WARNING);
+	this.runNegativeTest(
+			new String[] {
+					"X.java",
+					"public class X {\n" +
+					"    void foo() {\n" +
+					"        String s;\n" +
+					"        switch (p) {\n" +
+					"            case ONE:\n" +
+					"                s= \"1\";\n" +
+					"                break;\n" +
+					"            case TWO:\n" +
+					"                s= \"2\";\n" +
+					"                break;\n" +
+					"        }\n" +
+					"\n" +
+					"        s.toString();\n" +
+					"    }\n" +
+					"}\n",
+				},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 4)\n" + 
+			"	switch (p) {\n" + 
+			"	        ^\n" + 
+			"p cannot be resolved to a variable\n" + 
+			"----------\n" + 
+			"2. WARNING in X.java (at line 4)\n" + 
+			"	switch (p) {\n" + 
+			"	        ^\n" + 
+			"The switch statement should have a default case\n" + 
+			"----------\n" + 
+			"3. ERROR in X.java (at line 5)\n" + 
+			"	case ONE:\n" + 
+			"	     ^^^\n" + 
+			"ONE cannot be resolved to a variable\n" + 
+			"----------\n" + 
+			"4. ERROR in X.java (at line 8)\n" + 
+			"	case TWO:\n" + 
+			"	     ^^^\n" + 
+			"TWO cannot be resolved to a variable\n" + 
+			"----------\n",
+			null,
+			true,
+			options
+		);	
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=387146 - the fall-through comment is ignored
+public void test387146a() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportFallthroughCase, CompilerOptions.ERROR);
+	this.runNegativeTest(new String[] {
+		"X.java",
+		"public class X {\n" +
+		"	private Object someLock;\n" +
+		"	public void foo1(int i) {\n" +
+		"		switch (i) {\n" +
+		"		case 1:\n" +
+		"			synchronized (someLock) {\n" +
+		"				System.out.println();\n" +
+		"			}\n" +
+		"			//$FALL-THROUGH$\n" +
+		"		case 2:\n" +
+		"			System.out.println();\n" +
+		"			break;\n" +
+		"		default:\n" +
+		"			System.out.println();\n" +
+		"		}\n" +
+		"	}\n" +
+		"}\n",
+	},
+	"",
+	null,
+	true,
+	options);
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=387146 - the fall-through comment is respected
+public void test387146b() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportFallthroughCase, CompilerOptions.ERROR);
+	this.runNegativeTest(new String[] {
+		"X.java",
+		"public class X {\n" +
+		"	private boolean someFlag;\n" +
+		"	public void foo1(int i) {\n" +
+		"		switch (i) {\n" +
+		"		case 1:\n" +
+		"			if (someFlag) {\n" +
+		"				System.out.println();\n" +
+		"			}\n" +
+		"			//$FALL-THROUGH$\n" +
+		"		case 2:\n" +
+		"			System.out.println();\n" +
+		"			break;\n" +
+		"		default:\n" +
+		"			System.out.println();\n" +
+		"		}\n" +
+		"	}\n" +
+		"}\n",
+	},
+	"",
+	null,
+	true,
+	options);
 }
 public static Class testClass() {
 	return SwitchTest.class;

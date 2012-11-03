@@ -13,6 +13,8 @@
  *     							bug 349326 - [1.7] new warning for missing try-with-resources
  *     							bug 359334 - Analysis for resource leak warnings does not consider exceptions as method exit points
  *								bug 358903 - Filter practically unimportant resource leak warnings
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -118,20 +120,18 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				this,
 				this.caughtExceptionTypes,
 				this.caughtExceptionsCatchBlocks,
-				this.catchArguments,
 				null,
 				this.scope,
-				flowInfo.unconditionalInits());
-		handlingContext.initsOnFinally =
-			new NullInfoRegistry(flowInfo.unconditionalInits());
+				flowInfo);
 		// only try blocks initialize that member - may consider creating a
 		// separate class if needed
 
 		FlowInfo tryInfo = flowInfo.copy();
 		for (int i = 0; i < resourcesLength; i++) {
-			tryInfo = this.resources[i].analyseCode(currentScope, handlingContext, tryInfo);
+			final LocalDeclaration resource = this.resources[i];
+			tryInfo = resource.analyseCode(currentScope, handlingContext, tryInfo);
 			this.postResourcesInitStateIndexes[i] = currentScope.methodScope().recordInitializationStates(tryInfo);
-			LocalVariableBinding resourceBinding = this.resources[i].binding;
+			LocalVariableBinding resourceBinding = resource.binding;
 			resourceBinding.useFlag = LocalVariableBinding.USED; // Is implicitly used anyways.
 			if (resourceBinding.closeTracker != null) {
 				// this was false alarm, we don't need to track the resource
@@ -142,7 +142,24 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			if (type != null && type.isValidBinding()) {
 				ReferenceBinding binding = (ReferenceBinding) type;
 				MethodBinding closeMethod = binding.getExactMethod(ConstantPool.Close, new TypeBinding [0], this.scope.compilationUnitScope()); // scope needs to be tighter
-				if (closeMethod != null && closeMethod.returnType.id == TypeIds.T_void) {
+				if(closeMethod == null) {
+					// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380112
+					// closeMethod could be null if the binding is from an interface
+					// extending from multiple interfaces.					
+					InvocationSite site = new InvocationSite() {
+						public TypeBinding[] genericTypeArguments() { return null;}
+						public boolean isSuperAccess() {return false;}
+						public boolean isTypeAccess() {return false;}
+						public void setActualReceiverType(ReferenceBinding receiverType) {/* empty */}
+						public void setDepth(int depth) {/* empty */ }
+						public void setFieldIndex(int depth) {/* empty */ }
+						public int sourceEnd() {return resource.sourceEnd(); }
+						public int sourceStart() {return resource.sourceStart(); }
+						public TypeBinding expectedType() { return null; }
+					};
+					closeMethod = this.scope.compilationUnitScope().findMethod(binding, ConstantPool.Close, new TypeBinding[0], site, false);
+				}
+				if (closeMethod != null && closeMethod.isValidBinding() && closeMethod.returnType.id == TypeIds.T_void) {
 					ReferenceBinding[] thrownExceptions = closeMethod.thrownExceptions;
 					for (int j = 0, length = thrownExceptions.length; j < length; j++) {
 						handlingContext.checkExceptionHandlers(thrownExceptions[j], this.resources[i], tryInfo, currentScope, true);
@@ -157,6 +174,12 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 		if (resourcesLength > 0) { 
 			this.postTryInitStateIndex = currentScope.methodScope().recordInitializationStates(tryInfo);
+			// the resources are not in scope after the try block, so remove their assignment info
+			// to avoid polluting the state indices. However, do this after the postTryInitStateIndex is calculated since
+			// it is used to add or remove assigned resources during code gen
+			for (int i = 0; i < resourcesLength; i++) {
+				tryInfo.resetAssignmentInfo(this.resources[i].binding);
+			}
 		}
 		// check unreachable catch blocks
 		handlingContext.complainIfUnusedExceptionHandlers(this.scope, this);
@@ -171,13 +194,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				FlowInfo catchInfo;
 				if (isUncheckedCatchBlock(i)) {
 					catchInfo =
-						handlingContext.initsOnFinally.mitigateNullInfoOf(
-							flowInfo.unconditionalCopy().
-								addPotentialInitializationsFrom(
-									handlingContext.initsOnException(i)).
-								addPotentialInitializationsFrom(tryInfo).
-								addPotentialInitializationsFrom(
-									handlingContext.initsOnReturn));
+						flowInfo.unconditionalCopy().
+							addPotentialInitializationsFrom(
+								handlingContext.initsOnException(i)).
+							addPotentialInitializationsFrom(tryInfo).
+							addPotentialInitializationsFrom(
+								handlingContext.initsOnReturn).
+						addNullInfoFrom(handlingContext.initsOnFinally);
 				} else {
 					FlowInfo initsOnException = handlingContext.initsOnException(i);
 					catchInfo =
@@ -220,7 +243,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 
 		// chain up null info registry
 		if (flowContext.initsOnFinally != null) {
-			flowContext.initsOnFinally.add(handlingContext.initsOnFinally);
+			flowContext.initsOnFinally.addNullInfoFrom(handlingContext.initsOnFinally);
 		}
 
 		return tryInfo;
@@ -231,11 +254,23 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		// analyse finally block first
 		insideSubContext = new InsideSubRoutineFlowContext(flowContext, this);
 
+		// process the try block in a context handling the local exceptions.
+		// (advance instantiation so we can wire this into the FinallyFlowContext)
+		ExceptionHandlingFlowContext handlingContext =
+			new ExceptionHandlingFlowContext(
+				insideSubContext,
+				this,
+				this.caughtExceptionTypes,
+				this.caughtExceptionsCatchBlocks,
+				null,
+				this.scope,
+				flowInfo);
+
 		subInfo =
 			this.finallyBlock
 				.analyseCode(
 					currentScope,
-					finallyContext = new FinallyFlowContext(flowContext, this.finallyBlock),
+					finallyContext = new FinallyFlowContext(flowContext, this.finallyBlock, handlingContext),
 					flowInfo.nullInfoLessUnconditionalCopy())
 				.unconditionalInits();
 		if (subInfo == FlowInfo.DEAD_END) {
@@ -251,27 +286,15 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			}
 		}
 		this.subRoutineInits = subInfo;
-		// process the try block in a context handling the local exceptions.
-		ExceptionHandlingFlowContext handlingContext =
-			new ExceptionHandlingFlowContext(
-				insideSubContext,
-				this,
-				this.caughtExceptionTypes,
-				this.caughtExceptionsCatchBlocks,
-				this.catchArguments,
-				null,
-				this.scope,
-				flowInfo.unconditionalInits());
-		handlingContext.initsOnFinally =
-			new NullInfoRegistry(flowInfo.unconditionalInits());
 		// only try blocks initialize that member - may consider creating a
 		// separate class if needed
 
 		FlowInfo tryInfo = flowInfo.copy();
 		for (int i = 0; i < resourcesLength; i++) {
-			tryInfo = this.resources[i].analyseCode(currentScope, handlingContext, tryInfo);
+			final LocalDeclaration resource = this.resources[i];
+			tryInfo = resource.analyseCode(currentScope, handlingContext, tryInfo);
 			this.postResourcesInitStateIndexes[i] = currentScope.methodScope().recordInitializationStates(tryInfo);
-			LocalVariableBinding resourceBinding = this.resources[i].binding;
+			LocalVariableBinding resourceBinding = resource.binding;
 			resourceBinding.useFlag = LocalVariableBinding.USED; // Is implicitly used anyways.
 			if (resourceBinding.closeTracker != null) {
 				// this was false alarm, we don't need to track the resource
@@ -282,7 +305,24 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			if (type != null && type.isValidBinding()) {
 				ReferenceBinding binding = (ReferenceBinding) type;
 				MethodBinding closeMethod = binding.getExactMethod(ConstantPool.Close, new TypeBinding [0], this.scope.compilationUnitScope()); // scope needs to be tighter
-				if (closeMethod != null && closeMethod.returnType.id == TypeIds.T_void) {
+				if(closeMethod == null) {
+					// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380112
+					// closeMethod could be null if the binding is from an interface
+					// extending from multiple interfaces.
+					InvocationSite site = new InvocationSite() {
+						public TypeBinding[] genericTypeArguments() { return null;}
+						public boolean isSuperAccess() {return false;}
+						public boolean isTypeAccess() {return false;}
+						public void setActualReceiverType(ReferenceBinding receiverType) {/* empty */}
+						public void setDepth(int depth) {/* empty */ }
+						public void setFieldIndex(int depth) {/* empty */ }
+						public int sourceEnd() {return resource.sourceEnd(); }
+						public int sourceStart() {return resource.sourceStart(); }
+						public TypeBinding expectedType() { return null; }
+					};
+					closeMethod = this.scope.compilationUnitScope().findMethod(binding, ConstantPool.Close, new TypeBinding[0], site, false);
+				}
+				if (closeMethod != null && closeMethod.isValidBinding() && closeMethod.returnType.id == TypeIds.T_void) {
 					ReferenceBinding[] thrownExceptions = closeMethod.thrownExceptions;
 					for (int j = 0, length = thrownExceptions.length; j < length; j++) {
 						handlingContext.checkExceptionHandlers(thrownExceptions[j], this.resources[i], tryInfo, currentScope, true);
@@ -297,6 +337,12 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 		if (resourcesLength > 0) {
 			this.postTryInitStateIndex = currentScope.methodScope().recordInitializationStates(tryInfo);
+			// the resources are not in scope after the try block, so remove their assignment info
+			// to avoid polluting the state indices. However, do this after the postTryInitStateIndex is calculated since
+			// it is used to add or remove assigned resources during code gen
+			for (int i = 0; i < resourcesLength; i++) {
+				tryInfo.resetAssignmentInfo(this.resources[i].binding);
+			}
 		}
 		// check unreachable catch blocks
 		handlingContext.complainIfUnusedExceptionHandlers(this.scope, this);
@@ -311,13 +357,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				FlowInfo catchInfo;
 				if (isUncheckedCatchBlock(i)) {
 					catchInfo =
-						handlingContext.initsOnFinally.mitigateNullInfoOf(
-							flowInfo.unconditionalCopy().
-								addPotentialInitializationsFrom(
-									handlingContext.initsOnException(i)).
-								addPotentialInitializationsFrom(tryInfo).
-								addPotentialInitializationsFrom(
-									handlingContext.initsOnReturn));
+						flowInfo.unconditionalCopy().
+							addPotentialInitializationsFrom(
+								handlingContext.initsOnException(i)).
+							addPotentialInitializationsFrom(tryInfo).
+							addPotentialInitializationsFrom(
+								handlingContext.initsOnReturn).
+							addNullInfoFrom(handlingContext.initsOnFinally);
 				}else {
 					FlowInfo initsOnException = handlingContext.initsOnException(i);
 					catchInfo =
@@ -358,19 +404,20 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		// we also need to check potential multiple assignments of final variables inside the finally block
 		// need to include potential inits from returns inside the try/catch parts - 1GK2AOF
 		finallyContext.complainOnDeferredChecks(
-			handlingContext.initsOnFinally.mitigateNullInfoOf(
-				(tryInfo.tagBits & FlowInfo.UNREACHABLE) == 0 ?
-					flowInfo.unconditionalCopy().
+			((tryInfo.tagBits & FlowInfo.UNREACHABLE) == 0 ?
+				flowInfo.unconditionalCopy().
 					addPotentialInitializationsFrom(tryInfo).
-						// lighten the influence of the try block, which may have
-						// exited at any point
+					// lighten the influence of the try block, which may have
+					// exited at any point
 					addPotentialInitializationsFrom(insideSubContext.initsOnReturn) :
-					insideSubContext.initsOnReturn),
+				insideSubContext.initsOnReturn).
+			addNullInfoFrom(
+					handlingContext.initsOnFinally),
 			currentScope);
 
 		// chain up null info registry
 		if (flowContext.initsOnFinally != null) {
-			flowContext.initsOnFinally.add(handlingContext.initsOnFinally);
+			flowContext.initsOnFinally.addNullInfoFrom(handlingContext.initsOnFinally);
 		}
 
 		this.naturalExitMergeInitStateIndex =
@@ -622,7 +669,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream) {
 					codeStream.goto_(this.subRoutineStartLabel);
 					break;
 			}
-			codeStream.updateLastRecordedEndPC(this.tryBlock.scope, position);
+			codeStream.recordPositionsFrom(position, this.tryBlock.sourceEnd);
 			//goto is tagged as part of the try block
 		}
 		/* generate sequence of handler, all starting by storing the TOS (exception

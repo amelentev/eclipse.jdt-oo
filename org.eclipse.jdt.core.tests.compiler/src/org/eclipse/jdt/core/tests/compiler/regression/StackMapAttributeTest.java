@@ -34,7 +34,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 	// All specified tests which does not belong to the class are skipped...
 	static {
 //		TESTS_PREFIX = "testBug95521";
-//		TESTS_NAMES = new String[] { "testBug359495" };
+//		TESTS_NAMES = new String[] { "testBug380313" };
 //		TESTS_NUMBERS = new int[] { 53 };
 //		TESTS_RANGE = new int[] { 23 -1,};
 	}
@@ -112,7 +112,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"      Line numbers:\n" +
 				"        [pc: 0, line: 4]\n" +
 				"        [pc: 21, line: 6]\n" +
-				"        [pc: 32, line: 7]\n" +
+				"        [pc: 29, line: 7]\n" +
 				"        [pc: 33, line: 8]\n" +
 				"        [pc: 37, line: 10]\n" +
 				"      Local variable table:\n" +
@@ -293,7 +293,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 23, line: 11]\n" +
 				"        [pc: 26, line: 13]\n" +
 				"        [pc: 32, line: 15]\n" +
-				"        [pc: 40, line: 16]\n" +
+				"        [pc: 37, line: 16]\n" +
 				"        [pc: 42, line: 17]\n" +
 				"        [pc: 46, line: 19]\n" +
 				"        [pc: 51, line: 18]\n" +
@@ -310,7 +310,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 2, pc: 40] local: i index: 3 type: double\n" +
 				"        [pc: 46, pc: 51] local: i index: 3 type: double\n" +
 				"        [pc: 55, pc: 81] local: i index: 3 type: double\n" +
-				"        [pc: 12, pc: 40] local: j index: 5 type: int\n" +
+				"        [pc: 12, pc: 37] local: j index: 5 type: int\n" +
 				"        [pc: 19, pc: 32] local: d1 index: 6 type: double\n" +
 				"        [pc: 42, pc: 46] local: e index: 5 type: java.lang.NullPointerException\n" +
 				"        [pc: 66, pc: 81] local: j index: 5 type: long\n" +
@@ -412,7 +412,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 10, line: 6]\n" +
 				"        [pc: 13, line: 7]\n" +
 				"        [pc: 17, line: 8]\n" +
-				"        [pc: 24, line: 9]\n" +
+				"        [pc: 21, line: 9]\n" +
 				"        [pc: 25, line: 10]\n" +
 				"        [pc: 29, line: 12]\n" +
 				"        [pc: 40, line: 11]\n" +
@@ -423,7 +423,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"      Local variable table:\n" +
 				"        [pc: 0, pc: 60] local: b index: 0 type: boolean\n" +
 				"        [pc: 2, pc: 60] local: i index: 1 type: int\n" +
-				"        [pc: 17, pc: 24] local: j index: 2 type: int\n" +
+				"        [pc: 17, pc: 21] local: j index: 2 type: int\n" +
 				"        [pc: 25, pc: 29] local: e index: 2 type: java.lang.NullPointerException\n" +
 				"      Stack map table: number of frames 4\n" +
 				"        [pc: 24, full, stack: {java.lang.NullPointerException}, locals: {int, int}]\n" +
@@ -498,6 +498,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"      Line numbers:\n" +
 				"        [pc: 0, line: 4]\n" +
 				"        [pc: 4, line: 5]\n" +
+				"        [pc: 12, line: 6]\n" +
 				"        [pc: 15, line: 7]\n" +
 				"        [pc: 23, line: 9]\n" +
 				"        [pc: 29, line: 10]\n" +
@@ -945,6 +946,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 4, line: 4]\n" +
 				"        [pc: 6, line: 5]\n" +
 				"        [pc: 13, line: 6]\n" +
+				"        [pc: 21, line: 7]\n" +
 				"        [pc: 24, line: 8]\n" +
 				"        [pc: 32, line: 10]\n" +
 				"        [pc: 54, line: 11]\n" +
@@ -1138,6 +1140,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 11, line: 8]\n" +
 				"        [pc: 19, line: 9]\n" +
 				"        [pc: 24, line: 10]\n" +
+				"        [pc: 35, line: 11]\n" +
 				"        [pc: 38, line: 12]\n" +
 				"        [pc: 44, line: 14]\n" +
 				"        [pc: 64, line: 16]\n" +
@@ -1153,12 +1156,11 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 19, pc: 102] local: x index: 1 type: X\n" +
 				"        [pc: 2, pc: 111] local: i index: 2 type: int\n" +
 				"        [pc: 90, pc: 102] local: diff index: 3 type: java.lang.Object\n" +
-				"      Stack map table: number of frames 8\n" +
+				"      Stack map table: number of frames 7\n" +
 				"        [pc: 5, full, stack: {}, locals: {java.lang.String[], _, int}]\n" +
 				"        [pc: 38, full, stack: {}, locals: {java.lang.String[], X, int}]\n" +
 				"        [pc: 44, same]\n" +
 				"        [pc: 64, same]\n" +
-				"        [pc: 82, same]\n" +
 				"        [pc: 85, same]\n" +
 				"        [pc: 102, full, stack: {}, locals: {java.lang.String[], _, int}]\n" +
 				"        [pc: 105, same]\n";
@@ -1275,6 +1277,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"        [pc: 11, line: 7]\n" +
 				"        [pc: 19, line: 8]\n" +
 				"        [pc: 24, line: 9]\n" +
+				"        [pc: 32, line: 10]\n" +
 				"        [pc: 35, line: 11]\n" +
 				"        [pc: 37, line: 13]\n" +
 				"        [pc: 56, line: 15]\n" +
@@ -1371,7 +1374,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 			"        [pc: 0, line: 4]\n" +
 			"        [pc: 4, line: 5]\n" +
 			"        [pc: 6, line: 7]\n" +
-			"        [pc: 14, line: 8]\n" +
+			"        [pc: 11, line: 8]\n" +
 			"        [pc: 15, line: 4]\n" +
 			"        [pc: 23, line: 11]\n" +
 			"      Local variable table:\n" +
@@ -6473,8 +6476,10 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 			"    30  return\n" + 
 			"      Line numbers:\n" + 
 			"        [pc: 0, line: 5]\n" + 
+			"        [pc: 3, line: 4]\n" + 
 			"        [pc: 6, line: 6]\n" + 
 			"        [pc: 11, line: 7]\n" + 
+			"        [pc: 19, line: 8]\n" + 
 			"        [pc: 22, line: 9]\n" + 
 			"        [pc: 30, line: 11]\n" + 
 			"      Local variable table:\n" + 
@@ -7615,5 +7620,545 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 				"}\n"
 				},
 				"SUCCESS");
+	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380313
+	// Verify the generated code does not have same branch target for the 2 return statements
+	public void testBug380313() throws Exception {
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"public void foo() throws Exception {\n" + 
+						"        int i = 1;\n" + 
+						"        try {\n" + 
+						"            if (i == 1) {\n" + 
+						"                int n = bar();\n" + 
+						"                if (n == 35)\n" + 
+						"                   return;\n" + 
+						"            } else {\n" + 
+						"                throw new Exception();\n" + 
+						"            }\n" + 
+						"            if (i == 0)\n" + 
+						"               return;\n" + 
+						"        } finally {\n" + 
+						"            bar();\n" + 
+						"        }\n" + 
+						"    }\n" + 
+						"\n" + 
+						"    private int bar() {\n" + 
+						"        return 0;\n" + 
+						"    }\n" + 
+						"\n" + 
+						"    public static void main(String[] args) {\n" +
+						"		System.out.println(\"SUCCESS\");\n" + 
+						"    }\n" +
+						"}\n"
+				},
+				"SUCCESS");
+
+			ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+			byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+			String actualOutput =
+				disassembler.disassemble(
+					classFileBytes,
+					"\n",
+					ClassFileBytesDisassembler.DETAILED);
+
+			String expectedOutput =
+					"  // Method descriptor #6 ()V\n" + 
+					"  // Stack: 2, Locals: 4\n" + 
+					"  public void foo() throws java.lang.Exception;\n" + 
+					"     0  iconst_1\n" + 
+					"     1  istore_1 [i]\n" + 
+					"     2  iload_1 [i]\n" + 
+					"     3  iconst_1\n" + 
+					"     4  if_icmpne 24\n" + 
+					"     7  aload_0 [this]\n" + 
+					"     8  invokespecial X.bar() : int [18]\n" + 
+					"    11  istore_2 [n]\n" + 
+					"    12  iload_2 [n]\n" + 
+					"    13  bipush 35\n" + 
+					"    15  if_icmpne 32\n" + 
+					"    18  aload_0 [this]\n" + 
+					"    19  invokespecial X.bar() : int [18]\n" + 
+					"    22  pop\n" + 
+					"    23  return\n" + 
+					"    24  new java.lang.Exception [16]\n" + 
+					"    27  dup\n" + 
+					"    28  invokespecial java.lang.Exception() [22]\n" + 
+					"    31  athrow\n" + 
+					"    32  iload_1 [i]\n" + 
+					"    33  ifne 50\n" + 
+					"    36  aload_0 [this]\n" + 
+					"    37  invokespecial X.bar() : int [18]\n" + 
+					"    40  pop\n" + 
+					"    41  return\n" + 
+					"    42  astore_3\n" + 
+					"    43  aload_0 [this]\n" + 
+					"    44  invokespecial X.bar() : int [18]\n" + 
+					"    47  pop\n" + 
+					"    48  aload_3\n" + 
+					"    49  athrow\n" + 
+					"    50  aload_0 [this]\n" + 
+					"    51  invokespecial X.bar() : int [18]\n" + 
+					"    54  pop\n" + 
+					"    55  return\n" + 
+					"      Exception Table:\n" + 
+					"        [pc: 2, pc: 18] -> 42 when : any\n" + 
+					"        [pc: 24, pc: 36] -> 42 when : any\n" + 
+					"      Line numbers:\n" + 
+					"        [pc: 0, line: 3]\n" + 
+					"        [pc: 2, line: 5]\n" + 
+					"        [pc: 7, line: 6]\n" + 
+					"        [pc: 12, line: 7]\n" + 
+					"        [pc: 18, line: 15]\n" + 
+					"        [pc: 23, line: 8]\n" + 
+					"        [pc: 24, line: 10]\n" + 
+					"        [pc: 32, line: 12]\n" + 
+					"        [pc: 36, line: 15]\n" + 
+					"        [pc: 41, line: 13]\n" + 
+					"        [pc: 42, line: 14]\n" + 
+					"        [pc: 43, line: 15]\n" + 
+					"        [pc: 48, line: 16]\n" + 
+					"        [pc: 50, line: 15]\n" + 
+					"        [pc: 55, line: 17]\n" + 
+					"      Local variable table:\n" + 
+					"        [pc: 0, pc: 56] local: this index: 0 type: X\n" + 
+					"        [pc: 2, pc: 56] local: i index: 1 type: int\n" + 
+					"        [pc: 12, pc: 24] local: n index: 2 type: int\n" + 
+					"      Stack map table: number of frames 4\n" + 
+					"        [pc: 24, append: {int}]\n" + 
+					"        [pc: 32, same]\n" + 
+					"        [pc: 42, same_locals_1_stack_item, stack: {java.lang.Throwable}]\n" + 
+					"        [pc: 50, same]\n";
+			int index = actualOutput.indexOf(expectedOutput);
+			if (index == -1 || expectedOutput.length() == 0) {
+				System.out.println(Util.displayString(actualOutput, 2));
+			}
+			if (index == -1) {
+				assertEquals("Wrong contents", expectedOutput, actualOutput);
+			}
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380313
+	// Verify the generated code does not have same branch target for the 2 return statements
+	public void testBug380313b() throws Exception {
+		if (this.complianceLevel < ClassFileConstants.JDK1_7)
+			return;
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"import java.io.FileInputStream;\n" +
+						"import java.io.IOException;\n" +
+						"public class X {\n" +
+						"public void foo() throws Exception {\n" + 
+						"        int i = 1;\n" + 
+						"        try {\n" + 
+						"            try (FileInputStream fis = new FileInputStream(\"\")) {\n" +
+						"				 if (i == 2)" + 
+						"                	return;\n" + 
+						" 			 }\n" + 
+						"            if (i == 35) \n" + 
+						"                return;\n" + 
+						"        } catch(IOException e) {\n" + 
+						"            bar();\n" + 
+						"        } finally {\n" + 
+						"            bar();\n" + 
+						"        }\n" + 
+						"    }\n" + 
+						"\n" + 
+						"    private int bar() {\n" + 
+						"        return 0;\n" + 
+						"    }\n" + 
+						"\n" + 
+						"    public static void main(String[] args) {\n" +
+						"		System.out.println(\"SUCCESS\");\n" + 
+						"    }\n" +
+						"}\n"
+					}, 
+				"SUCCESS");
+
+			ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+			byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+			String actualOutput =
+				disassembler.disassemble(
+					classFileBytes,
+					"\n",
+					ClassFileBytesDisassembler.DETAILED);
+
+			String expectedOutput =
+					"  // Method descriptor #6 ()V\n" + 
+					"  // Stack: 3, Locals: 6\n" + 
+					"  public void foo() throws java.lang.Exception;\n" + 
+					"      0  iconst_1\n" + 
+					"      1  istore_1 [i]\n" + 
+					"      2  aconst_null\n" + 
+					"      3  astore_2\n" + 
+					"      4  aconst_null\n" + 
+					"      5  astore_3\n" + 
+					"      6  new java.io.FileInputStream [18]\n" + 
+					"      9  dup\n" + 
+					"     10  ldc <String \"\"> [20]\n" + 
+					"     12  invokespecial java.io.FileInputStream(java.lang.String) [22]\n" + 
+					"     15  astore 4 [fis]\n" + 
+					"     17  iload_1 [i]\n" + 
+					"     18  iconst_2\n" + 
+					"     19  if_icmpne 38\n" + 
+					"     22  aload 4 [fis]\n" + 
+					"     24  ifnull 32\n" + 
+					"     27  aload 4 [fis]\n" + 
+					"     29  invokevirtual java.io.FileInputStream.close() : void [25]\n" + 
+					"     32  aload_0 [this]\n" + // return 1
+					"     33  invokespecial X.bar() : int [28]\n" + 
+					"     36  pop\n" + 
+					"     37  return\n" + 
+					"     38  aload 4 [fis]\n" + 
+					"     40  ifnull 86\n" + 
+					"     43  aload 4 [fis]\n" + 
+					"     45  invokevirtual java.io.FileInputStream.close() : void [25]\n" + 
+					"     48  goto 86\n" + 
+					"     51  astore_2\n" + 
+					"     52  aload 4 [fis]\n" + 
+					"     54  ifnull 62\n" + 
+					"     57  aload 4 [fis]\n" + 
+					"     59  invokevirtual java.io.FileInputStream.close() : void [25]\n" + 
+					"     62  aload_2\n" + 
+					"     63  athrow\n" + 
+					"     64  astore_3\n" + 
+					"     65  aload_2\n" + 
+					"     66  ifnonnull 74\n" + 
+					"     69  aload_3\n" + 
+					"     70  astore_2\n" + 
+					"     71  goto 84\n" + 
+					"     74  aload_2\n" + 
+					"     75  aload_3\n" + 
+					"     76  if_acmpeq 84\n" + 
+					"     79  aload_2\n" + 
+					"     80  aload_3\n" + 
+					"     81  invokevirtual java.lang.Throwable.addSuppressed(java.lang.Throwable) : void [32]\n" + 
+					"     84  aload_2\n" + 
+					"     85  athrow\n" + 
+					"     86  iload_1 [i]\n" + 
+					"     87  bipush 35\n" + 
+					"     89  if_icmpne 122\n" + 
+					"     92  aload_0 [this]\n" + 	// return 2
+					"     93  invokespecial X.bar() : int [28]\n" + 
+					"     96  pop\n" + 
+					"     97  return\n" + 
+					"     98  astore_2 [e]\n" + 
+					"     99  aload_0 [this]\n" + 
+					"    100  invokespecial X.bar() : int [28]\n" + 
+					"    103  pop\n" + 
+					"    104  aload_0 [this]\n" + 
+					"    105  invokespecial X.bar() : int [28]\n" + 
+					"    108  pop\n" + 
+					"    109  goto 127\n" + 
+					"    112  astore 5\n" + 
+					"    114  aload_0 [this]\n" + 
+					"    115  invokespecial X.bar() : int [28]\n" + 
+					"    118  pop\n" + 
+					"    119  aload 5\n" + 
+					"    121  athrow\n" + 
+					"    122  aload_0 [this]\n" + 
+					"    123  invokespecial X.bar() : int [28]\n" + 
+					"    126  pop\n" + 
+					"    127  return\n" + 
+					"      Exception Table:\n" + 
+					"        [pc: 17, pc: 22] -> 51 when : any\n" + 
+					"        [pc: 32, pc: 38] -> 51 when : any\n" + 
+					"        [pc: 6, pc: 64] -> 64 when : any\n" + 
+					"        [pc: 2, pc: 32] -> 98 when : java.io.IOException\n" + 
+					"        [pc: 38, pc: 92] -> 98 when : java.io.IOException\n" + 
+					"        [pc: 2, pc: 32] -> 112 when : any\n" + 
+					"        [pc: 38, pc: 92] -> 112 when : any\n" + 
+					"        [pc: 98, pc: 104] -> 112 when : any\n" + 
+					"      Line numbers:\n" + 
+					"        [pc: 0, line: 5]\n" + 
+					"        [pc: 2, line: 7]\n" + 
+					"        [pc: 17, line: 8]\n" + 
+					"        [pc: 22, line: 9]\n" + 
+					"        [pc: 32, line: 15]\n" + 
+					"        [pc: 37, line: 8]\n" + 
+					"        [pc: 38, line: 9]\n" + 
+					"        [pc: 86, line: 10]\n" + 
+					"        [pc: 92, line: 15]\n" + 
+					"        [pc: 97, line: 11]\n" + 
+					"        [pc: 98, line: 12]\n" + 
+					"        [pc: 99, line: 13]\n" + 
+					"        [pc: 104, line: 15]\n" + 
+					"        [pc: 112, line: 14]\n" + 
+					"        [pc: 114, line: 15]\n" + 
+					"        [pc: 119, line: 16]\n" + 
+					"        [pc: 122, line: 15]\n" + 
+					"        [pc: 127, line: 17]\n" + 
+					"      Local variable table:\n" + 
+					"        [pc: 0, pc: 128] local: this index: 0 type: X\n" + 
+					"        [pc: 2, pc: 128] local: i index: 1 type: int\n" + 
+					"        [pc: 17, pc: 62] local: fis index: 4 type: java.io.FileInputStream\n" + 
+					"        [pc: 99, pc: 104] local: e index: 2 type: java.io.IOException\n" + 
+					"      Stack map table: number of frames 12\n" + 
+					"        [pc: 32, full, stack: {}, locals: {X, int, java.lang.Throwable, java.lang.Throwable, java.io.FileInputStream}]\n" + 
+					"        [pc: 38, same]\n" + 
+					"        [pc: 51, same_locals_1_stack_item, stack: {java.lang.Throwable}]\n" + 
+					"        [pc: 62, chop 1 local(s)]\n" + 
+					"        [pc: 64, same_locals_1_stack_item, stack: {java.lang.Throwable}]\n" + 
+					"        [pc: 74, same]\n" + 
+					"        [pc: 84, same]\n" + 
+					"        [pc: 86, chop 2 local(s)]\n" + 
+					"        [pc: 98, same_locals_1_stack_item, stack: {java.io.IOException}]\n" + 
+					"        [pc: 112, same_locals_1_stack_item, stack: {java.lang.Throwable}]\n" + 
+					"        [pc: 122, same]\n" + 
+					"        [pc: 127, same]\n";
+			int index = actualOutput.indexOf(expectedOutput);
+			if (index == -1 || expectedOutput.length() == 0) {
+				System.out.println(Util.displayString(actualOutput, 2));
+			}
+			if (index == -1) {
+				assertEquals("Wrong contents", expectedOutput, actualOutput);
+			}
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927
+	// Verify the reduced range of locals.
+	public void testBug380927() throws Exception {
+		this.runConformTest(
+				new String[] {
+						"X.java",
+						"public class X {\n" +
+						"    public final static Object f() {\n" +
+						"        final Object a = null;\n" +
+						"        Object b;\n" +
+						"        label: do {\n" +
+						"            switch (0) {\n" +
+						"            case 1: {\n" +
+						"                b = a;\n" +
+						"            }\n" +
+						"                break;\n" +
+						"            default:\n" +
+						"                break label;\n" +
+						"            }\n" +
+						"        } while (true);\n" +
+						"        return a;\n" +
+						"    }\n" +
+						"    public static void main(final String[] args) {\n" +
+						"        f();\n" +
+						"        System.out.println(\"SUCCESS\");\n" +
+						"    }\n" +
+						"}\n"
+				},
+				"SUCCESS");
+
+			ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+			byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+			String actualOutput =
+				disassembler.disassemble(
+					classFileBytes,
+					"\n",
+					ClassFileBytesDisassembler.DETAILED);
+
+			String expectedOutput =
+					"  // Method descriptor #15 ()Ljava/lang/Object;\n" + 
+					"  // Stack: 1, Locals: 2\n" + 
+					"  public static final java.lang.Object f();\n" + 
+					"     0  aconst_null\n" + 
+					"     1  astore_0 [a]\n" + 
+					"     2  iconst_0\n" + 
+					"     3  tableswitch default: 25\n" + 
+					"          case 1: 20\n" + 
+					"    20  aload_0 [a]\n" + 
+					"    21  astore_1 [b]\n" + 
+					"    22  goto 2\n" + 
+					"    25  aload_0 [a]\n" + 
+					"    26  areturn\n" + 
+					"      Line numbers:\n" + 
+					"        [pc: 0, line: 3]\n" + 
+					"        [pc: 2, line: 6]\n" + 
+					"        [pc: 20, line: 8]\n" + 
+					"        [pc: 22, line: 10]\n" + 
+					"        [pc: 25, line: 15]\n" + 
+					"      Local variable table:\n" + 
+					"        [pc: 2, pc: 27] local: a index: 0 type: java.lang.Object\n" + 
+					"        [pc: 22, pc: 25] local: b index: 1 type: java.lang.Object\n" + 
+					"      Stack map table: number of frames 3\n" + 
+					"        [pc: 2, append: {java.lang.Object}]\n" + 
+					"        [pc: 20, same]\n" + 
+					"        [pc: 25, same]\n" + 
+					"  \n"; 
+			int index = actualOutput.indexOf(expectedOutput);
+			if (index == -1 || expectedOutput.length() == 0) {
+				System.out.println(Util.displayString(actualOutput, 2));
+			}
+			if (index == -1) {
+				assertEquals("Wrong contents", expectedOutput, actualOutput);
+			}
+	}
+
+	// from https://bugs.eclipse.org/bugs/show_bug.cgi?id=385593#c1
+	public void test385593_1() throws Exception {
+		this.runConformTest(
+			new String[] {
+					"stackmap/StackMapTableFormatError.java",
+					"package stackmap;\n" + 
+					"\n" + 
+					"import java.util.Collection;\n" + 
+					"import java.util.Collections;\n" + 
+					"\n" + 
+					"/**\n" + 
+					" * If compiled with Eclipse (compiler target >= 1.6) this snippet causes the\n" + 
+					" * error \"java.lang.ClassFormatError: StackMapTable format error: bad\n" + 
+					" * verification type\" when executed with JaCoCo code coverage. JaCoCo seems to\n" + 
+					" * get confused by unexpected stackmap frames generated by ECJ.\n" + 
+					" */\n" + 
+					"public class StackMapTableFormatError {\n" + 
+					"\n" + 
+					"	public static Object exec(Collection<Object> set, Object a,\n" + 
+					"			boolean b) {\n" + 
+					"		for (Object e : set) {\n" + 
+					"			if (a != null && (e == null || b)) {\n" + 
+					"				continue;\n" + 
+					"			}\n" + 
+					"			return null;\n" + 
+					"		}\n" + 
+					"		return null;\n" + 
+					"	}\n" + 
+					"	\n" + 
+					"	public static void main(String[] args) {\n" + 
+					"		exec(Collections.emptySet(), null, false);\n" + 
+					"	}\n" + 
+					"\n" + 
+					"}\n"
+			});
+
+		ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+		byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR+File.separator+"stackmap"+File.separator+"StackMapTableFormatError.class"));
+		String actualOutput =
+			disassembler.disassemble(
+				classFileBytes,
+				"\n",
+				ClassFileBytesDisassembler.DETAILED);
+
+		String expectedOutput =
+				"  // Method descriptor #15 (Ljava/util/Collection;Ljava/lang/Object;Z)Ljava/lang/Object;\n" + 
+				"  // Signature: (Ljava/util/Collection<Ljava/lang/Object;>;Ljava/lang/Object;Z)Ljava/lang/Object;\n" + 
+				"  // Stack: 1, Locals: 5\n" + 
+				"  public static java.lang.Object exec(java.util.Collection set, java.lang.Object a, boolean b);\n" + 
+				"     0  aload_0 [set]\n" + 
+				"     1  invokeinterface java.util.Collection.iterator() : java.util.Iterator [18] [nargs: 1]\n" + 
+				"     6  astore 4\n" + 
+				"     8  goto 36\n" + 
+				"    11  aload 4\n" + 
+				"    13  invokeinterface java.util.Iterator.next() : java.lang.Object [24] [nargs: 1]\n" + 
+				"    18  astore_3 [e]\n" + 
+				"    19  aload_1 [a]\n" + 
+				"    20  ifnull 34\n" + 
+				"    23  aload_3 [e]\n" + 
+				"    24  ifnull 36\n" + 
+				"    27  iload_2 [b]\n" + 
+				"    28  ifeq 34\n" + 
+				"    31  goto 36\n" + 
+				"    34  aconst_null\n" + 
+				"    35  areturn\n" + 
+				"    36  aload 4\n" + 
+				"    38  invokeinterface java.util.Iterator.hasNext() : boolean [30] [nargs: 1]\n" + 
+				"    43  ifne 11\n" + 
+				"    46  aconst_null\n" + 
+				"    47  areturn\n" + 
+				"      Line numbers:\n" + 
+				"        [pc: 0, line: 16]\n" + 
+				"        [pc: 19, line: 17]\n" + 
+				"        [pc: 31, line: 18]\n" + 
+				"        [pc: 34, line: 20]\n" + 
+				"        [pc: 36, line: 16]\n" + 
+				"        [pc: 46, line: 22]\n" + 
+				"      Local variable table:\n" + 
+				"        [pc: 0, pc: 48] local: set index: 0 type: java.util.Collection\n" + 
+				"        [pc: 0, pc: 48] local: a index: 1 type: java.lang.Object\n" + 
+				"        [pc: 0, pc: 48] local: b index: 2 type: boolean\n" + 
+				"        [pc: 19, pc: 36] local: e index: 3 type: java.lang.Object\n" + 
+				"      Local variable type table:\n" + 
+				"        [pc: 0, pc: 48] local: set index: 0 type: java.util.Collection<java.lang.Object>\n" + 
+				"      Stack map table: number of frames 3\n" + 
+				"        [pc: 11, full, stack: {}, locals: {java.util.Collection, java.lang.Object, int, _, java.util.Iterator}]\n" + 
+				"        [pc: 34, full, stack: {}, locals: {java.util.Collection, java.lang.Object, int, java.lang.Object, java.util.Iterator}]\n" + 
+				"        [pc: 36, full, stack: {}, locals: {java.util.Collection, java.lang.Object, int, _, java.util.Iterator}]"; 
+		int index = actualOutput.indexOf(expectedOutput);
+		if (index == -1 || expectedOutput.length() == 0) {
+			System.out.println(Util.displayString(actualOutput, 2));
+		}
+		if (index == -1) {
+			assertEquals("Wrong contents", expectedOutput, actualOutput);
+		}
+	}
+
+	// from https://bugs.eclipse.org/bugs/show_bug.cgi?id=385593#c11
+	public void test385593_2() throws Exception {
+		this.runConformTest(
+			new String[] {
+					"snippet/X.java",
+					"package snippet;\n" + 
+					"\n" + 
+					"\n" + 
+					"public class X { \n" + 
+					"	private void foo(boolean delete) { \n" + 
+					"		 \n" + 
+					"		String s = bar(); \n" + 
+					"		StringBuffer buffer =new StringBuffer(); \n" + 
+					"		 \n" + 
+					"		try { \n" + 
+					"			 \n" + 
+					"			String[] datas = new String[] { \"\" }; \n" + 
+					"			Object[] data= new Object[] { s }; \n" + 
+					"			try { \n" + 
+					"				buffer.append(datas).append(data); \n" + 
+					"			} catch (Exception e) { \n" + 
+					"				if (e != null) \n" + 
+					"					throw e; \n" + 
+					"				return; \n" + 
+					"			} \n" + 
+					"				 \n" + 
+					"			if (delete) \n" + 
+					"				buffer.delete(0, buffer.length()); \n" + 
+					"			 \n" + 
+					"		} catch (Exception x) { \n" + 
+					"		} finally { \n" + 
+					"			buffer = null; \n" + 
+					"		} \n" + 
+					"	} \n" + 
+					"	 \n" + 
+					"	String bar() { \n" + 
+					"		return \"\"; \n" + 
+					"	} \n" + 
+					"	 \n" + 
+					"	public static void main(String[] args) { \n" + 
+					"		new X().foo(false); \n" + 
+					"		System.out.println(\"SUCCESS\"); \n" + 
+					"	} \n" + 
+					"}\n"
+			});
+
+		ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+		byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR+File.separator+"snippet"+File.separator+"X.class"));
+		String actualOutput =
+			disassembler.disassemble(
+				classFileBytes,
+				"\n",
+				ClassFileBytesDisassembler.DETAILED);
+
+		String expectedOutput =
+				"Stack map table: number of frames 7\n" + 
+				"        [pc: 49, full, stack: {java.lang.Exception}, locals: {snippet.X, int, java.lang.String, java.lang.StringBuffer, java.lang.String[], java.lang.Object[]}]\n" + 
+				"        [pc: 59, append: {java.lang.Exception}]\n" + 
+				"        [pc: 62, chop 1 local(s)]\n" + 
+				"        [pc: 79, full, stack: {java.lang.Exception}, locals: {snippet.X, int, java.lang.String, java.lang.StringBuffer}]\n" + 
+				"        [pc: 86, same_locals_1_stack_item, stack: {java.lang.Throwable}]\n" + 
+				"        [pc: 93, same]\n" + 
+				"        [pc: 95, same]\n"; 
+		
+		int index = actualOutput.indexOf(expectedOutput);
+		if (index == -1 || expectedOutput.length() == 0) {
+			System.out.println(Util.displayString(actualOutput, 2));
+		}
+		if (index == -1) {
+			assertEquals("Wrong contents", expectedOutput, actualOutput);
+		}
 	}
 }

@@ -7,7 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for Bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
+ *     Stephan Herrmann - Contributions for
+ *								Bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
+ *								Bug 388630 - @NonNull diagnostics at line 0
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -408,6 +410,12 @@ public MethodBinding createDefaultConstructorWithBinding(MethodBinding inherited
 			sourceType); //declaringClass
 	constructor.binding.tagBits |= (inheritedConstructorBinding.tagBits & TagBits.HasMissingType);
 	constructor.binding.modifiers |= ExtraCompilerModifiers.AccIsDefaultConstructor;
+	if (inheritedConstructorBinding.parameterNonNullness != null) { // this implies that annotation based null analysis is enabled
+		// copy nullness info from inherited constructor to the new constructor:
+		int len = inheritedConstructorBinding.parameterNonNullness.length;
+		System.arraycopy(inheritedConstructorBinding.parameterNonNullness, 0, 
+				constructor.binding.parameterNonNullness = new Boolean[len], 0, len);
+	}
 
 	constructor.scope = new MethodScope(this.scope, constructor, true);
 	constructor.bindArguments();
@@ -633,6 +641,18 @@ private void internalAnalyseCode(FlowContext flowContext, FlowInfo flowInfo) {
 			this.scope.problemReporter().unusedPrivateType(this);
 		}
 	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385780
+	if (this.typeParameters != null && 
+			!this.scope.referenceCompilationUnit().compilationResult.hasSyntaxError) {
+		for (int i = 0, length = this.typeParameters.length; i < length; ++i) {
+			TypeParameter typeParameter = this.typeParameters[i];
+			if ((typeParameter.binding.modifiers & ExtraCompilerModifiers.AccLocallyUsed) == 0) {
+				this.scope.problemReporter().unusedTypeParameter(typeParameter);			
+			}
+		}
+	}
+	
 	// for local classes we use the flowContext as our parent, but never use an initialization context for this purpose
 	// see Bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
 	FlowContext parentContext = (flowContext instanceof InitializationFlowContext) ? null : flowContext;
@@ -1334,7 +1354,7 @@ public void traverse(ASTVisitor visitor, CompilationUnitScope unitScope) {
 }
 
 /**
- *	Iteration for a local innertype
+ *	Iteration for a local inner type
  */
 public void traverse(ASTVisitor visitor, BlockScope blockScope) {
 	try {

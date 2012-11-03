@@ -12,6 +12,7 @@
  *     							bug 349326 - [1.7] new warning for missing try-with-resources
  *								bug 265744 - Enum switch should warn about missing default
  *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -67,7 +68,7 @@ public class SwitchStatement extends Statement {
 				this.expression.checkNPE(currentScope, flowContext, flowInfo);
 			}
 			SwitchFlowContext switchContext =
-				new SwitchFlowContext(flowContext, this, (this.breakLabel = new BranchLabel()));
+				new SwitchFlowContext(flowContext, this, (this.breakLabel = new BranchLabel()), true);
 
 			// analyse the block by considering specially the case/default statements (need to bind them
 			// to the entry point)
@@ -381,7 +382,7 @@ public class SwitchStatement extends Statement {
 				} else {
 					codeStream.lookupswitch(defaultLabel, this.constants, sortedIndexes, caseLabels);
 				}
-				codeStream.updateLastRecordedEndPC(this.scope, codeStream.position);
+				codeStream.recordPositionsFrom(codeStream.position, this.expression.sourceEnd);
 			} else if (valueRequired) {
 				codeStream.pop();
 			}

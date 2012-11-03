@@ -13,6 +13,8 @@
  *								bug 358903 - Filter practically unimportant resource leak warnings
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
+ *								bug 379784 - [compiler] "Method can be static" is not getting reported
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -957,17 +959,54 @@ public String toString(int tab) {
 	return s;
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
+/**
+ * This method is used to reset the CanBeStatic the enclosing method of the current block
+ */
 public void resetEnclosingMethodStaticFlag() {
 	MethodScope methodScope = methodScope();
+	if (methodScope != null) {
+		if (methodScope.referenceContext instanceof MethodDeclaration) {
+			MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
+			methodDeclaration.bits &= ~ASTNode.CanBeStatic;
+		} else if (methodScope.referenceContext instanceof TypeDeclaration) {
+			// anonymous type, find enclosing method
+			methodScope = methodScope.enclosingMethodScope();
+			if (methodScope != null && methodScope.referenceContext instanceof MethodDeclaration) {
+				MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
+				methodDeclaration.bits &= ~ASTNode.CanBeStatic;
+			}
+		}
+	}
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+/**
+ * This method is used to reset the CanBeStatic on all enclosing methods until the method 
+ * belonging to the enclosingInstanceType
+ * @param enclosingInstanceType type of which an enclosing instance is required in the code.
+ */
+public void resetDeclaringClassMethodStaticFlag(TypeBinding enclosingInstanceType) {
+	MethodScope methodScope = methodScope();
+	if (methodScope != null && methodScope.referenceContext instanceof TypeDeclaration) {
+		if (!methodScope.enclosingReceiverType().isCompatibleWith(enclosingInstanceType)) { // unless invoking a method of the local type ...
+			// anonymous type, find enclosing method
+			methodScope = methodScope.enclosingMethodScope();
+		}
+	}
 	while (methodScope != null && methodScope.referenceContext instanceof MethodDeclaration) {
-		MethodDeclaration methodDeclaration= (MethodDeclaration) methodScope.referenceContext;
+		MethodDeclaration methodDeclaration = (MethodDeclaration) methodScope.referenceContext;
 		methodDeclaration.bits &= ~ASTNode.CanBeStatic;
 		ClassScope enclosingClassScope = methodScope.enclosingClassScope();
 		if (enclosingClassScope != null) {
-			methodScope = enclosingClassScope.methodScope();
-		} else {
-			break;
+			TypeDeclaration type = enclosingClassScope.referenceContext;
+			if (type != null && type.binding != null && enclosingInstanceType != null
+					&& !type.binding.isCompatibleWith(enclosingInstanceType.original()))
+			{
+				methodScope = enclosingClassScope.enclosingMethodScope();
+				continue;
+			}
 		}
+		break;
 	}
 }
 
@@ -1015,7 +1054,7 @@ public void checkUnclosedCloseables(FlowInfo flowInfo, FlowContext flowContext, 
 	if (location != null && flowInfo.reachMode() != 0) return;
 
 	FakedTrackingVariable returnVar = (location instanceof ReturnStatement) ?
-			FakedTrackingVariable.getCloseTrackingVariable(((ReturnStatement)location).expression) : null;
+			FakedTrackingVariable.getCloseTrackingVariable(((ReturnStatement)location).expression, flowContext) : null;
 
 	Set varSet = new HashSet(this.trackingVariables);
 	FakedTrackingVariable trackingVar;

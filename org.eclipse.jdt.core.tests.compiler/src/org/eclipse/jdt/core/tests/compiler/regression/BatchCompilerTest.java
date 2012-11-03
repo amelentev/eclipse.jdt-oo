@@ -19,6 +19,8 @@
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
  *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -81,7 +83,7 @@ public class BatchCompilerTest extends AbstractRegressionTest {
 			"}\n";
 
 	static {
-//		TESTS_NAMES = new String[] { "test315_warn_options_a" };
+//		TESTS_NAMES = new String[] { "testBug375366" };
 //		TESTS_NUMBERS = new int[] { 306 };
 //		TESTS_RANGE = new int[] { 298, -1 };
 	}
@@ -1593,7 +1595,7 @@ public void test012(){
         "                                      reported as errors\n" + 
         " \n" + 
         " Setting warning or error options using properties file:\n" + 
-        "    -properties: <file>   set warnings/errors option based on the properties\n" + 
+        "    -properties <file>   set warnings/errors option based on the properties\n" + 
         "                          file contents. This option can be used with -nowarn,\n" + 
         "                          -err:.. or -warn:.. options, but the last one on the\n" + 
         "                          command line sets the options to be used.\n" + 
@@ -1734,16 +1736,44 @@ public void test012b(){
         "      intfAnnotation     + annotation type used as super interface\n" + 
         "      intfNonInherited   + interface non-inherited method compatibility\n" + 
         "      intfRedundant        find redundant superinterfaces\n" + 
+        "      invalidJavadoc       all warnings for malformed javadoc tags\n" + 
+        "      invalidJavadocTag    validate javadoc tag arguments\n" + 
+        "      invalidJavadocTagDep validate deprecated references in javadoc tag args\n" + 
+        "      invalidJavadocTagNotVisible  validate non-visible references in javadoc\n" + 
+        "							tag args\n" + 
+        "      invalidJavadocVisibility(<visibility>)  specify visibility modifier\n" + 
+        "							for malformed javadoc tag warnings\n" + 
         "      javadoc              invalid javadoc\n" + 
         "      localHiding          local variable hiding another variable\n" + 
         "      maskedCatchBlock   + hidden catch block\n" + 
+        "      missingJavadocTags   missing Javadoc tags\n" + 
+        "      missingJavadocTagsOverriding missing Javadoc tags in overriding methods\n" + 
+        "      missingJavadocTagsMethod missing Javadoc tags for method type parameter\n" + 
+        "      missingJavadocTagsVisibility(<visibility>)  specify visibility modifier\n" + 
+        "							for missing javadoc tags warnings\n" + 
+        "      missingJavadocComments   missing Javadoc comments\n" + 
+        "      missingJavadocCommentsOverriding   missing Javadoc tags in overriding\n" + 
+        "							methods\n" + 
+        "      missingJavadocCommentsVisibility(<visibility>)  specify visibility\n" + 
+        "							modifier for missing javadoc comments warnings\n" + 
         "      nls                  string literal lacking non-nls tag //$NON-NLS-<n>$\n" + 
         "      noEffectAssign     + assignment without effect\n" + 
         "      null                 potential missing or redundant null check\n" + 
-        "      nullAnnot(<annot. names separated by |>) + annotation based null analysis,\n" +
-        "                           nullable|nonnull|nonnullbydefault annotation types\n" +
-        "                           optionally specified using fully qualified names\n" +
+        "      nullAnnot(<annot. names separated by |>)   annotation based null analysis,\n" + 
+        "                           nullable|nonnull|nonnullbydefault annotation types\n" + 
+        "                           optionally specified using fully qualified names.\n" + 
+        "							Enabling this option enables all null-annotation\n" + 
+        "							related sub-options. These can be individually\n" + 
+        "							controlled using options listed below.\n" + 
+        "      nullAnnotConflict    conflict between null annotation specified\n" + 
+        "							and nullness inferred. Is effective only with\n" + 
+        "							nullAnnot option enabled.\n" + 
+        "      nullAnnotRedundant   redundant specification of null annotation. Is\n" + 
+        "							effective only with nullAnnot option enabled.\n" + 
         "      nullDereference    + missing null check\n" + 
+        "	   nullUncheckedConversion unchecked conversion from non-annotated type\n" + 
+        "							to @NonNull type. Is effective only with\n" + 
+        "							nullAnnot option enabled.\n" + 
         "      over-ann             missing @Override annotation (superclass)\n" + 
         "      paramAssign          assignment to a parameter\n" + 
         "      pkgDefaultMethod   + attempt to override package-default method\n" + 
@@ -1758,7 +1788,7 @@ public void test012b(){
         "      super                overriding a method without making a super invocation\n" + 
         "      suppress           + enable @SuppressWarnings\n" + 
         "                           When used with -err:, it can also silent optional\n" + 
-        "                           errors and warnings\n" +
+        "                           errors and warnings\n" + 
         "      switchDefault      + switch statement lacking a default case\n" + 
         "      syncOverride         missing synchronized in synchr. method override\n" + 
         "      syntheticAccess      synthetic access for innerclass\n" + 
@@ -1777,12 +1807,22 @@ public void test012b(){
         "      unusedImport       + unused import declaration\n" + 
         "      unusedLabel        + unused label\n" + 
         "      unusedLocal        + unread local variable\n" + 
+        "      unusedParam		    unused parameter\n" + 
+        "      unusedParamOverriding unused parameter for overriding method\n" + 
+        "      unusedParamImplementing unused parameter for implementing method\n" + 
+        "      unusedParamIncludeDoc unused parameter documented in comment tag\n" + 
         "      unusedPrivate      + unused private member declaration\n" + 
         "      unusedThrown         unused declared thrown exception\n" + 
+        "      unusedThrownWhenOverriding unused declared thrown exception in \n" + 
+        "							overriding method\n" + 
+        "      unusedThrownIncludeDocComment     unused declared thrown exception,\n" + 
+        "							documented in a comment tag\n" + 
+        "      unusedThrownExemptExceptionThrowable  unused declared thrown exception,\n" + 
+        "							exempt Exception and Throwable\n" + 
         "      unusedTypeArgs     + unused type arguments for method and constructor\n" + 
         "      uselessTypeCheck     unnecessary cast/instanceof operation\n" + 
         "      varargsCast        + varargs argument need explicit cast\n" + 
-        "      warningToken       + unsupported or unnecessary @SuppressWarnings\n" +
+        "      warningToken       + unsupported or unnecessary @SuppressWarnings\n" + 
         "\n";
 	String expandedExpectedOutput =
 		MessageFormat.format(expectedOutput, new String[] {
@@ -1842,6 +1882,7 @@ public void test012b(){
 			"		<argument value=\"---OUTPUT_DIR_PLACEHOLDER---\"/>\n" + 
 			"	</command_line>\n" + 
 			"	<options>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.inheritNullAnnotations\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nonnull\" value=\"org.eclipse.jdt.annotation.NonNull\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nonnullbydefault\" value=\"org.eclipse.jdt.annotation.NonNullByDefault\"/>\n" + 
@@ -1952,7 +1993,8 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedParameterWhenImplementingAbstract\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedParameterWhenOverridingConcrete\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedPrivateMember\" value=\"warning\"/>\n" + 
-			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedTypeArgumentsForMethodInvocation\" value=\"warning\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedTypeArgumentsForMethodInvocation\" value=\"warning\"/>\n" +
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedTypeParameter\" value=\"ignore\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unusedWarningToken\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.varargsArgumentNeedCast\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.processAnnotations\" value=\"disabled\"/>\n" + 
@@ -7719,7 +7761,12 @@ public void test191_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"7 problems (7 warnings)",
+		"8. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"8 problems (8 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8024,7 +8071,12 @@ public void test199_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8084,7 +8136,12 @@ public void test200_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8144,7 +8201,12 @@ public void test201_warn_options() {
 		"	      ^^^^^^\n" +
 		"Unused type arguments for the non generic method bar() of type X; it should not be parameterized with arguments <String>\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8204,7 +8266,12 @@ public void test202_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8264,7 +8331,12 @@ public void test203_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8324,7 +8396,12 @@ public void test204_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // -warn option - regression tests
@@ -8384,7 +8461,12 @@ public void test205_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"6 problems (6 warnings)",
+		"7. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 14)\n" + 
+		"	<T> void bar() {\n" + 
+		"	 ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"7 problems (7 warnings)",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -13177,5 +13259,429 @@ public void test329_nowarn_options() {
 			"----------\n" +
 			"1 problem (1 warning)",
 			true);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+public void testBug375409a() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"public class X {\n" +
+				"/** \n" +
+				"* Description {@see String}, {@category cat}\n" +
+				"* @param a\n" + 
+				"*/\n" +
+				"public void foo(int i) {}}\n" 
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -sourcepath \"" + OUTPUT_DIR + "\""
+		+ " -1.5"
+		+ " -warn:invalidJavadoc -proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 4)\n" + 
+		"	* Description {@see String}, {@category cat}\n" + 
+		"	                ^^^\n" + 
+		"Javadoc: Unexpected tag\n" + 
+		"----------\n" + 
+		"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 4)\n" + 
+		"	* Description {@see String}, {@category cat}\n" + 
+		"	                               ^^^^^^^^\n" + 
+		"Javadoc: Unexpected tag\n" + 
+		"----------\n" + 
+		"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 5)\n" + 
+		"	* @param a\n" + 
+		"	         ^\n" + 
+		"Javadoc: Parameter a is not declared\n" + 
+		"----------\n" + 
+		"3 problems (3 warnings)",
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+public void testBug375409b() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"public class X {\n" +
+				"/** \n" +
+				"* Description {@see String}, {@category cat}\n" +
+				"* @param a\n" + 
+				"*/\n" +
+				"public void foo(int i) {}}\n" 
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -sourcepath \"" + OUTPUT_DIR + "\""
+		+ " -1.5"
+		+ " -warn:missingJavadocTags,missingJavadocTagsVisibility(public) -proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 7)\n" + 
+		"	public void foo(int i) {}}\n" + 
+		"	                    ^\n" + 
+		"Javadoc: Missing tag for parameter i\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)",
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+public void testBug375409c() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"public class X {\n" +
+				"/** \n" +
+				"* Description {@see String}, {@category cat}\n" +
+				"* @param a\n" + 
+				"*/\n" +
+				"public void foo(int i) {}}\n" 
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -sourcepath \"" + OUTPUT_DIR + "\""
+		+ " -1.5"
+		+ " -warn:missingJavadocComments -proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 2)\n" + 
+		"	public class X {\n" + 
+		"	             ^\n" + 
+		"Javadoc: Missing comment for public declaration\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)",
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+public void testBug375409d() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"public class X {\n" +
+				"/** \n" +
+				"* Description {@see String}, {@category cat}\n" +
+				"* @param a\n" + 
+				"*/\n" +
+				"void foo(int i) {}\n" +
+				"/** \n" +
+				"* Description {@see String}, {@category cat}\n" +
+				"* @param a\n" + 
+				"*/\n" +
+				"public void foo2(int i2) {}}\n" 
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -sourcepath \"" + OUTPUT_DIR + "\""
+		+ " -1.5"
+		+ " -warn:missingJavadocTags,missingJavadocTagsVisibility(public) -proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 12)\n" + 
+		"	public void foo2(int i2) {}}\n" + 
+		"	                     ^^\n" + 
+		"Javadoc: Missing tag for parameter i2\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)",
+		true);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+// -warn option - regression tests to check option nullAnnotConflict
+public void testBug375409e() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"import static java.lang.annotation.ElementType.*;\n" +
+				"import java.lang.annotation.*;\n" +
+				"public class X {\n" +
+				"  @NonNull Object foo(@Nullable Object o, @NonNull Object o2) {\n" +
+				"	 return new X().bar();\n" +
+				"  }\n" +
+				"  @Nullable Object bar() {\n" +
+				"	 return null;\n" +
+				"  }\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface NonNull{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface Nullable{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ PACKAGE, TYPE, METHOD, CONSTRUCTOR })\n" +
+				"@interface NonNullByDefault{\n" +
+				"}"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -1.5"
+		+ " -warn:+nullAnnot(p.Nullable|p.NonNull|p.NonNullByDefault),+null,-nullAnnotConflict "
+		+ "-proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"", 
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+// -warn option - regression tests to check option nullAnnotRedundant
+public void testBug375409f() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"import static java.lang.annotation.ElementType.*;\n" +
+				"import java.lang.annotation.*;\n" +
+				"@NonNullByDefault public class X {\n" +
+				"  @NonNull Object foo() {\n" +
+				"	 return null;\n" +
+				"  }\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface NonNull{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface Nullable{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ PACKAGE, TYPE, METHOD, CONSTRUCTOR })\n" +
+				"@interface NonNullByDefault{\n" +
+				"}"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -1.5"
+		+ " -warn:+nullAnnot(p.Nullable|p.NonNull|p.NonNullByDefault),+null,-nullAnnotRedundant "
+		+ "-proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 6)\n" + 
+		"	return null;\n" + 
+		"	       ^^^^\n" + 
+		"Null type mismatch: required \'@NonNull Object\' but the provided value is null\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)", 
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
+// -warn option - regression tests to check option nullUncheckedConversion
+public void testBug375409g() {
+	this.runConformTest(
+		new String[] {
+				"p/X.java",
+				"package p;\n" +
+				"import static java.lang.annotation.ElementType.*;\n" +
+				"import java.lang.annotation.*;\n" +
+				"public class X {\n" +
+				"  @NonNull Object foo(@Nullable Object o, @NonNull Object o2) {\n" +
+				"	 return new X().bar();\n" +
+				"  }\n" +
+				"  Object bar() {\n" +
+				"	 return null;\n" +
+				"  }\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface NonNull{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ METHOD, PARAMETER })\n" +
+				"@interface Nullable{\n" +
+				"}\n" +
+				"@Documented\n" +
+				"@Retention(RetentionPolicy.CLASS)\n" +
+				"@Target({ PACKAGE, TYPE, METHOD, CONSTRUCTOR })\n" +
+				"@interface NonNullByDefault{\n" +
+				"}"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+		+ " -1.5"
+		+ " -warn:+nullAnnot(p.Nullable|p.NonNull|p.NonNullByDefault) -warn:+null -warn:-nullUncheckedConversion "
+		+ "-proc:none -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"", 
+		true);
+}
+// Bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+// when -properties is used process javadoc by default
+public void testBug375366a() throws IOException {
+	createOutputTestDirectory("regression/.settings");
+	Util.createFile(OUTPUT_DIR+"/.settings/org.eclipse.jdt.core.prefs",
+			"eclipse.preferences.version=1\n" + 
+			"org.eclipse.jdt.core.compiler.problem.unusedParameter=warning\n");
+	this.runConformTest(
+		new String[] {
+			"bugs/warning/ShowBug.java",
+			"package bugs.warning;\n" + 
+			"\n" + 
+			"public class ShowBug {\n" + 
+			"	/**\n" + 
+			"	 * \n" + 
+			"	 * @param unusedParam\n" + 
+			"	 */\n" + 
+			"	public void foo(Object unusedParam) {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "bugs" + File.separator + "warning" + File.separator + "ShowBug.java\""
+		+ " -1.5"
+		+ " -properties " + OUTPUT_DIR + File.separator +".settings" + File.separator + "org.eclipse.jdt.core.prefs "
+		+ " -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"", 
+		false /*don't flush output dir*/);
+}
+
+// Bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+// property file explicitly disables javadoc processing
+public void testBug375366b() throws IOException {
+	createOutputTestDirectory("regression/.settings");
+	Util.createFile(OUTPUT_DIR+"/.settings/org.eclipse.jdt.core.prefs",
+			"eclipse.preferences.version=1\n" + 
+			"org.eclipse.jdt.core.compiler.problem.unusedParameter=warning\n" +
+			"org.eclipse.jdt.core.compiler.doc.comment.support=disabled\n");
+	this.runTest(
+		true, // compile OK, expecting only warning
+		new String[] {
+			"bugs/warning/ShowBug.java",
+			"package bugs.warning;\n" + 
+			"\n" + 
+			"public class ShowBug {\n" + 
+			"	/**\n" + 
+			"	 * \n" + 
+			"	 * @param unusedParam\n" + 
+			"	 */\n" + 
+			"	public void foo(Object unusedParam) {\n" + 
+			"		\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "bugs" + File.separator + "warning" + File.separator + "ShowBug.java\""
+		+ " -1.5"
+		+ " -properties " + OUTPUT_DIR + File.separator +".settings" + File.separator + "org.eclipse.jdt.core.prefs "
+		+ " -d \"" + OUTPUT_DIR + "\"",
+		"", 
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/bugs/warning/ShowBug.java (at line 8)\n" + 
+		"	public void foo(Object unusedParam) {\n" + 
+		"	                       ^^^^^^^^^^^\n" + 
+		"The value of the parameter unusedParam is not used\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)",
+		false /*don't flush output dir*/,
+		null /* progress */);
+}
+
+// Bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+// property file enables null annotation support
+public void testBug375366c() throws IOException {
+	createOutputTestDirectory("regression/.settings");
+	Util.createFile(OUTPUT_DIR+"/.settings/org.eclipse.jdt.core.prefs",
+			"eclipse.preferences.version=1\n" + 
+			"org.eclipse.jdt.core.compiler.annotation.nullanalysis=enabled\n");
+	this.runNegativeTest(
+			new String[] {
+					"p/X.java",
+					"package p;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class X {\n" +
+					"  @NonNull Object foo(@Nullable Object o, @NonNull Object o2) {\n" +
+					"	 return this;\n" +
+					"  }\n" +
+					"}\n" +
+					"class Y extends X {\n" +
+					"    @Nullable Object foo(Object o, Object o2) { return null; }\n" +
+					"}\n",
+					"org/eclipse/jdt/annotation/NonNull.java",
+					NONNULL_ANNOTATION_CONTENT,
+					"org/eclipse/jdt/annotation/Nullable.java",
+					NULLABLE_ANNOTATION_CONTENT,
+					"org/eclipse/jdt/annotation/NonNullByDefault.java",				
+					NONNULL_BY_DEFAULT_ANNOTATION_CONTENT
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+			+ " -sourcepath \"" + OUTPUT_DIR + "\""
+			+ " -1.5"
+			+ " -properties " + OUTPUT_DIR + File.separator +".settings" + File.separator + "org.eclipse.jdt.core.prefs "
+			+ " -d \"" + OUTPUT_DIR + "\"",
+			"",
+			"----------\n" + 
+			"1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
+			"	^^^^^^^^^^^^^^^^\n" + 
+			"The return type is incompatible with the @NonNull return from X.foo(Object, Object)\n" + 
+			"----------\n" + 
+			"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
+			"	                     ^^^^^^\n" + 
+			"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
+			"----------\n" + 
+			"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
+			"	                               ^^^^^^\n" + 
+			"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" + 
+			"----------\n" + 
+			"3 problems (3 errors)", 
+			false/*don't flush*/);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385780
+public void test385780_warn_option() {
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X<T> {\n"+
+			"public <S> X() {\n"+
+			"}\n"+
+			"public void ph(int t) {\n"+
+	        "}\n"+
+			"}\n"+
+			"interface doNothingInterface<T> {\n"+
+			"}\n"+
+			"class doNothing {\n"+
+			"public <T> void doNothingMethod() {"+
+			"}\n"+
+			"}\n"+
+			"class noerror {\n"+
+			"public <T> void doNothing(T t) {"+
+			"}"+
+			"}\n"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "X.java\""
+		+ " -warn:unusedTypeParameter -proc:none -1.7 -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 1)\n" + 
+		"	public class X<T> {\n" + 
+		"	               ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 2)\n" + 
+		"	public <S> X() {\n" + 
+		"	        ^\n" + 
+		"Unused type parameter S\n" + 
+		"----------\n" + 
+		"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" + 
+		"	interface doNothingInterface<T> {\n" + 
+		"	                             ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"4. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 10)\n" + 
+		"	public <T> void doNothingMethod() {}\n" + 
+		"	        ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"4 problems (4 warnings)",
+		true);
 }
 }

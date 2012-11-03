@@ -26,7 +26,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 public class ResourceLeakTests extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test066"};
+//	TESTS_NAMES = new String[] { "testBug386534" };
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -3329,8 +3329,8 @@ public void test066b() {
 
 // Bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
 // example from comment 12
-// disabled because null info after try-catch is too weak,
-// see also Bug 370424 - [compiler][null] throw-catch analysis for null flow could be more precise
+// Red herring (disabled): warning says "potential" because in the exception case no resource
+// would actually be allocated.
 public void _test067() {
 	Map options = getCompilerOptions();
 	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
@@ -3359,9 +3359,7 @@ public void _test067() {
 
 // Bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
 // example from comment 12
-// disabled because null info after try-catch is too weak,
-// see also Bug 370424 - [compiler][null] throw-catch analysis for null flow could be more precise
-public void _test067b() {
+public void test067b() {
 	Map options = getCompilerOptions();
 	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
 	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
@@ -3709,5 +3707,220 @@ public void test075() {
 		"	           ^^^^^^^^^^\n" +
 		"Resource leak: 'fileReader' is never closed\n" +
 		"----------\n");
+}
+// Bug 385415 - Incorrect resource leak detection
+public void testBug385415() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.*;\n" +
+			"public class X {\n" +
+			"    void foo() throws FileNotFoundException {\n" +
+			"        FileReader fileReader = new FileReader(\"somefile\");\n" +
+			"        try {\n" +
+			"            fileReader.close();\n" +
+			"        } catch (Exception e) {\n" +
+			"            e.printStackTrace();\n" +
+			"            return;\n" +
+			"        }\n" +
+			"    }\n" +
+			"}\n"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// Bug 361073 - Avoid resource leak warning when the top level resource is closed explicitly
+// test case from comment 7
+// Duplicate of Bug 385415 - Incorrect resource leak detection
+public void testBug361073c7() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.*;\n" +
+			"public class X {\n" +
+			"  public void test() {\n" + 
+			"    BufferedReader br = null;\n" + 
+			"    try {\n" + 
+			"        br = new BufferedReader(new FileReader(\"blah\"));\n" + 
+			"        String line = null;\n" + 
+			"        while ( (line = br.readLine()) != null ) {\n" + 
+			"            if ( line.startsWith(\"error\") )\n" + 
+			"                throw new Exception(\"error\"); //Resource leak: 'br' is not closed at this location\n" + 
+			"        }\n" + 
+			"    } catch (Throwable t) {\n" + 
+			"        t.printStackTrace();\n" + 
+			"    } finally {\n" + 
+			"        if ( br != null ) {\n" + 
+			"            try { br.close(); }\n" + 
+			"            catch (Throwable e) { br = null; }\n" + 
+			"        }\n" + 
+			"    }\n" + 
+			"  }\n" + 
+			"}"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// Bug 386534 - "Potential resource leak" false positive warning
+// DISABLED
+public void _testBug386534() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"Bug.java",
+			"import java.io.FileNotFoundException;\n" + 
+			"import java.io.IOException;\n" + 
+			"import java.io.OutputStream;\n" + 
+			"\n" + 
+			"public class Bug {\n" + 
+			"	private static final String DETAILS_FILE_NAME = null;\n" + 
+			"	private static final String LOG_TAG = null;\n" + 
+			"	private static Context sContext;\n" + 
+			"	static void saveDetails(byte[] detailsData) {\n" + 
+			"		OutputStream os = null;\n" + 
+			"		try {\n" + 
+			"			os = sContext.openFileOutput(DETAILS_FILE_NAME,\n" + 
+			"					Context.MODE_PRIVATE);\n" + 
+			"			os.write(detailsData);\n" + 
+			"		} catch (IOException e) {\n" + 
+			"			Log.w(LOG_TAG, \"Unable to save details\", e);\n" + 
+			"		} finally {\n" + 
+			"			if (os != null) {\n" + 
+			"				try {\n" + 
+			"					os.close();\n" + 
+			"				} catch (IOException ignored) {\n" + 
+			"				}\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"	static class Context {\n" + 
+			"		public static final String MODE_PRIVATE = null;\n" + 
+			"		public OutputStream openFileOutput(String detailsFileName,\n" + 
+			"				String modePrivate) throws FileNotFoundException{\n" + 
+			"			return null;\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"	static class Log {\n" + 
+			"		public static void w(String logTag, String string, IOException e) {\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// https://bugs.eclipse.org/388996 - [compiler][resource] Incorrect 'potential resource leak'
+public void testBug388996() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"Bug.java",
+			"import java.io.*;\n" +
+			"public class Bug {\n" +
+			"	public void processRequest(ResponseContext responseContext) throws IOException {\n" + 
+			"		OutputStream bao = null;\n" + 
+			"\n" + 
+			"		try {\n" + 
+			"			HttpServletResponse response = responseContext.getResponse();\n" + 
+			"\n" + 
+			"			bao = response.getOutputStream(); // <<<<\n" + 
+			"		} finally {\n" + 
+			"			if(bao != null) {\n" + 
+			"				bao.close();\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"	}" +
+			"}\n" +
+			"class ResponseContext {\n" + 
+			"	public HttpServletResponse getResponse() {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"}\n" + 
+			"class HttpServletResponse {\n" + 
+			"	public OutputStream getOutputStream() {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"}"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// https://bugs.eclipse.org/386534 -  [compiler][resource] "Potential resource leak" false positive warning
+public void testBug386534() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"Bug386534.java",
+			"import java.io.FileNotFoundException;\n" + 
+			"import java.io.IOException;\n" + 
+			"import java.io.OutputStream;\n" + 
+			"\n" + 
+			"public class Bug386534 {\n" + 
+			"	private static final String DETAILS_FILE_NAME = null;\n" + 
+			"	private static final String LOG_TAG = null;\n" + 
+			"	private static Context sContext;\n" + 
+			"	static void saveDetails(byte[] detailsData) {\n" + 
+			"		OutputStream os = null;\n" + 
+			"		try {\n" + 
+			"			os = sContext.openFileOutput(DETAILS_FILE_NAME,\n" + 
+			"					Context.MODE_PRIVATE);\n" + 
+			"			os.write(detailsData);\n" + 
+			"		} catch (IOException e) {\n" + 
+			"			Log.w(LOG_TAG, \"Unable to save details\", e);\n" + 
+			"		} finally {\n" + 
+			"			if (os != null) {\n" + 
+			"				try {\n" + 
+			"					os.close();\n" + 
+			"				} catch (IOException ignored) {\n" + 
+			"				}\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"	static class Context {\n" + 
+			"		public static final String MODE_PRIVATE = null;\n" + 
+			"		public OutputStream openFileOutput(String detailsFileName,\n" + 
+			"				String modePrivate) throws FileNotFoundException{\n" + 
+			"			return null;\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"	static class Log {\n" + 
+			"		public static void w(String logTag, String string, IOException e) {\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
 }
 }

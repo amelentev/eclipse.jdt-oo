@@ -20,33 +20,136 @@
 	  <font size="-1">
 	  Here are the build notes for the Eclipse JDT/Core plug-in project
 	  <a href="http://www.eclipse.org/jdt/core/index.php"><b>org.eclipse.jdt.core</b></a>,
-	  describing <a href="https://bugs.eclipse.org/bugs" target=new>bug</a> resolution and substantial changes in the <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core"><b>HEAD</b></a> branch.
+	  describing <a href="https://bugs.eclipse.org/bugs" target=new>bug</a> resolution and substantial changes in the <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/"><b>HEAD</b></a> branch.
 	  For more information on 3.8 planning, please refer to <a href="http://www.eclipse.org/jdt/core/r3.8/plan.php">JDT/Core release plan</a>,
 	  the next <a href="http://www.eclipse.org/jdt/core/r3.8/plan.php#current-milestone">milestone plan</a>,
 	  the overall <a href="http://www.eclipse.org/projects/project-plan.php?planurl=http://www.eclipse.org/eclipse/development/plans/eclipse_project_plan_3_7.xml">official plan</a>,
 	  or the <a href="http://www.eclipse.org/eclipse/platform-releng/buildSchedule.html">build schedule</a>.
-	  This present document covers all changes since Release 3.7 (also see a summary of <a href="http://dev.eclipse.org/viewcvs/index.cgi/%7Echeckout%7E/org.eclipse.jdt.core/notes/API_changes.html">API changes</a>).
+	  This present document covers all changes since Release 3.7 (also see a summary of <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/plain/org.eclipse.jdt.core/notes/API_changes.html">API changes</a>).
 	  <br>Maintenance of previous releases of JDT/Core is performed in parallel branches:
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_7_maintenance">R3.7.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_6_maintenance">R3.6.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_5_maintenance">R3.5.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_4_maintenance">R3.4.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_3_maintenance">R3.3.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_2_maintenance">R3.2.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_1_maintenance">R3.1.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R3_0_maintenance">R3.0.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R2_1_maintenance">R2.1.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=R2_0_1">R2.0.x</a>,
-		  <a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=ECLIPSE_1_0">R1.0.x</a>.
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_7_maintenance">R3.7.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_6_maintenance">R3.6.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_5_maintenance">R3.5.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_4_maintenance">R3.4.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_3_maintenance">R3.3.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_2_maintenance">R3.2.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_1_maintenance">R3.1.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R3_0_maintenance">R3.0.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R2_1_maintenance">R2.1.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=R2_0_1">R2.0.x</a>,
+		  <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/log/?h=ECLIPSE_1_0">R1.0.x</a>.
 	  </font>
 	</td>
   </tr>
 </table>
+<a name="v_C58"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 31, 2012
+<br>Project org.eclipse.jdt.core v_C58
+(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C58">cvs</a>).
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=380927">380927</a>
+VerifyError issue with inconsistent stack map frames with do..while and nested switch statements.
+
+<a name="v_C57"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 29, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=380750">380750</a>
+[compiler] local incorrectly flagged as uninitialized due to fix for bug 359495
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=380313">380313</a>
+Inconsistent stack error when using Java 1.7
+
+<a name="v_C56"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 23, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=380112">380112</a>
+[1.7][compiler] Incorrect unreachable catch block detection in try-with-resources
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=379726">379726</a>
+Include Eclipse-BundleShape in test plugin MANIFEST.MF
+
+<a name="v_C55"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 21, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=379793">379793</a>
+formatter hangs
+
+<a name="v_C54"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 16, 2012 - 3.8.0 RC1
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=379630">379630</a>
+Regression: NPE during reconcile/build
+
+<a name="v_C53"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 14, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=375971">375971</a>
+[search] Not finding method references with generics
+<br><a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550">376550</a>
+&quot;Method can be static&quot; warning on method that accesses instance field in inner class
+
+<a name="v_C52"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 11, 2012
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=373409">373409</a>
+[code assist] Bad relevance for constructor proposals (new Thread())
+
+<a name="v_C51"></a>
+<hr><h1>
+Eclipse Platform Build Notes<br>
+Java development tools core</h1>
+Eclipse SDK 3.8.0 - May 8, 2012 - 3.8.0 RC1
+<br>
+<h2>What's new in this drop</h2>
+
+<h3>Problem Reports Fixed</h3>
+<a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=378390">378390</a>
+[search] regression caused by the fix for bug 357547
+
 <a name="v_C50"></a>
 <hr><h1>
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
-Eclipse SDK 3.8.0 - April 30, 2012 - 3.8.0 M7
+Eclipse SDK 3.8.0 - April 30, 2012
 <br>
 <h2>What's new in this drop</h2>
 
@@ -171,6 +274,7 @@ Eclipse SDK 3.8.0 - April 24, 2012 - April 10, 2012
 	int ShouldReturnValueHintMissingDefault = MethodRelated + 771;
 </pre>
 </li>
+</ul>
 
 <h3>Problem Reports Fixed</h3>
 <a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=377401">377401</a>
@@ -1043,8 +1147,7 @@ VerifyError: Inconsistent stackmap frames
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - November 15, 2011
-<br>Project org.eclipse.jdt.core v_C20
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C20">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1066,8 +1169,7 @@ resource leaks in org.eclipse.jdt.compiler.tool.tests
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - November 8, 2011
-<br>Project org.eclipse.jdt.core v_C19
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C19">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1081,8 +1183,7 @@ Javadoc content does not appear in content assist info window for non-static inn
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 25, 2011 - 3.8.0 M3
-<br>Project org.eclipse.jdt.core v_C18
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C18">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1092,8 +1193,7 @@ Eclipse SDK 3.8.0 - October 25, 2011 - 3.8.0 M3
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 20, 2011
-<br>Project org.eclipse.jdt.core v_C17
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C17">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>Added a new API OUTPUT_LOCATION_OVERLAPPING_ANOTHER_SOURCE(see bug <a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=287164">287164</a> for details):
@@ -1145,8 +1245,7 @@ Compile error in XSDImpl
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 18, 2011
-<br>Project org.eclipse.jdt.core v_C16
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C16">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>Added a new API IBootstrapMethodsEntry to describe the bootstrap method table entry(see bug <a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=359943">359943</a> for details):
@@ -1305,8 +1404,7 @@ NPE in JDT compiler
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 11, 2011
-<br>Project org.eclipse.jdt.core v_C15
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C15">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1320,8 +1418,7 @@ type converters should include more annotations
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 5, 2011
-<br>Project org.eclipse.jdt.core v_C14
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C14">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1335,8 +1432,7 @@ Fix messages for &quot;new warning for missing try-with-resources&quot;
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - October 3, 2011
-<br>Project org.eclipse.jdt.core v_C13
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C13">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>New Javacore option org.eclipse.jdt.core.JavaCore.COMPILER_PB_UNCLOSED_CLOSEABLE to raise a warning or error
@@ -1347,8 +1443,8 @@ Eclipse SDK 3.8.0 - October 3, 2011
 	 * Compiler option ID: Reporting a resource that is not closed properly.
 	 *
 	 * When enabled, the compiler will issue an error or a warning if
-	 * a local variable holds a value of type <code>java.lang.AutoCloseable</code> (compliance>=1.7) 
-	 * or a value of type <code>java.io.Closeable</code> (compliance<=1.6) and if
+	 * a local variable holds a value of type <code>java.lang.AutoCloseable</code> (compliance&gt;=1.7) 
+	 * or a value of type <code>java.io.Closeable</code> (compliance&lt;=1.6) and if
 	 * flow analysis shows that the method <code>close()</code> is not invoked locally on that value.
 	 * 
 	 * Option id: <code>"org.eclipse.jdt.core.compiler.problem.reportUnclosedCloseable"</code>
@@ -1369,8 +1465,8 @@ Eclipse SDK 3.8.0 - October 3, 2011
 	 * Compiler option ID: Reporting a resource that may not be closed properly.
 	 * 
 	 * When enabled, the compiler will issue an error or a warning if
-	 * a local variable holds a value of type <code>java.lang.AutoCloseable</code> (compliance>=1.7) 
-	 * or a value of type <code>java.io.Closeable</code> (compliance<=1.6) and if
+	 * a local variable holds a value of type <code>java.lang.AutoCloseable</code> (compliance&gt;=1.7) 
+	 * or a value of type <code>java.io.Closeable</code> (compliance&lt;=1.6) and if
 	 * flow analysis shows that the method <code>close()</code> is 
 	 * not invoked locally on that value for all execution paths.
 	 * 
@@ -1439,8 +1535,7 @@ Incorrect Compiler Warning: &quot;Method can be declared as static&quot;
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - September 23, 2011
-<br>Project org.eclipse.jdt.core v_C12
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C12">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>Tagging to prepare for the git migration</li>
@@ -1453,8 +1548,7 @@ Eclipse SDK 3.8.0 - September 23, 2011
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - September 20, 2011
-<br>Project org.eclipse.jdt.core v_C11
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C11">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1468,8 +1562,7 @@ ASTParser cannot resolve binding of PackageDeclaration if class name is equal to
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - September 13, 2011 - 3.8.0 M2
-<br>Project org.eclipse.jdt.core v_C10
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C10">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1481,8 +1574,7 @@ Eclipse SDK 3.8.0 - September 13, 2011 - 3.8.0 M2
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - September 9, 2011
-<br>Project org.eclipse.jdt.core v_C09
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C09">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1502,8 +1594,7 @@ Test failures when run as an IDE (org.eclipse.sdk.ide)
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - September 6, 2011
-<br>Project org.eclipse.jdt.core v_C08
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C08">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1521,8 +1612,7 @@ Don't show &quot;The method * from the type * is never used locally&quot; warnin
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - August 30, 2011
-<br>Project org.eclipse.jdt.core v_C07
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C07">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1546,8 +1636,7 @@ AIOOBE in ParameterizedTypeBinding.substitute
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - August 23, 2011
-<br>Project org.eclipse.jdt.core v_C06
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C06">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1569,8 +1658,7 @@ Fup of bug 289247: Investigate validity of the fix vis-a-vis JLS.
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - August 16, 2011
-<br>Project org.eclipse.jdt.core v_C05
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C05">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1590,8 +1678,7 @@ Method incorrectly flagged as having same erasure output when return type differ
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - August 9, 2011
-<br>Project org.eclipse.jdt.core v_C04
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C04">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>Added a new API in BindingKey to return it's declaring type(see bug <a href="https://bugs.eclipse.org/bugs/show_bug.cgi?id=351165">351165</a> for details):
@@ -1628,8 +1715,7 @@ public BindingKey getDeclaringType();
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - August 3, 2011 - 3.8.0 M1
-<br>Project org.eclipse.jdt.core v_C03
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C03">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1643,8 +1729,7 @@ Rename readableNames.properties to avoid translation
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - July 28, 2011
-<br>Project org.eclipse.jdt.core v_C02
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C02">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 
 <h3>Problem Reports Fixed</h3>
@@ -1656,8 +1741,7 @@ Eclipse SDK 3.8.0 - July 28, 2011
 Eclipse Platform Build Notes<br>
 Java development tools core</h1>
 Eclipse SDK 3.8.0 - July 27, 2011
-<br>Project org.eclipse.jdt.core v_C01
-(<a href="http://dev.eclipse.org/viewcvs/index.cgi/org.eclipse.jdt.core/?only_with_tag=v_C01">cvs</a>).
+<br>
 <h2>What's new in this drop</h2>
 <ul>
 <li>Bundle version has been incremented to 3.8.0.qualifier</li>
@@ -1924,7 +2008,7 @@ anonymous class in array member initializer confuses content assist
 [1.7][search]CCE while searching for a type reference in multiple catch parameters
 
 <hr>
-<p>For earlier build notes, also see <a href="http://dev.eclipse.org/viewcvs/index.cgi/%7Echeckout%7E/org.eclipse.jdt.core/notes/R36_buildnotes_jdt-core.html">build notes up to Release 3.6</a>.</p>
+<p>For earlier build notes, also see <a href="http://git.eclipse.org/c/jdt/eclipse.jdt.core.git/plain/org.eclipse.jdt.core/notes/R37_buildnotes_jdt-core.html">build notes up to Release 3.7</a>.</p>
 <br>
   <p>
     <a href="http://validator.w3.org/check?uri=referer"><img

@@ -16,6 +16,7 @@
  *							bug 358903 - Filter practically unimportant resource leak warnings
  *							bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *							bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *							bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -47,13 +48,22 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		this.bits |= ASTNode.IsLocalDeclarationReachable; // only set if actually reached
 	}
 	if (this.binding != null && this.type.resolvedType instanceof TypeVariableBinding) {
+		TypeVariableBinding typeVariableBinding = (TypeVariableBinding) this.type.resolvedType;
 		MethodScope methodScope= this.binding.declaringScope.methodScope();
-		AbstractMethodDeclaration methodDeclaration = methodScope.referenceMethod();
-		if (methodDeclaration != null && ((methodDeclaration.bits & ASTNode.CanBeStatic) != 0) && methodDeclaration.binding != null) {
+		if (methodScope != null && methodScope.referenceContext instanceof TypeDeclaration) {
+			// initialization scope
+			methodScope = methodScope.enclosingMethodScope();
+		}
+		AbstractMethodDeclaration methodDeclaration = (methodScope != null) ? methodScope.referenceMethod() : null;
+		if (methodDeclaration != null && methodDeclaration.binding != null) {
 			TypeVariableBinding[] typeVariables = methodDeclaration.binding.typeVariables();
+			if (typeVariables == null) typeVariables = Binding.NO_TYPE_VARIABLES;
 			if (typeVariables == Binding.NO_TYPE_VARIABLES) {
 				// Method declares no type variables.
-				currentScope.resetEnclosingMethodStaticFlag();
+				if (typeVariableBinding != null && typeVariableBinding.declaringElement instanceof TypeBinding)
+					currentScope.resetDeclaringClassMethodStaticFlag((TypeBinding) typeVariableBinding.declaringElement);
+				else
+					currentScope.resetEnclosingMethodStaticFlag();
 			} else {
 				// to check whether the resolved type for this is declared by enclosing method as a type variable
 				boolean usesEnclosingTypeVar = false; 
@@ -65,7 +75,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 				}
 				if (!usesEnclosingTypeVar) {
 					// uses a type variable not declared by enclosing method
-					currentScope.resetEnclosingMethodStaticFlag();
+					if (typeVariableBinding != null && typeVariableBinding.declaringElement instanceof TypeBinding)
+						currentScope.resetDeclaringClassMethodStaticFlag((TypeBinding) typeVariableBinding.declaringElement);
+					else
+						currentScope.resetEnclosingMethodStaticFlag();
 				}
 			}
 		}
@@ -94,7 +107,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			.unconditionalInits();
 
 	if (shouldAnalyseResource)
-		FakedTrackingVariable.handleResourceAssignment(currentScope, preInitInfo, flowInfo, this, this.initialization, this.binding);
+		FakedTrackingVariable.handleResourceAssignment(currentScope, preInitInfo, flowInfo, flowContext, this, this.initialization, this.binding);
 	else
 		FakedTrackingVariable.cleanUpAfterAssignment(currentScope, Binding.LOCAL, this.initialization);
 

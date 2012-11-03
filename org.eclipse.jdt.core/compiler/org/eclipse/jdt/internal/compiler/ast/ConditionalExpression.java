@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,7 @@
  * 							bug 324178 - [null] ConditionalExpression.nullStatus(..) doesn't take into account the analysis of condition itself
  * 							bug 354554 - [null] conditional with redundant condition yields weak error message
  *     						bug 349326 - [1.7] new warning for missing try-with-resources
+ *							bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -59,6 +60,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		int mode = flowInfo.reachMode();
 		flowInfo = this.condition.analyseCode(currentScope, flowContext, flowInfo, cst == Constant.NotAConstant);
 
+		flowContext.conditionalLevel++;
+
 		// process the if-true part
 		FlowInfo trueFlowInfo = flowInfo.initsWhenTrue().copy();
 		if (isConditionOptimizedFalse) {
@@ -85,6 +88,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		this.falseInitStateIndex = currentScope.methodScope().recordInitializationStates(falseFlowInfo);
 		falseFlowInfo = this.valueIfFalse.analyseCode(currentScope, flowContext, falseFlowInfo);
 
+		flowContext.conditionalLevel--;
+		
 		// merge if-true & if-false initializations
 		FlowInfo mergedInfo;
 		if (isConditionOptimizedTrue){
@@ -229,7 +234,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 				// Jump over the else part
 				int position = codeStream.position;
 				codeStream.goto_(endifLabel);
-				codeStream.updateLastRecordedEndPC(currentScope, position);
+				codeStream.recordPositionsFrom(position, this.valueIfTrue.sourceEnd);
 				// Tune codestream stack size
 				if (valueRequired) {
 					switch(this.resolvedType.id) {
@@ -284,6 +289,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 		BranchLabel trueLabel,
 		BranchLabel falseLabel,
 		boolean valueRequired) {
+
+		int pc = codeStream.position;
 
 		if ((this.constant != Constant.NotAConstant) && (this.constant.typeID() == T_boolean) // constant
 			|| ((this.valueIfTrue.implicitConversion & IMPLICIT_CONVERSION_MASK) >> 4) != T_boolean) { // non boolean values
@@ -342,7 +349,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 					}
 					int position = codeStream.position;
 					codeStream.goto_(endifLabel);
-					codeStream.updateLastRecordedEndPC(currentScope, position);
+					codeStream.recordPositionsFrom(position, this.valueIfTrue.sourceEnd);
 				}
 				// No need to decrement codestream stack size
 				// since valueIfTrue was already consumed by branch bytecode
@@ -364,7 +371,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext,
 			codeStream.removeNotDefinitelyAssignedVariables(currentScope, this.mergedInitStateIndex);
 		}
 		// no implicit conversion for boolean values
-		codeStream.updateLastRecordedEndPC(currentScope, codeStream.position);
+		codeStream.recordPositionsFrom(pc, this.sourceEnd);
 	}
 
 	public int nullStatus(FlowInfo flowInfo) {

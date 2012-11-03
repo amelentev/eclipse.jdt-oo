@@ -1108,7 +1108,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	}
 	/**
 	 * Creates an operation to delete the given element, asserts
-	 * the operation is successfull, and ensures the element is no
+	 * the operation is successful, and ensures the element is no
 	 * longer present in the model.
 	 */
 	public void assertDeletion(IJavaElement elementToDelete) throws JavaModelException {
@@ -2031,7 +2031,7 @@ public abstract class AbstractJavaModelTests extends SuiteOfTestCases {
 	 * <code>null</code> if it does not exist.
 	 * If relative, the rootPath must be specified as a project relative path.
 	 * The empty path refers to the package fragment root that is the project
-	 * folder iteslf.
+	 * folder itself.
 	 * If absolute, the rootPath refers to either an external jar, or a resource
 	 * internal to the workspace
 	 */

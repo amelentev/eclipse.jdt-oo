@@ -7,7 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contribution for bug 292478 - Report potentially null across variable assignment
+ *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for 
+ *								bug 292478 - Report potentially null across variable assignment
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -531,11 +533,15 @@ public void checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInf
 		if ((this.bits & ASTNode.IsNonNull) == 0) {
 			flowContext.recordUsingNullReference(scope, local, this,
 					FlowContext.MAY_NULL, flowInfo);
+			// account for possible NPE:
+			if (!flowInfo.isDefinitelyNonNull(local)) {
+				flowContext.recordAbruptExit();
+			}
 		}
 		flowInfo.markAsComparedEqualToNonNull(local);
 			// from thereon it is set
 		if (flowContext.initsOnFinally != null) {
-			flowContext.initsOnFinally.markAsComparedEqualToNonNull(local);
+			flowContext.markFinallyNullStatus(local, FlowInfo.NON_NULL);
 		}
 	}
 }
@@ -563,7 +569,7 @@ public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding ex
 public void computeConversion(Scope scope, TypeBinding runtimeType, TypeBinding compileTimeType) {
 	if (runtimeType == null || compileTimeType == null)
 		return;
-	if (this.implicitConversion != 0) return; // already set independantly
+	if (this.implicitConversion != 0) return; // already set independently
 
 	// it is possible for a Byte to be unboxed to a byte & then converted to an int
 	// but it is not possible for a byte to become Byte & then assigned to an Integer,
@@ -704,8 +710,7 @@ public void generateOptimizedBoolean(BlockScope currentScope, CodeStream codeStr
 			}
 		}
 	}
-	// reposition the endPC
-	codeStream.updateLastRecordedEndPC(currentScope, position);
+	codeStream.recordPositionsFrom(position, this.sourceEnd);
 }
 
 /* Optimized (java) code generation for string concatenations that involve StringBuffer

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,10 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contribution for bug 328281 - visibility leaks not detected when analyzing unused field in private class
+ *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
+ *								bug 328281 - visibility leaks not detected when analyzing unused field in private class
+ *								bug 379784 - [compiler] "Method can be static" is not getting reported
+ *								bug 379834 - Wrong "method can be static" in presence of qualified super and different staticness of nested super class.
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -31,7 +34,7 @@ public ProblemTypeAndMethodTest(String name) {
 // Static initializer to specify tests subset using TESTS_* static variables
 // All specified tests which does not belong to the class are skipped...
 static {
-//		TESTS_NAMES = new String[] { "testBug335845g" };
+//		TESTS_NAMES = new String[] { "test376550" };
 //		TESTS_NUMBERS = new int[] { 113 };
 //		TESTS_RANGE = new int[] { 108, -1 };
 }
@@ -7187,5 +7190,909 @@ public void test360164() {
 		"----------\n",
 		// javac options
 		JavacTestOptions.SKIP_UNTIL_FRAMEWORK_FIX /* javac test options */);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// SingleNameReference, assignment of instance field inside a local class method
+public void test376550_1a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"	int i = 1;\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			void method1() {\n" + // can't be static
+				"				i = 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// SingleNameReference, assignment of instance field of local class inside a local class method
+public void test376550_1b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"	int i = 1;\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			void method2() {\n" +  // can't be static
+				"				i2 = 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// LocalDeclaration with type as a type variable binding
+public void test376550_2a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local<K>{\n" +
+				"			void method2() {\n" +  // can't be static
+				"				K k;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X<T> can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// LocalDeclaration with type as a type variable binding
+public void test376550_2b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local<K>{\n" +
+				"			void method2() {\n" +  // can't be static
+				"				T t;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// MessageSend, calling outer class method inside a local class method
+public void test376550_3a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local<K>{\n" +
+				"			void lower() {}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				upper1();\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// MessageSend, calling local class method inside a local class method
+public void test376550_3b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   public void upper1(){}\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local<K>{\n" +
+				"			void lower() {}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				lower();\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X<T> can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// Local class instance field is an argument in messageSend in local class method
+public void test376550_4a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local<K>{\n" +
+				"			int i2 = 1;\n" +
+				"			void lower(int i) {}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				lower(i2);\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X<T> can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// Outerclass instance field is an argument in messageSend in local class method
+public void test376550_4b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X<T> {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local<K>{\n" +
+				"			int i2 = 1;\n" +
+				"			void lower(int i) {}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				lower(i1);\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameReference, accessing local class instance field
+public void test376550_5a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			void method2() {\n" +  // can't be static
+				"				Local.this.i2 = 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// https://bugs.eclispe.org/379784 - [compiler] "Method can be static" is not getting reported
+// Variation of the above
+public void test376550_5aa() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"	int i1 = 1;\n" +
+				"	public void foo(){\n" +
+				"		class Local{\n" +
+				"			int i2 = 1;\n" +
+				"       }\n" +
+				"       class Local2 extends Local {\n" +
+				"			void method2() {\n" +
+				"				Local2.this.i2 = 1;\n" + // required instance is of type Local (super of Local2)
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 3)\n" +
+		"	public void foo(){\n" +
+		"	            ^^^^^\n" +
+		"The method foo() from the type X can potentially be declared as static\n" +
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameReference, accessing outer class instance field
+public void test376550_5b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			void method2() {\n" +  // can't be static
+				"				X.this.i1 = 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef.analyseCode()
+public void test376550_6a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			boolean method2() {\n" +  // can't be static
+				"				return Local.this.i2 == 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef.analyseCode()
+public void test376550_6b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   int i1 = 1;\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			int i2 = 1;\n" +
+				"			boolean method2() {\n" +  // can't be static
+				"				return X.this.i1 == 1;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedAllocationExpression, allocating an anonymous type without an enclosing instance of parent type
+// anon. type is declared in local class
+public void test376550_7a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   abstract class AbsUp{}\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			abstract class AbsLow{}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				new AbsLow(){};\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedAllocationExpression, allocating an anonymous type without an enclosing instance of parent type
+// anon. type is declared in outer class
+public void test376550_7b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   abstract class AbsUp{}\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			abstract  class AbsLow{}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				new AbsUp(){};\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// FieldRef, from object of a class in outer class
+public void test376550_8a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   class AbsUp{ int a;}\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			class AbsLow{  int a;}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				int abc = new AbsLow().a;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+//FieldRef, from object of a class in local class
+public void test376550_8b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   class AbsUp{ int a;}\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			class AbsLow{  int a;}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				int abc = new AbsUp().a;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef, accessing a field from local class field
+public void test376550_9a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   X xup;\n" +
+				"	int i = 1;\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			X xdown;\n" +
+				"			class AbsLow{  int a;}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				int abc = xdown.i;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef, accessing a field from local class field
+public void test376550_9b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   X xup;\n" +
+				"	int i = 1;\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			X xdown;\n" +
+				"			class AbsLow{  int a;}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				int abc = xup.i;\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef, accessing a field from local class field
+public void test376550_10a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   X xup;\n" +
+				"	int i = 1;\n" +
+				"   public void foo(){\n" + // can be static
+				"   	class Local{\n" +
+				"			X xdown;\n" +
+				"			void calc(int i1){}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				calc(xdown.i);\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	public void foo(){\n" + 
+		"	            ^^^^^\n" + 
+		"The method foo() from the type X can potentially be declared as static\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// QualifiedNameRef, accessing a field from local class field
+public void test376550_10b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"public class X {\n" +
+				"   X xup;\n" +
+				"	int i = 1;\n" +
+				"   public void foo(){\n" + // can't be static
+				"   	class Local{\n" +
+				"			X xdown;\n" +
+				"			void calc(int i1){}\n" +
+				"			void method2() {\n" +  // can't be static
+				"				calc(xup.i);\n" +
+				"			}\n" +
+				"		}\n" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// bug test case
+public void test376550_11() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"import java.util.ArrayList;\n" +
+				"import java.util.Collection;\n" +
+				"public class X {\n" +
+				"   private Object o = new Object();\n" +
+				"   public final Collection<Object> go() {\n" + // can't be static
+				"   	return new ArrayList<Object>() {\n" +
+				"			{ add(o);}\n" +
+				"		};\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 6)\n" + 
+		"	return new ArrayList<Object>() {\n" + 
+		"	           ^^^^^^^^^^^^^^^^^^^\n" + 
+		"The serializable class  does not declare a static final serialVersionUID field of type long\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 7)\n" + 
+		"	{ add(o);}\n" + 
+		"	      ^\n" + 
+		"Read access to enclosing field X.o is emulated by a synthetic accessor method\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/376550
+// https://bugs.eclipse.org/379784 - [compiler] "Method can be static" is not getting reported
+// bug test case
+public void test376550_11a() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"import java.util.ArrayList;\n" +
+				"import java.util.Collection;\n" +
+				"public class X {\n" +
+				"   private Object o = new Object();\n" +
+				"   public final Collection<Object> go() {\n" +// can be static
+				"   	return new ArrayList<Object>() {\n" +
+				"			{ add(null);}\n" +	// required instance is of type ArrayList, not X
+				"		};\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 5)\n" +
+		"	public final Collection<Object> go() {\n" +
+		"	                                ^^^^\n" +
+		"The method go() from the type X can be declared as static\n" +
+		"----------\n" +
+		"2. WARNING in X.java (at line 6)\n" +
+		"	return new ArrayList<Object>() {\n" +
+		"	           ^^^^^^^^^^^^^^^^^^^\n" +
+		"The serializable class  does not declare a static final serialVersionUID field of type long\n" +
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+public void test376550_12() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runNegativeTest(
+		new String[] {
+				"X.java", 
+				"import java.util.ArrayList;\n" +
+				"import java.util.Collection;\n" +
+				"public class X<E> {\n" +
+				"   private Object o = new Object();\n" +
+				"   public final <E1> Collection<E1> go() {\n" + // CAN be static
+				"   	return new ArrayList<E1>() {\n" +
+				"			{ E1 e;}\n" +
+				"		};\n" +
+				"	}\n" +
+				"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 5)\n" + 
+		"	public final <E1> Collection<E1> go() {\n" + 
+		"	                                 ^^^^\n" + 
+		"The method go() from the type X<E> can be declared as static\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 6)\n" + 
+		"	return new ArrayList<E1>() {\n" + 
+		"	           ^^^^^^^^^^^^^^^\n" + 
+		"The serializable class  does not declare a static final serialVersionUID field of type long\n" + 
+		"----------\n",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		compilerOptions /* custom options */
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376550
+// https://bugs.eclipse.org/379834 - Wrong "method can be static" in presence of qualified super and different staticness of nested super class.
+public void test376550_13() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runConformTest(
+		new String[] {
+				"QualifiedSuper.java", 
+				"public class QualifiedSuper {\n" + 
+				"	class InnerS {\n" + 
+				"		void flub() {}\n" + 
+				"	}\n" + 
+				"	static class InnerT extends InnerS {\n" + 
+				"		InnerT(QualifiedSuper qs) {\n" + 
+				"			qs.super();\n" + 
+				"		}\n" + 
+				"		final void schlumpf() {\n" + 
+				"			InnerT.super.flub();\n" + 
+				"		}\n" + 
+				"	}	\n" + 
+				"}\n"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		null,
+		compilerOptions /* custom options */,
+		null
+	);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=379530
+public void test379530() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	Map compilerOptions = getCompilerOptions();
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBeStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportMethodCanBePotentiallyStatic, CompilerOptions.ERROR);
+	compilerOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.IGNORE);
+	this.runConformTest(
+		new String[] {
+				"X.java", 
+				"public class X<S> {\n" +
+				"   S s;\n" +
+				"	{\n" +
+				"		 S /*[*/s/*]*/;\n" +
+				"		 s= X.this.s;" +
+				"	}\n" +
+				"}"
+		},
+		"",
+		null /* no extra class libraries */,
+		true /* flush output directory */,
+		null,
+		compilerOptions /* custom options */,
+		null
+	);
 }
 }

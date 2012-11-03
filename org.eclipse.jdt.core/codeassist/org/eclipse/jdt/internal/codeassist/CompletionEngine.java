@@ -1000,6 +1000,28 @@ public final class CompletionEngine
 				if(keys[i] != null) {
 					AcceptedConstructor value = (AcceptedConstructor) values[i];
 					if(value != null) {
+						char[] fullyQualifiedEnclosingTypeOrPackageName = null;
+						done : for (int j = 0; j < this.onDemandImportCacheCount; j++) {
+							ImportBinding importBinding = this.onDemandImportsCache[j];
+
+							char[][] importName = importBinding.compoundName;
+							char[] importFlatName = CharOperation.concatWith(importName, '.');
+
+							if(fullyQualifiedEnclosingTypeOrPackageName == null) {
+								fullyQualifiedEnclosingTypeOrPackageName = value.packageName;
+							}
+							if(CharOperation.equals(fullyQualifiedEnclosingTypeOrPackageName, importFlatName)) {
+								if(importBinding.isStatic()) {
+									if((value.modifiers & ClassFileConstants.AccStatic) != 0) {
+										value.mustBeQualified = true;
+										break done;
+									}
+								} else {
+									value.mustBeQualified = true;
+									break done;
+								}
+							}
+						}
 						if (value.proposeType) {
 							proposeType(
 									value.packageName,
@@ -1580,6 +1602,16 @@ public final class CompletionEngine
 			if (method.modifiers == ClassFileConstants.AccDefault &&
 					(method.annotations == null || method.annotations.length == 0)) {
 				context.setTokenLocation(CompletionContext.TL_MEMBER_START);
+			}
+		} else if (astNode instanceof CompletionOnSingleTypeReference) {
+			CompletionOnSingleTypeReference completionOnSingleTypeReference = (CompletionOnSingleTypeReference) astNode;
+			if (completionOnSingleTypeReference.isConstructorType) {
+						context.setTokenLocation(CompletionContext.TL_CONSTRUCTOR_START);
+			}
+		} else if (astNode instanceof CompletionOnQualifiedTypeReference) {
+			CompletionOnQualifiedTypeReference completionOnQualifiedTypeReference = (CompletionOnQualifiedTypeReference) astNode;
+			if (completionOnQualifiedTypeReference.isConstructorType){
+						context.setTokenLocation(CompletionContext.TL_CONSTRUCTOR_START);
 			}
 		} else {
 			ReferenceContext referenceContext = scope.referenceContext();
@@ -4012,6 +4044,13 @@ public final class CompletionEngine
 		}
 		return 0;
 	}
+	
+	private int computeRelevanceForConstructor() {
+		if (this.assistNodeIsConstructor) {
+			return R_CONSTRUCTOR;
+		}
+		return 0;
+	}
 
 	private int computeRelevanceForEnum(){
 		if(this.assistNodeIsEnum) {
@@ -5319,7 +5358,7 @@ public final class CompletionEngine
 							if(!isIgnored(CompletionProposal.CONSTRUCTOR_INVOCATION, CompletionProposal.TYPE_REF)) {
 								char[] packageName = currentType.isLocalType() ? null : currentType.qualifiedPackageName();
 								char[] typeName = currentType.qualifiedSourceName();
-								
+								int constructorRelevance = relevance + computeRelevanceForConstructor();
 								InternalCompletionProposal proposal =  createProposal(CompletionProposal.CONSTRUCTOR_INVOCATION, this.actualCompletionPosition);
 								proposal.setDeclarationSignature(getSignature(currentType));
 								proposal.setSignature(getSignature(constructor));
@@ -5346,7 +5385,7 @@ public final class CompletionEngine
 								typeProposal.setFlags(currentType.modifiers);
 								typeProposal.setReplaceRange(this.startPosition - this.offset, this.endPosition - this.offset);
 								typeProposal.setTokenRange(this.startPosition - this.offset, this.endPosition - this.offset);
-								typeProposal.setRelevance(relevance);
+								typeProposal.setRelevance(constructorRelevance);
 								proposal.setRequiredProposals( new CompletionProposal[]{typeProposal});
 								
 								proposal.setIsContructor(true);
@@ -5354,7 +5393,7 @@ public final class CompletionEngine
 								proposal.setFlags(constructor.modifiers);
 								proposal.setReplaceRange(this.endPosition - this.offset, this.endPosition - this.offset);
 								proposal.setTokenRange(this.tokenStart - this.offset, this.tokenEnd - this.offset);
-								proposal.setRelevance(relevance);
+								proposal.setRelevance(constructorRelevance);
 								if(parameterNames != null) proposal.setParameterNames(parameterNames);
 								this.requestor.accept(proposal);
 								if(DEBUG) {
@@ -12323,6 +12362,7 @@ public final class CompletionEngine
 		relevance += computeRelevanceForCaseMatching(this.completionToken, simpleTypeName);
 		relevance += computeRelevanceForExpectingType(packageName, simpleTypeName);
 		relevance += computeRelevanceForQualification(isQualified);
+		relevance += computeRelevanceForConstructor();
 
 		boolean isInterface = false;
 		int kind = typeModifiers & (ClassFileConstants.AccInterface | ClassFileConstants.AccEnum | ClassFileConstants.AccAnnotation);

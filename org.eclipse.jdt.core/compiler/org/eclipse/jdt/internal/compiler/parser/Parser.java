@@ -166,6 +166,12 @@ public class Parser implements  ParserBasicInformation, TerminalTokens, Operator
 						compliance = ClassFileConstants.JDK1_4;
 					} else if("1.5".equals(token)) { //$NON-NLS-1$
 						compliance = ClassFileConstants.JDK1_5;
+					} else if("1.6".equals(token)) { //$NON-NLS-1$
+						compliance = ClassFileConstants.JDK1_6;
+					} else if("1.7".equals(token)) { //$NON-NLS-1$
+						compliance = ClassFileConstants.JDK1_7;
+					} else if("1.8".equals(token)) { //$NON-NLS-1$
+						compliance = ClassFileConstants.JDK1_8;
 					} else if("recovery".equals(token)) { //$NON-NLS-1$
 						compliance = ClassFileConstants.JDK_DEFERRED;
 					}
@@ -1107,7 +1113,7 @@ public void checkComment() {
 	int lastComment = this.scanner.commentPtr;
 
 	if (this.modifiersSourceStart >= 0) {
-		// eliminate comments located after modifierSourceStart if positionned
+		// eliminate comments located after modifierSourceStart if positioned
 		while (lastComment >= 0) {
 			int commentSourceStart = this.scanner.commentStarts[lastComment];
 			if (commentSourceStart < 0) commentSourceStart = -commentSourceStart;
@@ -2148,6 +2154,10 @@ protected void consumeCatchFormalParameter() {
 	if (extendedDimensions > 0) {
 		type = type.copyDims(type.dimensions() + extendedDimensions);
 		type.sourceEnd = this.endPosition;
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=391092
+		if (type instanceof UnionTypeReference) {
+			this.problemReporter().illegalArrayOfUnionType(identifierName, type);		
+		}
 	}
 	this.astLengthPtr--;
 	int modifierPositions = this.intStack[this.intPtr--];
@@ -7187,7 +7197,7 @@ protected void consumeSingleTypeImportDeclarationName() {
 }
 protected void consumeStatementBreak() {
 	// BreakStatement ::= 'break' ';'
-	// break pushs a position on this.intStack in case there is no label
+	// break pushes a position on this.intStack in case there is no label
 
 	pushOnAstStack(new BreakStatement(null, this.intStack[this.intPtr--], this.endStatementPosition));
 
@@ -7442,7 +7452,8 @@ protected void consumeStatementSynchronized() {
 				this.intStack[this.intPtr--],
 				this.endStatementPosition);
 	}
-	resetModifiers();
+	this.modifiers = ClassFileConstants.AccDefault;
+	this.modifiersSourceStart = -1; // <-- see comment into modifiersFlag(int)
 }
 protected void consumeStatementThrow() {
 	// ThrowStatement ::= 'throw' Expression ';'
@@ -9221,7 +9232,7 @@ public void initialize() {
 	this.initialize(false);
 }
 public void initialize(boolean initializeNLS) {
-	//positionning the parser for a new compilation unit
+	//positioning the parser for a new compilation unit
 	//avoiding stack reallocation and all that....
 	this.astPtr = -1;
 	this.astLengthPtr = -1;
@@ -10780,6 +10791,9 @@ private void reportSyntaxErrorsForSkippedMethod(TypeDeclaration[] types){
 		}
 	}
 }
+/**
+ * Reset modifiers buffer and comment stack. Should be call only for nodes that claim both.
+ */
 protected void resetModifiers() {
 	this.modifiers = ClassFileConstants.AccDefault;
 	this.modifiersSourceStart = -1; // <-- see comment into modifiersFlag(int)

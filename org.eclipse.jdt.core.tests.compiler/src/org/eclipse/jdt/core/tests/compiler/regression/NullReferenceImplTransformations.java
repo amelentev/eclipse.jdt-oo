@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2010 IBM Corporation and others.
+ * Copyright (c) 2005, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 386181 - [compiler][null] wrong transition in UnconditionalFlowInfo.mergedWith()
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -1172,6 +1175,7 @@ public class NullReferenceImplTransformations {
 				{0x00,0x10,0x10},
 				{0x00,0x14,0x14},
 				{0x00,0x18,0x18},
+				{0x00,0x1C,0x1C},
 				{0x00,0x24,0x04},
 				{0x00,0x28,0x08},
 				{0x00,0x2C,0x08},
@@ -1185,6 +1189,7 @@ public class NullReferenceImplTransformations {
 				{0x04,0x10,0x14},
 				{0x04,0x14,0x14},
 				{0x04,0x18,0x18},
+				{0x04,0x1C,0x1C},
 				{0x04,0x24,0x04},
 				{0x04,0x28,0x0C},
 				{0x04,0x2C,0x0C},
@@ -1195,6 +1200,7 @@ public class NullReferenceImplTransformations {
 				{0x08,0x10,0x18},
 				{0x08,0x14,0x18},
 				{0x08,0x18,0x18},
+				{0x08,0x1C,0x1C},
 				{0x08,0x24,0x0C},
 				{0x08,0x28,0x08},
 				{0x08,0x2C,0x08},
@@ -1204,6 +1210,7 @@ public class NullReferenceImplTransformations {
 				{0x0C,0x10,0x18},
 				{0x0C,0x14,0x18},
 				{0x0C,0x18,0x18},
+				{0x0C,0x1C,0x1C},
 				{0x0C,0x24,0x0C},
 				{0x0C,0x28,0x0C},
 				{0x0C,0x30,0x18},
@@ -1211,21 +1218,33 @@ public class NullReferenceImplTransformations {
 				{0x10,0x10,0x10},
 				{0x10,0x14,0x14},
 				{0x10,0x18,0x18},
+				{0x10,0x1C,0x1C},
 				{0x10,0x24,0x14},
 				{0x10,0x28,0x18},
 				{0x10,0x30,0x10},
 				{0x10,0x34,0x10},
 				{0x14,0x14,0x14},
 				{0x14,0x18,0x18},
+				{0x14,0x1C,0x1C},
 				{0x14,0x24,0x14},
 				{0x14,0x28,0x18},
 				{0x14,0x30,0x14},
 				{0x18,0x18,0x18},
+				{0x18,0x1C,0x1C},
 				{0x18,0x24,0x18},
 				{0x18,0x28,0x18},
 				{0x18,0x30,0x18},
+				{0x1C,0x1C,0x1C},
+				{0x1C,0x20,0x1C},
+				{0x1C,0x24,0x1C},
+				{0x1C,0x28,0x1C},
+				{0x1C,0x2C,0x1C},
+				{0x1C,0x30,0x1C},
+				{0x1C,0x34,0x1C},
+				{0x1C,0x38,0x1C},
+				{0x1C,0x3C,0x1C},
 				{0x24,0x24,0x24},
-				{0x24,0x28,0x24},
+				{0x24,0x28,0x0C},
 				{0x24,0x30,0x14},
 				{0x28,0x28,0x28},
 				{0x28,0x30,0x18},
@@ -1276,47 +1295,6 @@ public class NullReferenceImplTransformations {
 					UnconditionalFlowInfo input2) {
 				return input1.copy().mergedWith(input2);
 			}
-		},
-		newNullInfoRegistry =
-		// newNullInfoRegistry DEFINITION START
-		// start => start
-		// prot. non null => start
-		// prot. null => start
-		// pot. unknown => start
-		// pot. non null => start
-		// pot. nn & prot. nn => start
-		// pot. nn & pot. un => start
-		// pot. null => start
-		// pot. n & prot. n => start
-		// pot. n & pot. un => start
-		// pot. n & pot. nn => start
-		// def. unknown => pot. unknown
-		// def. non null => pot. non null
-		// def. null => pot. null
-		// newNullInfoRegistry DEFINITION END
-			new CreationalTransformation("newNullInfoRegistry",
-				new byte[][] {
-				// newNullInfoRegistry INITIALIZER START
-				{0x00,0x00},
-				{0x04,0x00},
-				{0x08,0x00},
-				{0x0C,0x00},
-				{0x10,0x00},
-				{0x14,0x00},
-				{0x18,0x00},
-				{0x24,0x04},
-				{0x28,0x08},
-				{0x2C,0x00},
-				{0x30,0x10},
-				{0x34,0x00},
-				{0x38,0x00},
-				{0x3C,0x00},
-				// newNullInfoRegistry INITIALIZER END
-				}) {
-			UnconditionalFlowInfo output(UnconditionalFlowInfo input) {
-				return NullInfoRegistryTestHarness.
-					testNullInfoRegistry((UnconditionalFlowInfoTestHarness) input);
-			}
 		};
 	public static final Transformation[] transformations = {
 			markAsComparedEqualToNonNull,
@@ -1326,8 +1304,7 @@ public class NullReferenceImplTransformations {
 			markAsDefinitelyUnknown,
 			addInitializationsFrom,
 			addPotentialInitializationsFrom,
-			mergedWith,
-			newNullInfoRegistry
+			mergedWith
 		};
 public abstract static class Transformation {
 	public String name;
@@ -1979,69 +1956,6 @@ int test() {
 					" => " + effectiveOutput.printableBitsField +
 					" (zero 128) instead of: " + expectedOutput.printableBitsField);
 			}
-		}
-	}
-	return this.failuresNb;
-}
-}
-abstract static class CreationalTransformation extends TwoDimensionalTransformation {
-CreationalTransformation(String name, byte[][] transitions) {
-	super(name, transitions);
-}
-void hydrate() {
-	if (this.computedTransitions == null) {
-		State input, output;
-		this.computedTransitions = new HashMap(State.stateMaxValue + 1);
-		for (int i = 0, length = State.states.length; i < length; i++) {
-			output = ((NullInfoRegistryTestHarness)
-				output(UnconditionalFlowInfoTestHarness.
-					testUnconditionalFlowInfo(input = State.states[i]),
-						TestLocalVariableBinding.local0)).asState();
-			if (input.symbolic && !output.symbolic) {
-				System.err.println(this.name + " generates non-symbolic state " +
-					output + " upon entry: " + input);
-			}
-			this.computedTransitions.put(input, output);
-		}
-	}
-}
-UnconditionalFlowInfo output(UnconditionalFlowInfo input, TestLocalVariableBinding local) {
-	return output(input);
-}
-abstract UnconditionalFlowInfo output(UnconditionalFlowInfo input);
-int test() {
-	Iterator transitions = this.initializedTransitions.entrySet().iterator();
-	State input, expectedOutput, effectiveOutput;
-	Map.Entry transition;
-	this.failuresNb = 0; // reset
-	while (transitions.hasNext()) {
-		transition = (Map.Entry) transitions.next();
-		input = (State) transition.getKey();
-		expectedOutput = (State) transition.getValue();
-		effectiveOutput = ((NullInfoRegistryTestHarness)
-			output(UnconditionalFlowInfoTestHarness.
-				testUnconditionalFlowInfo(input),
-					TestLocalVariableBinding.local0)).asState();
-		if (effectiveOutput != expectedOutput) {
-			fail();
-			System.out.println("\t\t" + input.printableBitsField +
-				" => " + effectiveOutput.printableBitsField +
-				" instead of: " + expectedOutput.printableBitsField);
-		}
-	}
-	transitions = this.initializedTransitions.entrySet().iterator();
-	while (transitions.hasNext()) {
-		transition = (Map.Entry) transitions.next();
-		input = (State) transition.getKey();
-		expectedOutput = (State) transition.getValue();
-		effectiveOutput = ((NullInfoRegistryTestHarness)
-				output(UnconditionalFlowInfoTestHarness.
-					testUnconditionalFlowInfo(input, 64))).asState(64);
-		if (effectiveOutput != expectedOutput) {
-			fail();
-			System.out.println("\t\t" + input.printableBitsField +
-				" => " + effectiveOutput.printableBitsField +
-				" (64) instead of: " + expectedOutput.printableBitsField);
 		}
 	}
 	return this.failuresNb;

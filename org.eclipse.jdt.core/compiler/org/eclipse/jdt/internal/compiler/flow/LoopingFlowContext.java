@@ -13,6 +13,8 @@
  *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *								bug 385626 - @NonNull fails across loop boundaries
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.flow;
 
@@ -84,8 +86,9 @@ public class LoopingFlowContext extends SwitchFlowContext {
 		ASTNode associatedNode,
 		BranchLabel breakLabel,
 		BranchLabel continueLabel,
-		Scope associatedScope) {
-		super(parent, associatedNode, breakLabel);
+		Scope associatedScope,
+		boolean isPreTest) {
+		super(parent, associatedNode, breakLabel, isPreTest);
 		this.tagBits |= FlowContext.PREEMPT_NULL_DIAGNOSTIC;
 			// children will defer to this, which may defer to its own parent
 		this.continueLabel = continueLabel;
@@ -251,7 +254,10 @@ public void complainOnDeferredNullChecks(BlockScope scope, FlowInfo callerFlowIn
 					}
 					break;
 				case ASSIGN_TO_NONNULL:
-					this.parent.recordNullityMismatch(scope, (Expression)location, this.providedExpectedTypes[i][0], this.providedExpectedTypes[i][1], flowInfo.nullStatus(local));
+					int nullStatus = flowInfo.nullStatus(local);
+					if (nullStatus != FlowInfo.NON_NULL) {
+						this.parent.recordNullityMismatch(scope, (Expression)location, this.providedExpectedTypes[i][0], this.providedExpectedTypes[i][1], nullStatus);
+					}
 					break;
 				case EXIT_RESOURCE:
 						FakedTrackingVariable trackingVar = local.closeTracker;

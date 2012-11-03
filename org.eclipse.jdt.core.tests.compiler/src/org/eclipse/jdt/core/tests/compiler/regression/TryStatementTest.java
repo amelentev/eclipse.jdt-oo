@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2011 IBM Corporation and others.
+ * Copyright (c) 2003, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,9 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 387612 - Unreachable catch block...exception is never thrown from the try
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -23,7 +26,7 @@ import junit.framework.Test;
 public class TryStatementTest extends AbstractRegressionTest {
 
 static {
-//	TESTS_NAMES = new String[] { "test000" };
+//	TESTS_NAMES = new String[] { "testBug387612" };
 //	TESTS_NUMBERS = new int[] { 74, 75 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -904,7 +907,7 @@ public void test026() throws Exception {
 
 	String expectedOutput =
 		"      Local variable table:\n" +
-		"        [pc: 6, pc: 21] local: i index: 0 type: int\n" +
+		"        [pc: 6, pc: 20] local: i index: 0 type: int\n" +
 		"        [pc: 16, pc: 20] local: e index: 1 type: java.lang.Throwable\n";
 
 	File f = new File(OUTPUT_DIR + File.separator + "X.class");
@@ -956,7 +959,6 @@ public void test027() throws Exception {
 		"      Local variable table:\n" +
 		"        [pc: 0, pc: 20] local: this index: 0 type: X\n" +
 		"        [pc: 0, pc: 20] local: b index: 1 type: boolean\n" +
-		"        [pc: 6, pc: 9] local: i index: 2 type: int\n" +
 		"        [pc: 10, pc: 14] local: e index: 2 type: java.lang.Exception\n";
 
 	File f = new File(OUTPUT_DIR + File.separator + "X.class");
@@ -3681,7 +3683,7 @@ public void test048() throws Exception {
 				"        [pc: 0, line: 50]\n" +
 				"        [pc: 7, line: 51]\n" +
 				"        [pc: 28, line: 52]\n" +
-				"        [pc: 29, line: 53]\n" +
+				"        [pc: 29, line: 55]\n" +
 				"        [pc: 32, line: 56]\n" +
 				"        [pc: 37, line: 58]\n" +
 				"      Local variable table:\n" +
@@ -3828,7 +3830,7 @@ public void test048() throws Exception {
 			"        [pc: 0, line: 50]\n" +
 			"        [pc: 7, line: 51]\n" +
 			"        [pc: 28, line: 52]\n" +
-			"        [pc: 29, line: 53]\n" +
+			"        [pc: 29, line: 55]\n" +
 			"        [pc: 32, line: 56]\n" +
 			"        [pc: 37, line: 58]\n" +
 			"      Local variable table:\n" +
@@ -4056,7 +4058,7 @@ public void test049() throws Exception {
 			"        [pc: 0, line: 46]\n" +
 			"        [pc: 7, line: 47]\n" +
 			"        [pc: 28, line: 48]\n" +
-			"        [pc: 36, line: 49]\n" +
+			"        [pc: 36, line: 51]\n" +
 			"        [pc: 39, line: 52]\n" +
 			"        [pc: 44, line: 54]\n" +
 			"      Local variable table:\n" +
@@ -4217,7 +4219,7 @@ public void test049() throws Exception {
 			"        [pc: 0, line: 46]\n" +
 			"        [pc: 7, line: 47]\n" +
 			"        [pc: 28, line: 48]\n" +
-			"        [pc: 36, line: 49]\n" +
+			"        [pc: 36, line: 51]\n" +
 			"        [pc: 39, line: 52]\n" +
 			"        [pc: 44, line: 54]\n" +
 			"      Local variable table:\n" +
@@ -4415,7 +4417,7 @@ public void test050() throws Exception {
 				"        [pc: 0, line: 46]\n" +
 				"        [pc: 7, line: 47]\n" +
 				"        [pc: 28, line: 48]\n" +
-				"        [pc: 31, line: 49]\n" +
+				"        [pc: 31, line: 51]\n" +
 				"        [pc: 34, line: 52]\n" +
 				"        [pc: 39, line: 54]\n" +
 				"      Local variable table:\n" +
@@ -4545,7 +4547,7 @@ public void test050() throws Exception {
 			"        [pc: 0, line: 46]\n" +
 			"        [pc: 7, line: 47]\n" +
 			"        [pc: 28, line: 48]\n" +
-			"        [pc: 31, line: 49]\n" +
+			"        [pc: 31, line: 51]\n" +
 			"        [pc: 34, line: 52]\n" +
 			"        [pc: 39, line: 54]\n" +
 			"      Local variable table:\n" +
@@ -4618,8 +4620,7 @@ public void test051() throws Exception {
 			"        [pc: 2, line: 8]\n" +
 			"        [pc: 4, line: 9]\n" +
 			"        [pc: 7, line: 10]\n" +
-			"        [pc: 16, line: 11]\n" +
-			"        [pc: 19, line: 13]\n" +
+			"        [pc: 16, line: 13]\n" +
 			"        [pc: 20, line: 15]\n" +
 			"      Local variable table:\n" +
 			"        [pc: 2, pc: 22] local: count index: 0 type: int\n" +
@@ -4648,8 +4649,7 @@ public void test051() throws Exception {
 			"        [pc: 2, line: 8]\n" +
 			"        [pc: 4, line: 9]\n" +
 			"        [pc: 7, line: 10]\n" +
-			"        [pc: 16, line: 11]\n" +
-			"        [pc: 19, line: 13]\n" +
+			"        [pc: 16, line: 13]\n" +
 			"        [pc: 20, line: 15]\n" +
 			"      Local variable table:\n" +
 			"        [pc: 2, pc: 22] local: count index: 0 type: int\n" +
@@ -4784,11 +4784,11 @@ public void test053() throws Exception {
 			"      Line numbers:\n" +
 			"        [pc: 0, line: 5]\n" +
 			"        [pc: 7, line: 6]\n" +
-			"        [pc: 17, line: 7]\n" +
+			"        [pc: 14, line: 7]\n" +
 			"        [pc: 18, line: 9]\n" +
 			"      Local variable table:\n" +
 			"        [pc: 0, pc: 19] local: args index: 0 type: java.lang.String[]\n" +
-			"        [pc: 3, pc: 17] local: val index: 1 type: int\n"
+			"        [pc: 3, pc: 14] local: val index: 1 type: int\n"
 		:
 			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" +
 			"  // Stack: 2, Locals: 2\n" +
@@ -4808,11 +4808,11 @@ public void test053() throws Exception {
 			"      Line numbers:\n" +
 			"        [pc: 0, line: 5]\n" +
 			"        [pc: 7, line: 6]\n" +
-			"        [pc: 17, line: 7]\n" +
+			"        [pc: 14, line: 7]\n" +
 			"        [pc: 18, line: 9]\n" +
 			"      Local variable table:\n" +
 			"        [pc: 0, pc: 19] local: args index: 0 type: java.lang.String[]\n" +
-			"        [pc: 3, pc: 17] local: val index: 1 type: int\n" +
+			"        [pc: 3, pc: 14] local: val index: 1 type: int\n" +
 			"      Stack map table: number of frames 3\n" +
 			"        [pc: 7, append: {int}]\n" +
 			"        [pc: 17, full, stack: {java.lang.Exception}, locals: {java.lang.String[]}]\n" +
@@ -5275,12 +5275,12 @@ public void test058() throws Exception {
 			"        [pc: 53, pc: 56] -> 34 when : any\n" +
 			"      Line numbers:\n" +
 			"        [pc: 0, line: 5]\n" +
-			"        [pc: 11, line: 6]\n" +
+			"        [pc: 8, line: 6]\n" +
 			"        [pc: 15, line: 8]\n" +
 			"        [pc: 17, line: 6]\n" +
 			"        [pc: 18, line: 7]\n" +
 			"        [pc: 26, line: 8]\n" +
-			"        [pc: 34, line: 9]\n" +
+			"        [pc: 31, line: 9]\n" +
 			"        [pc: 39, line: 11]\n" +
 			"        [pc: 42, line: 9]\n" +
 			"        [pc: 43, line: 10]\n" +
@@ -5321,11 +5321,11 @@ public void test058() throws Exception {
 			"        [pc: 0, pc: 33] -> 33 when : any\n" +
 			"      Line numbers:\n" +
 			"        [pc: 0, line: 5]\n" +
-			"        [pc: 11, line: 6]\n" +
+			"        [pc: 8, line: 6]\n" +
 			"        [pc: 12, line: 7]\n" +
 			"        [pc: 20, line: 8]\n" +
 			"        [pc: 22, line: 7]\n" +
-			"        [pc: 33, line: 9]\n" +
+			"        [pc: 30, line: 9]\n" +
 			"        [pc: 34, line: 10]\n" +
 			"        [pc: 42, line: 11]\n" +
 			"        [pc: 44, line: 10]\n" +
@@ -5964,6 +5964,168 @@ public void test073() {
 		"No exception of type Exception[] can be thrown; an exception type must be a subclass of Throwable\n" + 
 		"----------\n");
 }
+// test for regression during work on bug 345305
+// saw "The local variable name may not have been initialized" against last code line
+public void test074() {
+	runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	Class test(String name) throws ClassNotFoundException {\n" + 
+			"		Class c= findClass(name);\n" + 
+			"		if (c != null)\n" + 
+			"			return c;\n" + 
+			"		if (isExcluded(name)) {\n" + 
+			"			try {\n" + 
+			"				c= findClass(name);\n" + 
+			"				return c;\n" + 
+			"			} catch (ClassNotFoundException e) {\n" + 
+			"				// keep searching\n" + 
+			"			}\n" + 
+			"		}\n" + 
+			"		return findClass(name);\n" +
+			"    }\n" + 
+			"    boolean isExcluded(String name) { return false; }\n" +
+			"    Class findClass(String name) throws ClassNotFoundException { return null; }\n" +
+			"}\n"
+		});
+}
+
+// Bug 387612 - Unreachable catch block...exception is never thrown from the try
+// redundant exception in throws must not confuse downstream analysis
+public void testBug387612() {
+	String serialUID = "private static final long serialVersionUID=1L;";
+	runNegativeTest(
+		new String[] {
+			"E.java",
+			"public class E extends Exception {"+serialUID+"}\n",
+			"E1.java",
+			"public class E1 extends E {"+serialUID+"}\n",
+			"E2.java",
+			"public class E2 extends E {"+serialUID+"}\n",
+			"E3.java",
+			"public class E3 extends E {"+serialUID+"}\n",
+			"A.java",
+			"interface A {\n" +
+			"    void foo(String a1, String a2) throws E1, E;\n" +
+			"}\n",
+			"B.java",
+			"interface B extends A {\n" +
+			"    void foo(String a1, String a2) throws E;\n" +
+			"}\n",
+			"Client.java",
+			"public class Client {\n" +
+			"    void test() {\n" +
+			"        B b = new B() {\n" +
+			"            public void foo(String a1, String a2) {}\n" +
+			"        };\n" +
+			"        try {\n" +
+			"            b.foo(null, null);\n" +
+			"        }\n" +
+			"        catch (E1 e) {}\n" +
+			"        catch (E2 e) {}\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. ERROR in Client.java (at line 7)\n" + 
+		"	b.foo(null, null);\n" + 
+		"	^^^^^^^^^^^^^^^^^\n" + 
+		"Unhandled exception type E\n" + 
+		"----------\n");
+}
+
+// Bug 387612 - Unreachable catch block...exception is never thrown from the try
+// - changed order in redundant 'throws' clause.
+public void testBug387612b() {
+	String serialUID = "private static final long serialVersionUID=1L;";
+	runNegativeTest(
+		new String[] {
+			"E.java",
+			"public class E extends Exception {"+serialUID+"}\n",
+			"E1.java",
+			"public class E1 extends E {"+serialUID+"}\n",
+			"E2.java",
+			"public class E2 extends E {"+serialUID+"}\n",
+			"E3.java",
+			"public class E3 extends E {"+serialUID+"}\n",
+			"A.java",
+			"interface A {\n" +
+			"    void foo(String a1, String a2) throws E, E1;\n" +
+			"}\n",
+			"B.java",
+			"interface B extends A {\n" +
+			"    void foo(String a1, String a2) throws E;\n" +
+			"}\n",
+			"Client.java",
+			"public class Client {\n" +
+			"    void test() {\n" +
+			"        B b = new B() {\n" +
+			"            public void foo(String a1, String a2) {}\n" +
+			"        };\n" +
+			"        try {\n" +
+			"            b.foo(null, null);\n" +
+			"        }\n" +
+			"        catch (E1 e) {}\n" +
+			"        catch (E2 e) {}\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. ERROR in Client.java (at line 7)\n" + 
+		"	b.foo(null, null);\n" + 
+		"	^^^^^^^^^^^^^^^^^\n" + 
+		"Unhandled exception type E\n" + 
+		"----------\n");
+}
+
+// Bug 387612 - Unreachable catch block...exception is never thrown from the try
+// interface with redundant exceptions in throws is read from class file.
+public void testBug387612c() {
+	String serialUID = "private static final long serialVersionUID=1L;";
+	runConformTest(
+		new String[] {
+			"E.java",
+			"public class E extends Exception {"+serialUID+"}\n",
+			"E1.java",
+			"public class E1 extends E {"+serialUID+"}\n",
+			"E2.java",
+			"public class E2 extends E {"+serialUID+"}\n",
+			"A.java",
+			"interface A {\n" +
+			"    void foo(String a1, String a2) throws E1, E;\n" +
+			"}\n",
+			"B.java",
+			"interface B extends A {\n" +
+			"    void foo(String a1, String a2) throws E;\n" +
+			"}\n"
+		});
+	runNegativeTest(
+		new String[] {
+			"Client.java",
+			"public class Client {\n" +
+			"    void test() {\n" +
+			"        B b = new B() {\n" +
+			"            public void foo(String a1, String a2) {}\n" +
+			"        };\n" +
+			"        try {\n" +
+			"            b.foo(null, null);\n" +
+			"        }\n" +
+			"        catch (E1 e) {}\n" +
+			"        catch (E2 e) {}\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. ERROR in Client.java (at line 7)\n" + 
+		"	b.foo(null, null);\n" + 
+		"	^^^^^^^^^^^^^^^^^\n" + 
+		"Unhandled exception type E\n" + 
+		"----------\n",
+		null,
+		false/*shouldFlush*/);
+}
+
 public static Class testClass() {
 	return TryStatementTest.class;
 }

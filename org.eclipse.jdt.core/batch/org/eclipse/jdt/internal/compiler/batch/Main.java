@@ -16,6 +16,7 @@
  *     							bug 359721 - [options] add command line option for new warning token "resource"
  *								bug 365208 - [compiler][batch] command line options for annotation based null analysis
  *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.batch;
 
@@ -2858,9 +2859,22 @@ private void initializeWarnings(String propertiesFile) {
 	for (Iterator iterator = properties.entrySet().iterator(); iterator.hasNext(); ) {
 		Map.Entry entry = (Map.Entry) iterator.next();
 		final String key = (String) entry.getKey();
-		if (key.startsWith("org.eclipse.jdt.core.compiler.problem")) { //$NON-NLS-1$
+		if (key.startsWith("org.eclipse.jdt.core.compiler.")) { //$NON-NLS-1$
 			this.options.put(key, entry.getValue());
 		}
+	}
+	// when using a properties file mimic relevant defaults from JavaCorePreferenceInitializer:
+	if (!properties.containsKey(CompilerOptions.OPTION_LocalVariableAttribute)) {
+		this.options.put(CompilerOptions.OPTION_LocalVariableAttribute, CompilerOptions.GENERATE);
+	}
+	if (!properties.containsKey(CompilerOptions.OPTION_PreserveUnusedLocal)) {
+		this.options.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.PRESERVE);
+	}
+	if (!properties.containsKey(CompilerOptions.OPTION_DocCommentSupport)) {
+		this.options.put(CompilerOptions.OPTION_DocCommentSupport, CompilerOptions.ENABLED);
+	}
+	if (!properties.containsKey(CompilerOptions.OPTION_ReportForbiddenReference)) {
+		this.options.put(CompilerOptions.OPTION_ReportForbiddenReference, CompilerOptions.ERROR);
 	}
 }
 protected void enableAll(int severity) {
@@ -3446,7 +3460,60 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 						CompilerOptions.OPTION_IncludeNullInfoFromAsserts,
 						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
 				return;
-			} 
+			} else if (token.equals("invalidJavadoc")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportInvalidJavadoc, severity, isEnabling);
+				this.options.put(
+					CompilerOptions.OPTION_ReportInvalidJavadocTags,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				this.options.put(
+					CompilerOptions.OPTION_ReportInvalidJavadocTagsDeprecatedRef,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				this.options.put(
+					CompilerOptions.OPTION_ReportInvalidJavadocTagsNotVisibleRef,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				if (isEnabling) {
+					this.options.put(
+							CompilerOptions.OPTION_DocCommentSupport,
+							CompilerOptions.ENABLED);
+					this.options.put(
+						CompilerOptions.OPTION_ReportInvalidJavadocTagsVisibility,
+						CompilerOptions.PRIVATE);
+				}
+				return;
+			} else if (token.equals("invalidJavadocTag")) { //$NON-NLS-1$
+				this.options.put(
+					CompilerOptions.OPTION_ReportInvalidJavadocTags,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("invalidJavadocTagDep")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportInvalidJavadocTagsDeprecatedRef,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("invalidJavadocTagNotVisible")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportInvalidJavadocTagsNotVisibleRef,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.startsWith("invalidJavadocTagVisibility")) { //$NON-NLS-1$
+				int start = token.indexOf('(');
+				int end = token.indexOf(')');
+				String visibility = null;
+				if (isEnabling && start >= 0 && end >= 0 && start < end){
+					visibility = token.substring(start+1, end).trim();
+				}
+				if (visibility != null && visibility.equals(CompilerOptions.PUBLIC)
+						|| visibility.equals(CompilerOptions.PRIVATE)
+						|| visibility.equals(CompilerOptions.PROTECTED)
+						|| visibility.equals(CompilerOptions.DEFAULT)) {
+					this.options.put(
+							CompilerOptions.OPTION_ReportInvalidJavadocTagsVisibility,
+							visibility);
+					return;
+				} else {
+					throw new IllegalArgumentException(this.bind("configure.invalidJavadocTagVisibility", token)); //$NON-NLS-1$
+				}
+			}
 			break;
 		case 'j' :
 			if (token.equals("javadoc")) {//$NON-NLS-1$
@@ -3466,6 +3533,89 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 			if (token.equals("maskedCatchBlock") || token.equals("maskedCatchBlocks")/*backward compatible*/) { //$NON-NLS-1$ //$NON-NLS-2$
 				setSeverity(CompilerOptions.OPTION_ReportHiddenCatchBlock, severity, isEnabling);
 				return;
+			} else if (token.equals("missingJavadocTags")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportMissingJavadocTags, severity, isEnabling);
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocTagsOverriding,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocTagsMethodTypeParameters,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				if (isEnabling) {
+					this.options.put(
+							CompilerOptions.OPTION_DocCommentSupport,
+							CompilerOptions.ENABLED);
+					this.options.put(
+						CompilerOptions.OPTION_ReportMissingJavadocTagsVisibility,
+						CompilerOptions.PRIVATE);
+				}
+				return;
+			} else if (token.equals("missingJavadocTagsOverriding")) { //$NON-NLS-1$
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocTagsOverriding,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("missingJavadocTagsMethod")) { //$NON-NLS-1$
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocTagsMethodTypeParameters,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.startsWith("missingJavadocTagsVisibility")) { //$NON-NLS-1$
+				int start = token.indexOf('(');
+				int end = token.indexOf(')');
+				String visibility = null;
+				if (isEnabling && start >= 0 && end >= 0 && start < end){
+					visibility = token.substring(start+1, end).trim();
+				}
+				if (visibility != null && visibility.equals(CompilerOptions.PUBLIC)
+						|| visibility.equals(CompilerOptions.PRIVATE)
+						|| visibility.equals(CompilerOptions.PROTECTED)
+						|| visibility.equals(CompilerOptions.DEFAULT)) {
+					this.options.put(
+							CompilerOptions.OPTION_ReportMissingJavadocTagsVisibility,
+							visibility);
+					return;
+				} else {
+					throw new IllegalArgumentException(this.bind("configure.missingJavadocTagsVisibility", token)); //$NON-NLS-1$
+				}
+			} else if (token.equals("missingJavadocComments")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportMissingJavadocComments, severity, isEnabling);
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocCommentsOverriding,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				if (isEnabling) {
+					this.options.put(
+							CompilerOptions.OPTION_DocCommentSupport,
+							CompilerOptions.ENABLED);
+					this.options.put(
+						CompilerOptions.OPTION_ReportMissingJavadocCommentsVisibility,
+						CompilerOptions.PRIVATE);
+				}
+				return;
+			} else if (token.equals("missingJavadocCommentsOverriding")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportMissingJavadocComments, severity, isEnabling);
+				this.options.put(
+					CompilerOptions.OPTION_ReportMissingJavadocCommentsOverriding,
+					isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.startsWith("missingJavadocCommentsVisibility")) { //$NON-NLS-1$
+				int start = token.indexOf('(');
+				int end = token.indexOf(')');
+				String visibility = null;
+				if (isEnabling && start >= 0 && end >= 0 && start < end){
+					visibility = token.substring(start+1, end).trim();
+				}
+				if (visibility != null && visibility.equals(CompilerOptions.PUBLIC)
+						|| visibility.equals(CompilerOptions.PRIVATE)
+						|| visibility.equals(CompilerOptions.PROTECTED)
+						|| visibility.equals(CompilerOptions.DEFAULT)) {
+					this.options.put(
+							CompilerOptions.OPTION_ReportMissingJavadocCommentsVisibility,
+							visibility);
+					return;
+				} else {
+					throw new IllegalArgumentException(this.bind("configure.missingJavadocCommentsVisibility", token)); //$NON-NLS-1$
+				}
 			}
 			break;
 		case 'n' :
@@ -3489,6 +3639,12 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 					setSeverity(CompilerOptions.OPTION_ReportPotentialNullReference, ProblemSeverities.Ignore, isEnabling);
 					setSeverity(CompilerOptions.OPTION_ReportRedundantNullCheck, ProblemSeverities.Ignore, isEnabling);
 				}
+				return;
+			}else if (token.equals("nullAnnotConflict")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportNullAnnotationInferenceConflict, severity, isEnabling);
+				return;
+			} else if (token.equals("nullAnnotRedundant")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportRedundantNullAnnotation, severity, isEnabling);
 				return;
 			} else if (token.startsWith("nullAnnot")) { //$NON-NLS-1$
 				String annotationNames = Util.EMPTY_STRING;
@@ -3518,6 +3674,9 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 				setSeverity(CompilerOptions.OPTION_ReportNullAnnotationInferenceConflict, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportNullUncheckedConversion, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportRedundantNullAnnotation, severity, isEnabling);
+				return;
+			} else if (token.equals("nullUncheckedConversion")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportNullUncheckedConversion, severity, isEnabling);
 				return;
 			}
 			
@@ -3666,6 +3825,21 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 			} else if (token.equals("unusedThrown")) { //$NON-NLS-1$
 				setSeverity(CompilerOptions.OPTION_ReportUnusedDeclaredThrownException, severity, isEnabling);
 				return;
+			} else if (token.equals("unusedThrownWhenOverriding")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedDeclaredThrownExceptionWhenOverriding,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("unusedThrownIncludeDocComment")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedDeclaredThrownExceptionIncludeDocCommentReference,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("unusedThrownExemptExceptionThrowable")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedDeclaredThrownExceptionExemptExceptionAndThrowable,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
 			} else if (token.equals("unqualifiedField") || token.equals("unqualified-field-access")) { //$NON-NLS-1$ //$NON-NLS-2$
 				setSeverity(CompilerOptions.OPTION_ReportUnqualifiedFieldAccess, severity, isEnabling);
 				return;
@@ -3678,8 +3852,30 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 				setSeverity(CompilerOptions.OPTION_ReportUnusedLabel, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeArgumentsForMethodInvocation, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, severity, isEnabling);
+				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeParameter, severity,isEnabling); //TODO - Enable this when tests are modified at ui addition.
 				return;
-			} else if (token.equals("unusedTypeArgs")) { //$NON-NLS-1$
+			} else if (token.equals("unusedParam")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportUnusedParameter, severity, isEnabling);
+				return;
+			} else if (token.equals("unusedTypeParameter")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeParameter, severity, isEnabling);
+				return;
+			} else if (token.equals("unusedParamIncludeDoc")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedParameterIncludeDocCommentReference,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("unusedParamOverriding")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedParameterWhenOverridingConcrete,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			} else if (token.equals("unusedParamImplementing")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_ReportUnusedParameterWhenImplementingAbstract,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
+			}  else if (token.equals("unusedTypeArgs")) { //$NON-NLS-1$
 				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeArgumentsForMethodInvocation, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, severity, isEnabling);
 				return;

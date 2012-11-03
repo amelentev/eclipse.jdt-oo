@@ -16,6 +16,9 @@
  *								bug 365662 - [compiler][null] warn on contradictory and redundant null annotations
  *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
  *								bug 366063 - Compiler should not add synthetic @NonNull annotations
+ *								bug 384663 - Package Based Annotation Compilation Error in JDT 3.8/4.2 (works in 3.7.2)
+ *								bug 386356 - Type mismatch error with annotations and generics
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -34,6 +37,7 @@ import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.TypeParameter;
 import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.SimpleLookupTable;
@@ -1099,8 +1103,6 @@ public void initializeDeprecatedAnnotationTagBits() {
 			this.modifiers |= ClassFileConstants.AccDeprecated;
 		}
 	}
-	if (CharOperation.equals(this.sourceName, TypeConstants.PACKAGE_INFO_NAME))
-		getAnnotationTagBits(); // initialize
 }
 
 // ensure the receiver knows its hierarchy & fields/methods so static imports can be resolved correctly
@@ -1112,6 +1114,18 @@ void initializeForStaticImports() {
 		this.scope.connectTypeHierarchy();
 	this.scope.buildFields();
 	this.scope.buildMethods();
+}
+
+private void initializeNullDefault() {
+	// ensure nullness defaults are initialized at all enclosing levels:
+	switch (this.nullnessDefaultInitialized) {
+	case 0:
+		getAnnotationTagBits(); // initialize
+		//$FALL-THROUGH$
+	case 1:
+		getPackage().isViewedAsDeprecated(); // initialize annotations
+		this.nullnessDefaultInitialized = 2;
+	}
 }
 
 /**
@@ -1179,6 +1193,10 @@ public boolean hasMemberTypes() {
 public MethodBinding[] methods() {
 	if ((this.tagBits & TagBits.AreMethodsComplete) != 0)
 		return this.methods;
+
+	if (!areMethodsInitialized()) { // https://bugs.eclipse.org/384663
+		this.scope.buildMethods();
+	}
 
 	// lazily sort methods
 	if ((this.tagBits & TagBits.AreMethodsSorted) == 0) {
@@ -1588,9 +1606,6 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 			}
 			if (methodType == null) {
 				foundReturnTypeProblem = true;
-			} else if (methodType.isArrayType() && ((ArrayBinding) methodType).leafComponentType == TypeBinding.VOID) {
-				methodDecl.scope.problemReporter().returnTypeCannotBeVoidArray((MethodDeclaration) methodDecl);
-				foundReturnTypeProblem = true;
 			} else {
 				if ((methodType.tagBits & TagBits.HasMissingType) != 0) {
 					method.tagBits |= TagBits.HasMissingType;
@@ -1612,30 +1627,26 @@ public MethodBinding resolveTypesFor(MethodBinding method) {
 				typeParameters[i].binding = null;
 		return null;
 	}
-	if (this.scope.compilerOptions().isAnnotationBasedNullAnalysisEnabled)
-		createArgumentBindings(method); // need annotations resolved already at this point
+	CompilerOptions compilerOptions = this.scope.compilerOptions();
+	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
+		createArgumentBindings(method, compilerOptions); // need annotations resolved already at this point
+	}
 	if (foundReturnTypeProblem)
 		return method; // but its still unresolved with a null return type & is still connected to its method declaration
 
 	method.modifiers &= ~ExtraCompilerModifiers.AccUnresolved;
 	return method;
 }
-private void createArgumentBindings(MethodBinding method) {
-	// ensure nullness defaults are initialized at all enclosing levels:
-	switch (this.nullnessDefaultInitialized) {
-	case 0:
-		getAnnotationTagBits(); // initialize
-		//$FALL-THROUGH$
-	case 1:
-		getPackage().isViewedAsDeprecated(); // initialize annotations
-		this.nullnessDefaultInitialized = 2;
-	}
+private void createArgumentBindings(MethodBinding method, CompilerOptions compilerOptions) {
+	initializeNullDefault();
 	AbstractMethodDeclaration methodDecl = method.sourceMethod();
 	if (methodDecl != null) {
+		// while creating argument bindings we also collect explicit null annotations:
 		if (method.parameters != Binding.NO_PARAMETERS)
 			methodDecl.createArgumentBindings();
-		if ((findNonNullDefault(methodDecl.scope, methodDecl.scope.environment()) == NONNULL_BY_DEFAULT)) {
-			method.fillInDefaultNonNullness();
+		// add implicit annotations (inherited(?) & default):
+		if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
+			new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations).checkImplicitNullAnnotations(method, methodDecl, true, this.scope);
 		}
 	}
 }
@@ -1707,16 +1718,11 @@ protected boolean checkRedundantNullnessDefaultOne(ASTNode location, Annotation[
 	return true;
 }
 
-/**
- * Answer the nullness default applicable at the given method binding.
- * Possible values: {@link Binding#NO_NULL_DEFAULT}, {@link Binding#NULL_UNSPECIFIED_BY_DEFAULT}, {@link Binding#NONNULL_BY_DEFAULT}.
- * @param currentScope where to start search for lexically enclosing default
- * @param environment gateway to options
- */
-private int findNonNullDefault(Scope currentScope, LookupEnvironment environment) {
+boolean hasNonNullDefault() {
 	// find the applicable default inside->out:
 
 	SourceTypeBinding currentType = null;
+	Scope currentScope = this.scope;
 	while (currentScope != null) {
 		switch (currentScope.kind) {
 			case Scope.METHOD_SCOPE:
@@ -1724,9 +1730,9 @@ private int findNonNullDefault(Scope currentScope, LookupEnvironment environment
 				if (referenceMethod != null && referenceMethod.binding != null) {
 					long methodTagBits = referenceMethod.binding.tagBits;
 					if ((methodTagBits & TagBits.AnnotationNonNullByDefault) != 0)
-						return NONNULL_BY_DEFAULT;
+						return true;
 					if ((methodTagBits & TagBits.AnnotationNullUnspecifiedByDefault) != 0)
-						return NULL_UNSPECIFIED_BY_DEFAULT;
+						return false;
 				}
 				break;
 			case Scope.CLASS_SCOPE:
@@ -1734,7 +1740,7 @@ private int findNonNullDefault(Scope currentScope, LookupEnvironment environment
 				if (currentType != null) {
 					int foundDefaultNullness = currentType.defaultNullness;
 					if (foundDefaultNullness != NO_NULL_DEFAULT) {
-						return foundDefaultNullness;
+						return foundDefaultNullness == NONNULL_BY_DEFAULT;
 					}
 				}
 				break;
@@ -1744,13 +1750,10 @@ private int findNonNullDefault(Scope currentScope, LookupEnvironment environment
 
 	// package
 	if (currentType != null) {
-		int foundDefaultNullness = currentType.getPackage().defaultNullness;
-		if (foundDefaultNullness != NO_NULL_DEFAULT) {
-			return foundDefaultNullness;
-		}
+		return currentType.getPackage().defaultNullness == NONNULL_BY_DEFAULT;
 	}
 
-	return NO_NULL_DEFAULT;
+	return false;
 }
 
 public AnnotationHolder retrieveAnnotationHolder(Binding binding, boolean forceInitialization) {

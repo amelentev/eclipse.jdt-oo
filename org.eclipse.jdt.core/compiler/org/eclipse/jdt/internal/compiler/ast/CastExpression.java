@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,7 +8,9 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Nick Teryaev - fix for bug (https://bugs.eclipse.org/bugs/show_bug.cgi?id=40752)
- *     Stephan Herrmann - Contribution for bug 319201 - [null] no warning when unboxing SingleNameReference causes NPE
+ *     Stephan Herrmann - Contributions for
+ *								bug 319201 - [null] no warning when unboxing SingleNameReference causes NPE
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -55,6 +57,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	if ((this.expression.implicitConversion & TypeIds.UNBOXING) != 0) {
 		this.expression.checkNPE(currentScope, flowContext, flowInfo);
 	}
+	// account for pot. CCE:
+	flowContext.recordAbruptExit();
 	return result;
 }
 
@@ -491,7 +495,10 @@ public TypeBinding resolveType(BlockScope scope) {
 		MethodBinding methodBinding = messageSend.binding;
 		if (methodBinding != null && methodBinding.isPolymorphic()) {
 			messageSend.binding = scope.environment().updatePolymorphicMethodReturnType((PolymorphicMethodBinding) methodBinding, castType);
-			expressionType = castType;
+			if (expressionType != castType) {
+				expressionType = castType;
+				this.bits |= ASTNode.DisableUnnecessaryCastCheck;
+			}
 		}
 	}
 	if (castType != null) {

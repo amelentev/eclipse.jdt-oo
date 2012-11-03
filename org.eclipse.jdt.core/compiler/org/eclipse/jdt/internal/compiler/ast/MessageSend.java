@@ -14,6 +14,11 @@
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 358903 - Filter practically unimportant resource leak warnings
  *								bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
+ *								bug 379784 - [compiler] "Method can be static" is not getting reported
+ *								bug 379834 - Wrong "method can be static" in presence of qualified super and different staticness of nested super class.
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -34,6 +39,7 @@ import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MissingTypeBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ImplicitNullAnnotationVerifier;
 import org.eclipse.jdt.internal.compiler.lookup.PolymorphicMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemMethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
@@ -72,7 +78,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	boolean analyseResources = currentScope.compilerOptions().analyseResourceLeaks;
 	if (analyseResources && CharOperation.equals(TypeConstants.CLOSE, this.selector)) 
 	{
-		FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(this.receiver);
+		FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(this.receiver, flowContext);
 		if (trackingVariable != null) { // null happens if receiver is not a local variable or not an AutoCloseable
 			if (trackingVariable.methodScope == currentScope.methodScope()) {
 				trackingVariable.markClose(flowInfo, flowContext);
@@ -84,9 +90,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	if (nonStatic) {
 		this.receiver.checkNPE(currentScope, flowContext, flowInfo);
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=318682
-		if (this.receiver.isThis()) {
+		if (this.receiver.isThis() || this.receiver.isSuper()) {
 			// accessing non-static method without an object
-			currentScope.resetEnclosingMethodStaticFlag();
+			currentScope.resetDeclaringClassMethodStaticFlag(this.actualReceiverType);
 		}
 	} else if (this.receiver.isThis()) {
 		if ((this.receiver.bits & ASTNode.IsImplicitThis) == 0) {
@@ -136,7 +142,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			}
 			if (analyseResources) {
 				// if argument is an AutoCloseable insert info that it *may* be closed (by the target method, i.e.)
-				flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, argument, flowInfo, false);
+				flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, argument, flowInfo, flowContext, false);
 			}
 		}
 		analyseArguments(currentScope, flowContext, flowInfo, this.binding, this.arguments);
@@ -154,6 +160,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		//               NullReferenceTest#test0510
 	}
 	manageSyntheticAccessIfNecessary(currentScope, flowInfo);
+	// account for pot. exceptions thrown by method execution
+	flowContext.recordAbruptExit();
 	return flowInfo;
 }
 public void checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
@@ -536,6 +544,12 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 
+	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && (this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
+		// not interested in reporting problems against this.binding:
+		new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
+				.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
+	}
+	
 	if (((this.bits & ASTNode.InsideExpressionStatement) != 0)
 			&& this.binding.isPolymorphic()) {
 		// we only set the return type to be void if this method invocation is used inside an expression statement

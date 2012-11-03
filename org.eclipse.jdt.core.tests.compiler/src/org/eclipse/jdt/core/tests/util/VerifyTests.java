@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -94,7 +94,7 @@ public class VerifyClassLoader extends ClassLoader {
 	protected boolean isExcluded(String name) {
 		// exclude the "java" packages.
 		// They always need to be excluded so that they are loaded by the system class loader
-		if (name.startsWith("java"))
+		if (name.startsWith("java") || name.startsWith("[Ljava"))
 			return true;
 
 		// exclude the user defined package paths

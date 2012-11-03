@@ -13,6 +13,7 @@
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 361407 - Resource leak warning when resource is assigned to a field outside of constructor
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
+ *								bug 383690 - [compiler] location of error re uninitialized final field should be aligned
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -88,7 +89,16 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 	if (isRecursive(null /*lazy initialized visited list*/)) {
 		this.scope.problemReporter().recursiveConstructorInvocation(this.constructorCall);
 	}
-
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385780
+	if (this.typeParameters != null  &&
+			!this.scope.referenceCompilationUnit().compilationResult.hasSyntaxError) {
+		for (int i = 0, length = this.typeParameters.length; i < length; ++i) {
+			TypeParameter typeParameter = this.typeParameters[i];
+			if ((typeParameter.binding.modifiers & ExtraCompilerModifiers.AccLocallyUsed) == 0) {
+				this.scope.problemReporter().unusedTypeParameter(typeParameter);						
+			}
+		}
+	}
 	try {
 		ExceptionHandlingFlowContext constructorContext =
 			new ExceptionHandlingFlowContext(
@@ -170,7 +180,9 @@ public void analyseCode(ClassScope classScope, InitializationFlowContext initial
 					&& (!flowInfo.isDefinitelyAssigned(fields[i]))) {
 					this.scope.problemReporter().uninitializedBlankFinalField(
 						field,
-						((this.bits & ASTNode.IsDefaultConstructor) != 0) ? (ASTNode) this.scope.referenceType() : this);
+						((this.bits & ASTNode.IsDefaultConstructor) != 0)
+								? (ASTNode) this.scope.referenceType().declarationOf(field.original())
+								: this);
 				}
 			}
 		}

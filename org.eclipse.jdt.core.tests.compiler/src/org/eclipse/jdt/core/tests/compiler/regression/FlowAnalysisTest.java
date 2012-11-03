@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,8 @@
  *     							bug 236385 - [compiler] Warn for potential programming problem if an object is created but not used
  *      						bug 349326 - [1.7] new warning for missing try-with-resources
  *      						bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
+ *								bug 383690 - [compiler] location of error re uninitialized final field should be aligned
+ *								bug 391517 - java.lang.VerifyError on code that runs correctly in Eclipse 3.7 and eclipse 3.6
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -31,8 +33,8 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 
 public class FlowAnalysisTest extends AbstractRegressionTest {
 static {
-//	TESTS_NAMES = new String[] { "testLocalClassInInitializer1" };
-//	TESTS_NUMBERS = new int[] { 69 };
+//	TESTS_NAMES = new String[] { "testBug380313" };
+//	TESTS_NUMBERS = new int[] { 43 };
 }
 public FlowAnalysisTest(String name) {
 	super(name);
@@ -2320,9 +2322,9 @@ public void testBug338234c() {
 			"}\n"
 		},
 		"----------\n" + 
-		"1. ERROR in X.java (at line 1)\n" + 
-		"	public class X {\n" + 
-		"	             ^\n" + 
+		"1. ERROR in X.java (at line 2)\n" + 
+		"	public final int field1;\n" + 
+		"	                 ^^^^^^\n" + 
 		"The blank final field field1 may not have been initialized\n" + 
 		"----------\n" + 
 		"2. WARNING in X.java (at line 7)\n" + 
@@ -2495,6 +2497,147 @@ public void testLocalClassInInitializer2() {
 			"	     ^^^^^^^^^\n" + 
 			"continue cannot be used outside of a loop\n" + 
 			"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380313
+// Verify that the code runs fine with all compliance levels.
+public void testBug380313() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"public void foo() throws Exception {\n" + 
+				"        int i = 1;\n" + 
+				"        int j = 2;\n" + 
+				"        try {\n" + 
+				"            if ((bar() == 1)) {\n" + 
+				"                if ((i == 1)) {\n" + 
+				"                    int n = bar();\n" + 
+				"                    if (n == 35) {\n" + 
+				"                        j = 2;\n" + 
+				"                    } else {\n" + 
+				"                        if (bar() > 0)\n" + 
+				"                            return;\n" + 
+				"                    }\n" + 
+				"                } else {\n" + 
+				"                    throw new Exception();\n" + 
+				"                }\n" + 
+				"            } else {\n" + 
+				"                throw new Exception();\n" + 
+				"            }\n" + 
+				"            if (bar() == 0)\n" + 
+				"                return;\n" + 
+				"        } finally {\n" + 
+				"            bar();\n" + 
+				"        }\n" + 
+				"    }\n" + 
+				"\n" + 
+				"    private int bar() {\n" + 
+				"        return 0;\n" + 
+				"    }\n" + 
+				"\n" + 
+				"    public static void main(String[] args) {\n" + 
+				"    }\n" +
+				"}\n"
+			}, 
+			"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380313
+// try with resources
+// Verify that the code runs fine with all compliance levels.
+public void testBug380313b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.io.FileInputStream;\n" +
+				"import java.io.IOException;\n" +
+				"public class X {\n" +
+				"public void foo() throws Exception {\n" + 
+				"        int i = 1;\n" + 
+				"        try {\n" + 
+				"            try (FileInputStream fis = new FileInputStream(\"\")) {\n" +
+				"				 if (i == 2)" + 
+				"                	return;\n" + 
+				" 			 }\n" + 
+				"            if (i == 35) \n" + 
+				"                return;\n" + 
+				"        } catch(IOException e) {\n" + 
+				"            bar();\n" + 
+				"        } finally {\n" + 
+				"            bar();\n" + 
+				"        }\n" + 
+				"    }\n" + 
+				"\n" + 
+				"    private int bar() {\n" + 
+				"        return 0;\n" + 
+				"    }\n" + 
+				"\n" + 
+				"    public static void main(String[] args) {\n" + 
+				"    }\n" +
+				"}\n"
+			}, 
+			"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=380750
+// verify that s0 is not reported as uninitialized
+public void testBug380750() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" + 
+				"	void foo(String[] args) {\n" + 
+				"		String s0;\n" + 
+				"		for(String s : singleton(s0=\"\")) {\n" + 
+				"			System.out.println(s);\n" + 
+				"		}\n" + 
+				"		System.out.println(s0);\n" + 
+				"	}\n" + 
+				"	String[] singleton(String s) {\n" + 
+				"		return new String[] {s};\n" + 
+				"	}\n" + 
+				"}\n"
+			}, 
+			"");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=391517
+// java.lang.VerifyError on code that runs correctly in Eclipse 3.7 and eclipse 3.6
+public void testBug391517() {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.io.PrintWriter;\n" + 
+				"\n" + 
+				"public class X {\n" + 
+				"\n" + 
+				"	private static final int CONSTANT = 0;\n" + 
+				"\n" + 
+				"	public static void main(String[] args) {\n" + 
+				"		// TODO Auto-generated method stub\n" + 
+				"\n" + 
+				"	}\n" + 
+				"\n" + 
+				"	static void addStackTrace(String prefix) {\n" + 
+				"		if (CONSTANT == 0) {\n" + 
+				"			return;\n" + 
+				"		}\n" + 
+				"		PrintWriter pw = null;\n" + 
+				"		new Exception().printStackTrace(pw);\n" + 
+				"		if (bar() == null) {\n" + 
+				"			System.out.println();\n" + 
+				"		}\n" + 
+				"	}\n" + 
+				"\n" + 
+				"	static Object bar() {\n" + 
+				"		return null;\n" + 
+				"	}\n" + 
+				"}"
+			}, 
+			"");
 }
 public static Class testClass() {
 	return FlowAnalysisTest.class;

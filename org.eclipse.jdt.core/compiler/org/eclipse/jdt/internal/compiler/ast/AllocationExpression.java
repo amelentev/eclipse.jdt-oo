@@ -15,6 +15,8 @@
  *							bug 358903 - Filter practically unimportant resource leak warnings
  *							bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *							bug 370639 - [compiler][resource] restore the default for resource leak warnings
+ *							bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *							bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -59,7 +61,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 					.unconditionalInits();
 			// if argument is an AutoCloseable insert info that it *may* be closed (by the target method, i.e.)
 			if (analyseResources && !hasResourceWrapperType) { // allocation of wrapped closeables is analyzed specially
-				flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, false);
+				flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, flowContext, false);
 			}
 			if ((this.arguments[i].implicitConversion & TypeIds.UNBOXING) != 0) {
 				this.arguments[i].checkNPE(currentScope, flowContext, flowInfo);
@@ -90,10 +92,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	if (this.binding.declaringClass.isMemberType() && !this.binding.declaringClass.isStatic()) {
 		// allocating a non-static member type without an enclosing instance of parent type
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=335845
-		currentScope.resetEnclosingMethodStaticFlag();
+		currentScope.resetDeclaringClassMethodStaticFlag(this.binding.declaringClass.enclosingType());
 	}
 	manageEnclosingInstanceAccessIfNecessary(currentScope, flowInfo);
 	manageSyntheticAccessIfNecessary(currentScope, flowInfo);
+
+	// account for possible exceptions thrown by the constructor
+	flowContext.recordAbruptExit(); // TODO whitelist of ctors that cannot throw any exc.??
 
 	return flowInfo;
 }
