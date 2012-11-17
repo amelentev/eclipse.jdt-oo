@@ -12,6 +12,9 @@ public class JDTOOTest extends TestCase {
 		System.out.println(res ? "ok" : "fail");
 		assertEquals(Boolean.TRUE, Class.forName(clas).getDeclaredMethod("test", new Class[0]).invoke(null, new Object[0]));
 	}
+	public void testValueOf() throws Exception {
+		compile("ValueOf");
+	}
 	public void testMath() throws Exception {
 		compile("Math");
 	}

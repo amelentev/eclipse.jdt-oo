@@ -168,6 +168,7 @@ public static MessageSend findMethod(Scope scope, Expression receiver, String se
 	for (int i = 0; i < args.length; i++)
 		targs[i] = args[i].resolvedType;
 	ms.binding = scope.getMethod(ms.actualReceiverType, s, targs, ms);
+	/// XXX: implicit conversion?
 	if (ms.binding != null && ms.binding.isValidBinding()) {
 		ms.resolvedType = ms.binding.returnType;
 		ms.constant = Constant.NotAConstant;

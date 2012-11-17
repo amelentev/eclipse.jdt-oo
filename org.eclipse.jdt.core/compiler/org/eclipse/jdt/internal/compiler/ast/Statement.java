@@ -211,6 +211,8 @@ public void generateArguments(MethodBinding binding, Expression[] arguments, Blo
 
 public abstract void generateCode(BlockScope currentScope, CodeStream codeStream);
 
+MessageSend translate;
+
 protected boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
 	if (scope.isBoxingCompatibleWith(expressionType, targetType))
 		return true;
@@ -220,7 +222,23 @@ protected boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding tar
 		&& !targetType.isTypeVariable()
 		&& scope.compilerOptions().sourceLevel >= org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants.JDK1_5 // autoboxing
 		&& (targetType.id == TypeIds.T_JavaLangByte || targetType.id == TypeIds.T_JavaLangShort || targetType.id == TypeIds.T_JavaLangCharacter)
-		&& expression.isConstantValueOfTypeAssignableToType(expressionType, scope.environment().computeBoxingType(targetType));
+		&& expression.isConstantValueOfTypeAssignableToType(expressionType, scope.environment().computeBoxingType(targetType))
+		|| tryBoxingOverload(expressionType, targetType, expression, scope);
+}
+
+protected boolean tryBoxingOverload(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
+	if (!(scope instanceof BlockScope)) return false;
+	BlockScope bscope = (BlockScope) scope;
+	Expression receiver = new SingleNameReference(targetType.shortReadableName(), expression.sourceStart);
+	receiver.resolvedType = targetType;
+	MessageSend ms = Assignment.findMethod(bscope, receiver, "valueOf", new Expression[]{expression}); //$NON-NLS-1$
+	if (ms != null && ms.resolvedType == targetType) {
+		ms.resolve(bscope);
+		expression.translate = ms;
+		expression.resolvedType = ms.resolvedType;
+		return true;
+	}
+	return false;
 }
 
 public boolean isEmptyBlock() {

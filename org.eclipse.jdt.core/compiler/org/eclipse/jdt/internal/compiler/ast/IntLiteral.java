@@ -159,6 +159,12 @@ public IntLiteral convertToMinValue() {
  * @param valueRequired boolean
  */
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+	if (this.translate!=null) {
+		Expression e = this.translate;
+		this.translate = null; // prevent loop
+		e.generateCode(currentScope, codeStream, valueRequired);
+		return;
+	}
 	int pc = codeStream.position;
 	if (valueRequired) {
 		codeStream.generateConstant(this.constant, this.implicitConversion);
