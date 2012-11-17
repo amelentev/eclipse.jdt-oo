@@ -1792,7 +1792,7 @@ public StringBuffer printExpressionNoParenthesis(int indent, StringBuffer output
 
 final static java.util.Map binaryOperators = new java.util.HashMap() {{
 	put("+", "add");
-	put("-", "substract");
+	put("-", "subtract");
 	put("*", "multiply");
 	put("/", "divide");
 	put("%", "remainder");
