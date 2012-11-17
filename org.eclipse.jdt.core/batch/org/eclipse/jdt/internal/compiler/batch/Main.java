@@ -17,6 +17,7 @@
  *								bug 365208 - [compiler][batch] command line options for annotation based null analysis
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+ *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.batch;
 
@@ -3446,6 +3447,11 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 			if (token.equals("indirectStatic")) { //$NON-NLS-1$
 				setSeverity(CompilerOptions.OPTION_ReportIndirectStaticAccess, severity, isEnabling);
 				return;
+			} else if (token.equals("inheritNullAnnot")) { //$NON-NLS-1$
+				this.options.put(
+						CompilerOptions.OPTION_InheritNullAnnotations,
+						isEnabling ? CompilerOptions.ENABLED : CompilerOptions.DISABLED);
+				return;
 			} else if (token.equals("intfNonInherited") || token.equals("interfaceNonInherited")/*backward compatible*/) { //$NON-NLS-1$ //$NON-NLS-2$
 				setSeverity(CompilerOptions.OPTION_ReportIncompatibleNonInheritedInterfaceMethod, severity, isEnabling);
 				return;
@@ -3852,7 +3858,7 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 				setSeverity(CompilerOptions.OPTION_ReportUnusedLabel, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeArgumentsForMethodInvocation, severity, isEnabling);
 				setSeverity(CompilerOptions.OPTION_ReportRedundantSpecificationOfTypeArguments, severity, isEnabling);
-				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeParameter, severity,isEnabling); //TODO - Enable this when tests are modified at ui addition.
+				setSeverity(CompilerOptions.OPTION_ReportUnusedTypeParameter, severity,isEnabling);
 				return;
 			} else if (token.equals("unusedParam")) { //$NON-NLS-1$
 				setSeverity(CompilerOptions.OPTION_ReportUnusedParameter, severity, isEnabling);
