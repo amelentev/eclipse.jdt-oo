@@ -56,6 +56,9 @@ public abstract class Expression extends Statement {
 	public int implicitConversion;
 	public TypeBinding resolvedType;
 
+	/** for OO desugar */
+	public MessageSend translate;
+
 public static final boolean isConstantValueRepresentable(Constant constant, int constantTypeID, int targetTypeID) {
 	//true if there is no loss of precision while casting.
 	// constantTypeID == constant.typeID

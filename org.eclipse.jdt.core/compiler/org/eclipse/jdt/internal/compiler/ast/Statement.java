@@ -211,8 +211,6 @@ public void generateArguments(MethodBinding binding, Expression[] arguments, Blo
 
 public abstract void generateCode(BlockScope currentScope, CodeStream codeStream);
 
-MessageSend translate;
-
 protected boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
 	if (scope.isBoxingCompatibleWith(expressionType, targetType))
 		return true;
