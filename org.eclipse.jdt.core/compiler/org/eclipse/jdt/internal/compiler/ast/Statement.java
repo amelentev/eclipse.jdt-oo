@@ -224,7 +224,7 @@ protected boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding tar
 		|| tryBoxingOverload(expressionType, targetType, expression, scope);
 }
 
-protected boolean tryBoxingOverload(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
+private static boolean tryBoxingOverload(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
 	if (!(scope instanceof BlockScope)) return false;
 	BlockScope bscope = (BlockScope) scope;
 	Expression receiver = new SingleNameReference(targetType.shortReadableName(), expression.sourceStart);
