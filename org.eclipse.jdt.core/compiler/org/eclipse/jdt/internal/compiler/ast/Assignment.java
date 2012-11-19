@@ -204,11 +204,11 @@ public TypeBinding resolveType(BlockScope scope) {
 	if (left != null && !left.isVolatile() && left == getDirectBinding(this.expression)) {
 		scope.problemReporter().assignmentHasNoEffect(this, left.shortReadableName());
 	}
-	
+
 	if (this.lhs instanceof ArrayReference) {
 		ArrayReference alhs = (ArrayReference) this.lhs;
 		if (!alhs.receiver.resolvedType.isArrayType()) {
-			Expression[] args = new Expression[]{alhs.position, this.expression}; 
+			Expression[] args = new Expression[]{alhs.position, this.expression};
 			MessageSend ms = findMethod(scope, alhs.receiver, "set", args); //$NON-NLS-1$
 			if (ms==null)
 				ms = findMethod(scope, alhs.receiver, "put", args); //$NON-NLS-1$
@@ -220,7 +220,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			}
 		}
 	}
-	
+
 	// Compile-time conversion of base-types : implicit narrowing integer into byte/short/character
 	// may require to widen the rhs expression at runtime
 	if (lhsType != rhsType) { // must call before computeConversion() and typeMismatchError()

@@ -64,7 +64,7 @@ public void generateAssignment(BlockScope currentScope, CodeStream codeStream, A
 		e.generateCode(currentScope, codeStream, valueRequired);
 		return;
 	}
-	int pc = codeStream.position;	
+	int pc = codeStream.position;
 	this.receiver.generateCode(currentScope, codeStream, true);
 	if (this.receiver instanceof CastExpression	// ((type[])null)[0]
 			&& ((CastExpression)this.receiver).innermostCastedExpression().resolvedType == TypeBinding.NULL){
