@@ -26,7 +26,6 @@ public class ArrayReference extends Reference {
 
 	public Expression receiver;
 	public Expression position;
-	public MessageSend overloadMethod;
 
 public ArrayReference(Expression rec, Expression pos) {
 	this.receiver = rec;
@@ -59,11 +58,13 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 }
 
 public void generateAssignment(BlockScope currentScope, CodeStream codeStream, Assignment assignment, boolean valueRequired) {
-	int pc = codeStream.position;
-	if (this.overloadMethod != null) {
-		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
+	if (this.translate != null) {
+		Expression e = this.translate;
+		this.translate = null;
+		e.generateCode(currentScope, codeStream, valueRequired);
 		return;
 	}
+	int pc = codeStream.position;	
 	this.receiver.generateCode(currentScope, codeStream, true);
 	if (this.receiver instanceof CastExpression	// ((type[])null)[0]
 			&& ((CastExpression)this.receiver).innermostCastedExpression().resolvedType == TypeBinding.NULL){
@@ -83,9 +84,11 @@ public void generateAssignment(BlockScope currentScope, CodeStream codeStream, A
  */
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	int pc = codeStream.position;
-	if (this.overloadMethod != null) {
-		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
-		codeStream.checkcast(this.overloadMethod.resolvedType);
+	if (this.translate != null) {
+		Expression e = this.translate;
+		this.translate = null;
+		e.generateCode(currentScope, codeStream, valueRequired);
+		codeStream.checkcast(e.resolvedType);
 	} else {
 		this.receiver.generateCode(currentScope, codeStream, true);
 		if (this.receiver instanceof CastExpression	// ((type[])null)[0]
@@ -199,12 +202,12 @@ public TypeBinding resolveType(BlockScope scope) {
 			TypeBinding elementType = ((ArrayBinding) arrayType).elementsType();
 			this.resolvedType = ((this.bits & ASTNode.IsStrictlyAssigned) == 0) ? elementType.capture(scope, this.sourceEnd) : elementType;
 		} else {
-			TypeBinding positionType = this.position.resolveType(scope);
+			this.position.resolveType(scope);
 			MessageSend ms = Assignment.findMethod(scope, this.receiver, "get", new Expression[]{this.position}); //$NON-NLS-1$
 			if (ms == null)
 				scope.problemReporter().referenceMustBeArrayTypeAt(arrayType, this);
 			else {
-				this.overloadMethod = ms;
+				this.translate = ms;
 				return this.resolvedType = ms.resolvedType;
 			}
 		}

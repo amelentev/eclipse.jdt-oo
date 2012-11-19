@@ -60,7 +60,12 @@ public FlowInfo analyseCode(
 		BlockScope currentScope,
 		CodeStream codeStream,
 		boolean valueRequired) {
-
+		if (this.translate != null) {
+			Expression e = this.translate;
+			this.translate = null; // prevent loop
+			e.generateCode(currentScope, codeStream, valueRequired);
+			return;
+		}
 		int pc = codeStream.position;
 		BranchLabel falseLabel, endifLabel;
 		if (this.constant != Constant.NotAConstant) {
@@ -68,13 +73,6 @@ public FlowInfo analyseCode(
 			if (valueRequired) {
 				codeStream.generateConstant(this.constant, this.implicitConversion);
 			}
-			codeStream.recordPositionsFrom(pc, this.sourceStart);
-			return;
-		}
-		if (this.overloadMethod != null) {
-			this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
-			if (valueRequired)
-				codeStream.generateImplicitConversion(this.implicitConversion);
 			codeStream.recordPositionsFrom(pc, this.sourceStart);
 			return;
 		}
@@ -216,7 +214,6 @@ public FlowInfo analyseCode(
 		put("-", "negate");
 		put("~", "not");
 	}};
-	MessageSend overloadMethod;
 	public static TypeBinding overloadUnaryOperator(UnaryExpression that, BlockScope scope) {
 		// similar to #overloadBinaryOperator
 		String method = (String) unaryOperators.get(that.operatorToString());
@@ -224,7 +221,7 @@ public FlowInfo analyseCode(
 			// find method
 			MessageSend ms = Assignment.findMethod(scope, that.expression, method, new Expression[0]);
 			if (ms != null) {
-				that.overloadMethod = ms;
+				that.translate = ms;
 				that.constant = Constant.NotAConstant;
 				return that.resolvedType = ms.resolvedType;
 			}

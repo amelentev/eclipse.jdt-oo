@@ -215,7 +215,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			if (ms==null)
 				scope.problemReporter().referenceMustBeArrayTypeAt(alhs.receiver.resolvedType, alhs);
 			else {
-				alhs.overloadMethod = ms;
+				alhs.translate = ms;
 				this.resolvedType = ms.resolvedType;
 			}
 		}

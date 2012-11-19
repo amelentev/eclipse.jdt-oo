@@ -116,17 +116,16 @@ public Constant optimizedBooleanConstant() {
 // we do not provide a general, non-recursive implementation of generateCode,
 // but rely upon generateOptimizedStringConcatenationCreation instead
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
+	if (this.translate != null) {
+		Expression e = this.translate;
+		this.translate = null; // prevent loop
+		e.generateCode(currentScope, codeStream, valueRequired);
+		return;
+	}
 	int pc = codeStream.position;
 	if (this.constant != Constant.NotAConstant) {
 		if (valueRequired)
 			codeStream.generateConstant(this.constant, this.implicitConversion);
-		codeStream.recordPositionsFrom(pc, this.sourceStart);
-		return;
-	}
-	if (this.overloadMethod != null) {
-		this.overloadMethod.generateCode(currentScope, codeStream, valueRequired);
-		if (valueRequired)
-			codeStream.generateImplicitConversion(this.implicitConversion);
 		codeStream.recordPositionsFrom(pc, this.sourceStart);
 		return;
 	}
@@ -1806,7 +1805,6 @@ final static java.util.Map binaryOperators = new java.util.HashMap() {{
 	put("<=", "compareTo");
 	put(">=", "compareTo");
 }};
-MessageSend overloadMethod;
 public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockScope scope) {
 	// try operator overloading
 	String method = (String) binaryOperators.get(that.operatorToString());
@@ -1832,7 +1830,7 @@ public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockSco
 					return that.resolvedType = TypeBinding.BOOLEAN;
 				}
 			} else {
-				that.overloadMethod = ms;
+				that.translate = ms;
 				that.constant = Constant.NotAConstant;
 				return that.resolvedType = ms.resolvedType;
 			}
