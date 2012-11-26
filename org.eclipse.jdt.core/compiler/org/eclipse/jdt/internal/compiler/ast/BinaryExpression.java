@@ -1612,7 +1612,7 @@ public void generateOptimizedStringConcatenationCreation(BlockScope blockScope, 
 }
 
 public boolean isCompactableOperation() {
-	return true;
+	return this.translate == null;
 }
 
 /**
