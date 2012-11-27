@@ -31,6 +31,9 @@ public class JDTOOTest extends TestCase {
 	public void testMapIndex() throws Exception {
 		compile("MapIndex");
 	}
+	public void testVector() throws Exception {
+		compile("Vector");
+	}
 	public void testCompAss() throws Exception {
 		compile("CompAss", "../../tests");
 	}

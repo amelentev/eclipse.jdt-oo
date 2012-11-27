@@ -50,6 +50,12 @@ public class ArrayAllocationExpression extends Expression {
 	 * Code generation for a array allocation expression
 	 */
 	public void generateCode(BlockScope currentScope, 	CodeStream codeStream, boolean valueRequired) {
+		if (this.translate!=null) {
+			Expression e = this.translate;
+			this.translate = null; // prevent loop
+			e.generateCode(currentScope, codeStream, valueRequired);
+			return;
+		}
 
 		int pc = codeStream.position;
 
