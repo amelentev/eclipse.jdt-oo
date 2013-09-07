@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -128,12 +128,12 @@ protected Process execCommandLine() throws TargetException {
 		// does not properly handle spaces in arguments on Unix/Linux platforms.
 		String[] commandLine = getCommandLine();
 
-		// DEBUG - temporarily enabled for https://bugs.eclipse.org/393149
-		for (int i = 0; i < commandLine.length; i++) {
+		// DEBUG
+		/*for (int i = 0; i < commandLine.length; i++) {
 			System.out.print(commandLine[i] + " ");
 		}
 		System.out.println();
-		
+		*/
 
 		vmProcess= Runtime.getRuntime().exec(commandLine);
 	} catch (IOException e) {

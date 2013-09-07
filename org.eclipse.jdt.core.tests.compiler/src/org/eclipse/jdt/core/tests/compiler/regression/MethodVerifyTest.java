@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,13 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for
+ *								bug 388795 - [compiler] detection of name clash depends on order of super interfaces
+ *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
+ *								bug 409473 - [compiler] JDT cannot compile against JRE 1.8
+ *								Bug 410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+ *	   Andy Clement - Contribution for
+ *								bug 406928 - computation of inherited methods seems damaged (affecting @Overrides)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -27,7 +34,7 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class MethodVerifyTest extends AbstractComparableTest {
 	static {
-//		TESTS_NAMES = new String[] { "testBug317719" };
+//		TESTS_NAMES = new String[] { "testBug406928" };
 //		TESTS_NUMBERS = new int[] { 213 };
 //		TESTS_RANGE = new int[] { 190, -1};
 	}
@@ -2031,7 +2038,7 @@ public class MethodVerifyTest extends AbstractComparableTest {
 			"1. ERROR in X.java (at line 3)\n" +
 			"	public class X<T extends I&J> {}\n" +
 			"	               ^\n" +
-			"The return types are incompatible for the inherited methods J.foo(), I.foo()\n" +
+			"The return types are incompatible for the inherited methods I.foo(), J.foo()\n" +
 			"----------\n"
 			// types J and I are incompatible; both define foo(), but with unrelated return types
 		);
@@ -2357,7 +2364,7 @@ public class MethodVerifyTest extends AbstractComparableTest {
 					"1. ERROR in Y.java (at line 1)\n" + 
 					"	abstract class Y implements Equivalent<String>, EqualityComparable<Integer> {\n" + 
 					"	               ^\n" + 
-					"Name clash: The method equalTo(T) of type Equivalent<T> has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" + 
+					"Name clash: The method equalTo(T) of type EqualityComparable<T> has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" + 
 					"----------\n");
 		}
 	}
@@ -2377,29 +2384,29 @@ public class MethodVerifyTest extends AbstractComparableTest {
 			"1. ERROR in Y.java (at line 2)\n" +
 			"	public abstract boolean equalTo(Object other);\n" +
 			"	                        ^^^^^^^^^^^^^^^^^^^^^\n" +
-			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" +
+			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" +
 			"----------\n" +
 			"2. ERROR in Y.java (at line 2)\n" +
 			"	public abstract boolean equalTo(Object other);\n" +
 			"	                        ^^^^^^^^^^^^^^^^^^^^^\n" +
-			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" +
+			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" +
 			"----------\n" :
 			// name clash: equalTo(java.lang.Object) in Y and equalTo(T) in Equivalent<java.lang.String> have the same erasure, yet neither overrides the other
 			"----------\n" + 
 			"1. ERROR in Y.java (at line 1)\n" + 
 			"	abstract class Y implements Equivalent<String>, EqualityComparable<Integer> {\n" + 
 			"	               ^\n" + 
-			"Name clash: The method equalTo(T) of type Equivalent<T> has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" + 
+			"Name clash: The method equalTo(T) of type EqualityComparable<T> has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" + 
 			"----------\n" + 
 			"2. ERROR in Y.java (at line 2)\n" + 
 			"	public abstract boolean equalTo(Object other);\n" + 
 			"	                        ^^^^^^^^^^^^^^^^^^^^^\n" + 
-			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" + 
+			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" + 
 			"----------\n" + 
 			"3. ERROR in Y.java (at line 2)\n" + 
 			"	public abstract boolean equalTo(Object other);\n" + 
 			"	                        ^^^^^^^^^^^^^^^^^^^^^\n" + 
-			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type EqualityComparable<T> but does not override it\n" + 
+			"Name clash: The method equalTo(Object) of type Y has the same erasure as equalTo(T) of type Equivalent<T> but does not override it\n" + 
 			"----------\n"
 		);
 	}
@@ -2491,32 +2498,27 @@ public class MethodVerifyTest extends AbstractComparableTest {
 			"Name clash: The method foo(A<String>) of type K has the same erasure as foo(A) of type I but does not override it\n" + 
 			"----------\n" : 
 				"----------\n" + 
-				"1. ERROR in X.java (at line 2)\n" + 
-				"	abstract class Y implements J, I { }\n" + 
-				"	               ^\n" + 
-				"Name clash: The method foo(A<String>) of type J has the same erasure as foo(A) of type I but does not override it\n" + 
-				"----------\n" + 
-				"2. WARNING in X.java (at line 4)\n" + 
+				"1. WARNING in X.java (at line 4)\n" + 
 				"	class YYY implements J, I { public void foo(A a) {} }\n" + 
 				"	                                            ^\n" + 
 				"A is a raw type. References to generic type A<T> should be parameterized\n" + 
 				"----------\n" + 
-				"3. WARNING in X.java (at line 5)\n" + 
+				"2. WARNING in X.java (at line 5)\n" + 
 				"	class XXX implements I, J { public void foo(A a) {} }\n" + 
 				"	                                            ^\n" + 
 				"A is a raw type. References to generic type A<T> should be parameterized\n" + 
 				"----------\n" + 
-				"4. WARNING in X.java (at line 6)\n" + 
+				"3. WARNING in X.java (at line 6)\n" + 
 				"	class ZZZ implements K { public void foo(A a) {} }\n" + 
 				"	                                         ^\n" + 
 				"A is a raw type. References to generic type A<T> should be parameterized\n" + 
 				"----------\n" + 
-				"5. WARNING in X.java (at line 7)\n" + 
+				"4. WARNING in X.java (at line 7)\n" + 
 				"	interface I { void foo(A a); }\n" + 
 				"	                       ^\n" + 
 				"A is a raw type. References to generic type A<T> should be parameterized\n" + 
 				"----------\n" + 
-				"6. ERROR in X.java (at line 9)\n" + 
+				"5. ERROR in X.java (at line 9)\n" + 
 				"	interface K extends I { void foo(A<String> a); }\n" + 
 				"	                             ^^^^^^^^^^^^^^^^\n" + 
 				"Name clash: The method foo(A<String>) of type K has the same erasure as foo(A) of type I but does not override it\n" + 
@@ -9087,7 +9089,7 @@ public void test140() {
 		"1. ERROR in X.java (at line 1)\n" +
 		"	public abstract class X implements J, K {}\n" +
 		"	                      ^\n" +
-		"The return types are incompatible for the inherited methods I.foo(Number), K.foo(Number), J.foo(Number)\n" +
+		"The return types are incompatible for the inherited methods J.foo(Number), K.foo(Number)\n" +
 		"----------\n" +
 		"2. WARNING in X.java (at line 6)\n" +
 		"	XX foo(Number n);\n" +
@@ -9701,7 +9703,7 @@ public void test155() {
 		"1. ERROR in X.java (at line 9)\n" +
 		"	public abstract class X implements I, J {\n" +
 		"	                      ^\n" +
-		"The return types are incompatible for the inherited methods J.foo(), I.foo()\n" +
+		"The return types are incompatible for the inherited methods I.foo(), J.foo()\n" +
 		"----------\n"
 	);
 }
@@ -9726,7 +9728,7 @@ public void test156() {
 		"1. ERROR in X.java (at line 10)\n" +
 		"	public abstract class X implements I, J {\n" +
 		"	                      ^\n" +
-		"The return types are incompatible for the inherited methods J.foo(), I.foo()\n" +
+		"The return types are incompatible for the inherited methods I.foo(), J.foo()\n" +
 		"----------\n"
 	);
 }
@@ -9753,7 +9755,7 @@ public void test157() {
 		"1. ERROR in X.java (at line 7)\n" +
 		"	interface C extends A, B {}\n" +
 		"	          ^\n" +
-		"The return types are incompatible for the inherited methods B.foo(), A.foo()\n" +
+		"The return types are incompatible for the inherited methods A.foo(), B.foo()\n" +
 		"----------\n"
 	);
 }
@@ -9785,7 +9787,7 @@ public void test158() {
 		"1. ERROR in X.java (at line 17)\n" +
 		"	public abstract class X extends Root implements AFoo, BFoo {\n" +
 		"	                      ^\n" +
-		"The return types are incompatible for the inherited methods BFoo.bar(), AFoo.bar()\n" +
+		"The return types are incompatible for the inherited methods AFoo.bar(), BFoo.bar()\n" +
 		"----------\n"
 	);
 }
@@ -9816,17 +9818,17 @@ public void test159() {
 		"1. ERROR in X.java (at line 15)\n" + 
 		"	public abstract class X extends Root implements AFoo, BFoo {}\n" + 
 		"	                      ^\n" + 
-		"The return types are incompatible for the inherited methods BFoo.bar(), AFoo.bar()\n" + 
+		"The return types are incompatible for the inherited methods AFoo.bar(), BFoo.bar()\n" + 
 		"----------\n" + 
 		"2. ERROR in X.java (at line 16)\n" + 
 		"	abstract class Y extends X {}\n" + 
 		"	               ^\n" + 
-		"The return types are incompatible for the inherited methods BFoo.bar(), AFoo.bar()\n" + 
+		"The return types are incompatible for the inherited methods AFoo.bar(), BFoo.bar()\n" + 
 		"----------\n" + 
 		"3. ERROR in X.java (at line 17)\n" + 
 		"	class Z extends X {}\n" + 
 		"	      ^\n" + 
-		"The type Z must implement the inherited abstract method AFoo.bar()\n" + 
+		"The type Z must implement the inherited abstract method BFoo.bar()\n" + 
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=208010
@@ -10796,7 +10798,7 @@ public void test185() {
 		"1. ERROR in A.java (at line 3)\n" + 
 		"	class A implements I, J {}\n" + 
 		"	      ^\n" + 
-		"The type A must implement the inherited abstract method I.hello()\n" + 
+		"The type A must implement the inherited abstract method J.hello()\n" + 
 		"----------\n"
 	);
 }
@@ -13712,7 +13714,7 @@ public void test354229() {
 					"1. ERROR in X.java (at line 8)\n" + 
 					"	interface C  extends A, B { \n" + 
 					"	          ^\n" + 
-					"Name clash: The method get(List<String>) of type A has the same erasure as get(List<Integer>) of type B but does not override it\n" + 
+					"Name clash: The method get(List<Integer>) of type B has the same erasure as get(List<String>) of type A but does not override it\n" + 
 					"----------\n" + 
 					"2. ERROR in X.java (at line 10)\n" + 
 					"	Zork z;\n" + 
@@ -13778,7 +13780,7 @@ public void test354229c() {
 					"1. ERROR in X.java (at line 7)\n" + 
 					"	interface E extends X, Y {\n" + 
 					"	          ^\n" + 
-					"Name clash: The method e(Action<T>) of type X has the same erasure as e(Action<S>) of type Y but does not override it\n" + 
+					"Name clash: The method e(Action<S>) of type Y has the same erasure as e(Action<T>) of type X but does not override it\n" + 
 					"----------\n" + 
 					"2. ERROR in X.java (at line 10)\n" + 
 					"	Zork z;\n" + 
@@ -13809,5 +13811,123 @@ public void test354229d() {
 		"	         ^^^^^^^^^^^^^^\n" + 
 		"Method e(Action<S>) has the same erasure e(Action<T>) as another method in type X\n" + 
 		"----------\n");
+}
+// https://bugs.eclipse.org/406928 - computation of inherited methods seems damaged (affecting @Overrides)
+public void testBug406928() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_6) return;
+	this.runConformTest(
+		new String[] {
+			"TestPointcut.java",
+			"interface MethodMatcher {\n"+
+			"	boolean matches();\n"+
+			"}\n"+
+			"abstract class StaticMethodMatcher implements MethodMatcher { }\n"+
+			"abstract class StaticMethodMatcherPointcut extends StaticMethodMatcher { }\n"+
+			"\n"+
+			"class TestPointcut extends StaticMethodMatcherPointcut {\n"+
+			"	@Override\n"+
+			"	public boolean matches() { return false; } \n"+
+			"}\n"
+		},
+		"");
+}
+// https://bugs.eclipse.org/409473 - [compiler] JDT cannot compile against JRE 1.8
+// Test failed when running on a JRE 1.8 b90
+public void testBug409473() {
+    this.runConformTest(
+        new String[] {
+            "Foo.java",
+            "public abstract class Foo<E> implements java.util.List<E> { } "
+        });
+}
+// https://bugs.eclipse.org/410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+public void testBug410325() {
+	runConformTest(
+		new String[] {
+			"Main.java",
+			"public class Main {\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		F3 f3 = new F3();\n" + 
+			"		SubSub sub = new SubSub();\n" + 
+			"		sub.foo(f3);\n" + 
+			"\n" + 
+			"		Sub<F3> sub2 = sub;\n" + 
+			"		Base<F3> base = sub;\n" + 
+			"		sub2.foo(f3);\n" + 
+			"		base.foo(f3);\n" + 
+			"\n" + 
+			"		F2 f2 = new F2();\n" + 
+			"		sub2.foo(f2);\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static class F1 {\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static class F2 extends F1 {\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static class F3 extends F2 {\n" + 
+			"		public void bar() {\n" + 
+			"			System.out.println(\"bar in F3\");\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static abstract class Base<T extends F1> {\n" + 
+			"		public abstract void foo(T bar);\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static abstract class Sub<T extends F2> extends Base<T> {\n" + 
+			"		@Override\n" + 
+			"		public void foo(F2 bar) {\n" + 
+			"			System.out.println(getClass().getSimpleName() + \": F2 + \"\n" + 
+			"					+ bar.getClass().getSimpleName());\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static class SubSub extends Sub<F3> {\n" + 
+			"	}\n" + 
+			"}"
+		});
+}
+// https://bugs.eclipse.org/410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+// test from duplicate bug 411811
+public void testBug411811() {
+	runConformTest(
+		new String[] {
+			"FaultyType.java",
+			"    class ParamType {}\n" + 
+			"\n" + 
+			"    abstract class AbstractType<T extends ParamType> {\n" + 
+			"        public abstract void foo(T t);\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    abstract class SubAbstractType<T extends ParamType> extends AbstractType<T> {\n" + 
+			"        @Override public void foo(ParamType t) {}\n" + 
+			"    }\n" + 
+			"\n" + 
+			"    class SubParamType extends ParamType {}\n" + 
+			"    \n" + 
+			"public class FaultyType extends SubAbstractType<SubParamType> {}"
+		});
+}
+// https://bugs.eclipse.org/410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+// test from duplicate bug 415600
+public void testBug415600() {
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.Reader;\n" + 
+			"import java.io.StringReader;\n" + 
+			"\n" + 
+			"public abstract class A<E extends Reader> {\n" + 
+			"	protected abstract void create(E element);\n" + 
+			"}\n" + 
+			"\n" + 
+			"abstract class B<T extends Reader> extends A<T> {\n" + 
+			"	public void create(Reader element) { }\n" + 
+			"}\n" + 
+			"\n" + 
+			"class C extends B<StringReader> { }\n"
+		});
 }
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 Stephan Herrmann and others.
+ * Copyright (c) 2011, 2013 Stephan Herrmann and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,7 +28,8 @@ import java.lang.annotation.Target;
  * <code>@NonNullByDefault</code> are:
  * <ul>
  * <li>method return values</li>
- * <li>parameters of a method or constructor.</li>
+ * <li>parameters of a method or constructor</li>
+ * <li>fields.</li>
  * </ul>
  * Local variables are <em>not</em> affected.
  * <dl>

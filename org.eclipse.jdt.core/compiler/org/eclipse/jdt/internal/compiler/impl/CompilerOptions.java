@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,10 @@
  *								bug 366063 - Compiler should not add synthetic @NonNull annotations
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *     Jesper Steen Moller - Contributions for
+ *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.impl;
 
@@ -110,6 +114,7 @@ public class CompilerOptions {
 	public static final String OPTION_TaskPriorities = "org.eclipse.jdt.core.compiler.taskPriorities"; //$NON-NLS-1$
 	public static final String OPTION_TaskCaseSensitive = "org.eclipse.jdt.core.compiler.taskCaseSensitive"; //$NON-NLS-1$
 	public static final String OPTION_InlineJsr = "org.eclipse.jdt.core.compiler.codegen.inlineJsrBytecode"; //$NON-NLS-1$
+	public static final String OPTION_ShareCommonFinallyBlocks = "org.eclipse.jdt.core.compiler.codegen.shareCommonFinallyBlocks"; //$NON-NLS-1$
 	public static final String OPTION_ReportNullReference = "org.eclipse.jdt.core.compiler.problem.nullReference"; //$NON-NLS-1$
 	public static final String OPTION_ReportPotentialNullReference = "org.eclipse.jdt.core.compiler.problem.potentialNullReference"; //$NON-NLS-1$
 	public static final String OPTION_ReportRedundantNullCheck = "org.eclipse.jdt.core.compiler.problem.redundantNullCheck"; //$NON-NLS-1$
@@ -163,7 +168,9 @@ public class CompilerOptions {
 	static final char[][] DEFAULT_NONNULL_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNull".toCharArray()); //$NON-NLS-1$
 	static final char[][] DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME = CharOperation.splitOn('.', "org.eclipse.jdt.annotation.NonNullByDefault".toCharArray()); //$NON-NLS-1$
 	public static final String OPTION_ReportMissingNonNullByDefaultAnnotation = "org.eclipse.jdt.core.compiler.annotation.missingNonNullByDefaultAnnotation";  //$NON-NLS-1$
+	public static final String OPTION_SyntacticNullAnalysisForFields = "org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
 	public static final String OPTION_InheritNullAnnotations = "org.eclipse.jdt.core.compiler.annotation.inheritNullAnnotations";  //$NON-NLS-1$
+	public static final String OPTION_ReportNonnullParameterAnnotationDropped = "org.eclipse.jdt.core.compiler.problem.nonnullParameterAnnotationDropped";  //$NON-NLS-1$
 	/**
 	 * Possible values for configurable options
 	 */
@@ -277,6 +284,7 @@ public class CompilerOptions {
 	public static final int MissingNonNullByDefaultAnnotation = IrritantSet.GROUP2 | ASTNode.Bit15;
 	public static final int MissingDefaultCase = IrritantSet.GROUP2 | ASTNode.Bit16;
 	public static final int UnusedTypeParameter = IrritantSet.GROUP2 | ASTNode.Bit17;
+	public static final int NonnullParameterAnnotationDropped = IrritantSet.GROUP2 | ASTNode.Bit18;
 
 	// Severity level for handlers
 	/** 
@@ -374,6 +382,8 @@ public class CompilerOptions {
 	public boolean reportMissingJavadocCommentsOverriding;
 	/** Indicate whether the JSR bytecode should be inlined to avoid its presence in classfile */
 	public boolean inlineJsrBytecode;
+	/** Indicate whether common escaping finally blocks should be shared */
+	public boolean shareCommonFinallyBlocks;
 	/** Indicate if @SuppressWarning annotations are activated */
 	public boolean suppressWarnings;
 	/** Indicate if @SuppressWarning annotations should also suppress optional errors */
@@ -429,6 +439,9 @@ public class CompilerOptions {
 	}
 	/** Should null annotations of overridden methods be inherited? */
 	public boolean inheritNullAnnotations;
+
+	/** Should immediate null-check for fields be considered during null analysis (syntactical match)? */
+	public boolean enableSyntacticNullAnalysisForFields;
 
 	// keep in sync with warningTokenToIrritant and warningTokenFromIrritant
 	public final static String[] warningTokens = {
@@ -641,6 +654,8 @@ public class CompilerOptions {
 				return OPTION_ReportNullUncheckedConversion;
 			case RedundantNullAnnotation :
 				return OPTION_ReportRedundantNullAnnotation;
+			case NonnullParameterAnnotationDropped:
+				return OPTION_ReportNonnullParameterAnnotationDropped;
 		}
 		return null;
 	}
@@ -818,8 +833,10 @@ public class CompilerOptions {
 			OPTION_ReportNullAnnotationInferenceConflict,
 			OPTION_ReportNullUncheckedConversion,
 			OPTION_ReportRedundantNullAnnotation,
+			OPTION_SyntacticNullAnalysisForFields,
 			OPTION_ReportUnusedTypeParameter,
-			OPTION_InheritNullAnnotations
+			OPTION_InheritNullAnnotations,
+			OPTION_ReportNonnullParameterAnnotationDropped
 		};
 		return result;
 	}
@@ -889,6 +906,7 @@ public class CompilerOptions {
 			case NullUncheckedConversion :
 			case RedundantNullAnnotation :
 			case MissingNonNullByDefaultAnnotation:
+			case NonnullParameterAnnotationDropped:
 				return "null"; //$NON-NLS-1$
 			case FallthroughCase :
 				return "fallthrough"; //$NON-NLS-1$
@@ -1080,6 +1098,7 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_ReportSpecialParameterHidingField, this.reportSpecialParameterHidingField ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_MaxProblemPerUnit, String.valueOf(this.maxProblemsPerUnit));
 		optionsMap.put(OPTION_InlineJsr, this.inlineJsrBytecode ? ENABLED : DISABLED);
+		optionsMap.put(OPTION_ShareCommonFinallyBlocks, this.shareCommonFinallyBlocks ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_ReportNullReference, getSeverityString(NullReference));
 		optionsMap.put(OPTION_ReportPotentialNullReference, getSeverityString(PotentialNullReference));
 		optionsMap.put(OPTION_ReportRedundantNullCheck, getSeverityString(RedundantNullCheck));
@@ -1117,7 +1136,9 @@ public class CompilerOptions {
 		optionsMap.put(OPTION_NonNullByDefaultAnnotationName, String.valueOf(CharOperation.concatWith(this.nonNullByDefaultAnnotationName, '.')));
 		optionsMap.put(OPTION_ReportMissingNonNullByDefaultAnnotation, getSeverityString(MissingNonNullByDefaultAnnotation));
 		optionsMap.put(OPTION_ReportUnusedTypeParameter, getSeverityString(UnusedTypeParameter));
+		optionsMap.put(OPTION_SyntacticNullAnalysisForFields, this.enableSyntacticNullAnalysisForFields ? ENABLED : DISABLED);
 		optionsMap.put(OPTION_InheritNullAnnotations, this.inheritNullAnnotations ? ENABLED : DISABLED);
+		optionsMap.put(OPTION_ReportNonnullParameterAnnotationDropped, getSeverityString(NonnullParameterAnnotationDropped));
 		return optionsMap;
 	}
 
@@ -1227,8 +1248,9 @@ public class CompilerOptions {
 		this.reportMissingJavadocCommentsVisibility = ClassFileConstants.AccPublic;
 		this.reportMissingJavadocCommentsOverriding = false;
 		
-		// JSR bytecode inlining
+		// JSR bytecode inlining and sharing
 		this.inlineJsrBytecode = false;
+		this.shareCommonFinallyBlocks = false;
 
 		// javadoc comment support
 		this.docCommentSupport = false;
@@ -1276,6 +1298,7 @@ public class CompilerOptions {
 		this.nonNullAnnotationName = DEFAULT_NONNULL_ANNOTATION_NAME;
 		this.nonNullByDefaultAnnotationName = DEFAULT_NONNULLBYDEFAULT_ANNOTATION_NAME;
 		this.intendedDefaultNonNullness = 0;
+		this.enableSyntacticNullAnalysisForFields = false;
 		this.inheritNullAnnotations = false;
 		
 		this.analyseResourceLeaks = true;
@@ -1466,6 +1489,13 @@ public class CompilerOptions {
 				}
 			}
 		}
+		if ((optionValue = optionsMap.get(OPTION_ShareCommonFinallyBlocks)) != null) {
+			if (ENABLED.equals(optionValue)) {
+				this.shareCommonFinallyBlocks = true;
+			} else if (DISABLED.equals(optionValue)) {
+				this.shareCommonFinallyBlocks = false;
+			}
+		}
 		if ((optionValue = optionsMap.get(OPTION_SuppressWarnings)) != null) {
 			if (ENABLED.equals(optionValue)) {
 				this.suppressWarnings = true;
@@ -1607,9 +1637,13 @@ public class CompilerOptions {
 				this.nonNullByDefaultAnnotationName = CharOperation.splitAndTrimOn('.', ((String)optionValue).toCharArray());
 			}
 			if ((optionValue = optionsMap.get(OPTION_ReportMissingNonNullByDefaultAnnotation)) != null) updateSeverity(MissingNonNullByDefaultAnnotation, optionValue);
+			if ((optionValue = optionsMap.get(OPTION_SyntacticNullAnalysisForFields)) != null) {
+				this.enableSyntacticNullAnalysisForFields = ENABLED.equals(optionValue);
+			}
 			if ((optionValue = optionsMap.get(OPTION_InheritNullAnnotations)) != null) {
 				this.inheritNullAnnotations = ENABLED.equals(optionValue);
 			}
+			if ((optionValue = optionsMap.get(OPTION_ReportNonnullParameterAnnotationDropped)) != null) updateSeverity(NonnullParameterAnnotationDropped, optionValue);
 		}
 
 		// Javadoc options
@@ -1787,6 +1821,7 @@ public class CompilerOptions {
 		buf.append("\n\t- report unused parameter include doc comment reference : ").append(this.reportUnusedParameterIncludeDocCommentReference ? ENABLED : DISABLED); //$NON-NLS-1$
 		buf.append("\n\t- report constructor/setter parameter hiding existing field : ").append(this.reportSpecialParameterHidingField ? ENABLED : DISABLED); //$NON-NLS-1$
 		buf.append("\n\t- inline JSR bytecode : ").append(this.inlineJsrBytecode ? ENABLED : DISABLED); //$NON-NLS-1$
+		buf.append("\n\t- share common finally blocks : ").append(this.shareCommonFinallyBlocks ? ENABLED : DISABLED); //$NON-NLS-1$
 		buf.append("\n\t- report unavoidable generic type problems : ").append(this.reportUnavoidableGenericTypeProblems ? ENABLED : DISABLED); //$NON-NLS-1$
 		buf.append("\n\t- unsafe type operation: ").append(getSeverityString(UncheckedTypeOperation)); //$NON-NLS-1$
 		buf.append("\n\t- unsafe raw type: ").append(getSeverityString(RawTypeReference)); //$NON-NLS-1$

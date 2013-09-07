@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -20,6 +20,9 @@
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *								bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
+ *								bug 394768 - [compiler][resource] Incorrect resource leak warning when creating stream in conditional
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -50,13 +53,11 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	MethodScope methodScope = currentScope.methodScope();
 	if (this.expression != null) {
 		flowInfo = this.expression.analyseCode(currentScope, flowContext, flowInfo);
-		if ((this.expression.implicitConversion & TypeIds.UNBOXING) != 0) {
-			this.expression.checkNPE(currentScope, flowContext, flowInfo);
-		}
+		this.expression.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 		if (flowInfo.reachMode() == FlowInfo.REACHABLE)
-			checkAgainstNullAnnotation(currentScope, flowContext, this.expression.nullStatus(flowInfo));
+			checkAgainstNullAnnotation(currentScope, flowContext, this.expression.nullStatus(flowInfo, flowContext));
 		if (currentScope.compilerOptions().analyseResourceLeaks) {
-			FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(this.expression, flowContext);
+			FakedTrackingVariable trackingVariable = FakedTrackingVariable.getCloseTrackingVariable(this.expression, flowInfo, flowContext);
 			if (trackingVariable != null) {
 				if (methodScope != trackingVariable.methodScope)
 					trackingVariable.markClosedInNestedMethod();

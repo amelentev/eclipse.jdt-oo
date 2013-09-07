@@ -25,8 +25,16 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class ResourceLeakTests extends AbstractRegressionTest {
 
+// well-known helper class:
+private static final String GUAVA_CLOSEABLES_JAVA = "com/google/common/io/Closeables.java";
+private static final String GUAVA_CLOSEABLES_CONTENT = "package com.google.common.io;\n" +
+	"public class Closeables {\n" +
+	"    public static void closeQuietly(java.io.Closeable closeable) {}\n" +
+	"    public static void close(java.io.Closeable closeable, boolean flag) {}\n" +
+	"}\n";
+
 static {
-//	TESTS_NAMES = new String[] { "testBug386534" };
+//	TESTS_NAMES = new String[] { "testBug376053" };
 //	TESTS_NUMBERS = new int[] { 50 };
 //	TESTS_RANGE = new int[] { 11, -1 };
 }
@@ -3922,5 +3930,484 @@ public void testBug386534() {
 		null,
 		options,
 		null);
+}
+
+//https://bugs.eclipse.org/386534 -  [compiler][resource] "Potential resource leak" false positive warning
+public void testBug394768() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"Bug394768.java",
+			"import java.io.File;\n" + 
+			"import java.io.FileInputStream;\n" + 
+			"import java.io.InputStream;\n" + 
+			"\n" + 
+			"public class Bug394768 {\n" + 
+			"	public void readFile(String path) throws Exception {\n" + 
+			"		InputStream stream = null;\n" + 
+			"		File file = new File(path);\n" + 
+			"\n" + 
+			"		if (file.exists())\n" + 
+			"			stream = new FileInputStream(path);\n" + 
+			"		else\n" + 
+			"			stream = getClass().getClassLoader().getResourceAsStream(path);\n" + 
+			"\n" + 
+			"		if (stream == null)\n" + 
+			"			return;\n" + 
+			"\n" + 
+			"		try {\n" + 
+			"			// Use the opened stream here\n" + 
+			"			stream.read();\n" + 
+			"		} finally {\n" + 
+			"			stream.close();\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// https://bugs.eclipse.org/386534 -  [compiler][resource] "Potential resource leak" false positive warning
+// variation: 2nd branch closes and nulls the newly acquired resource
+public void testBug394768_1() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"Bug394768.java",
+			"import java.io.File;\n" + 
+			"import java.io.FileInputStream;\n" + 
+			"import java.io.InputStream;\n" + 
+			"\n" + 
+			"public class Bug394768 {\n" + 
+			"	public void readFile(String path) throws Exception {\n" + 
+			"		InputStream stream = null;\n" + 
+			"		File file = new File(path);\n" + 
+			"\n" + 
+			"		if (file.exists()) {\n" + 
+			"			stream = new FileInputStream(path);\n" + 
+			"		} else {\n" + 
+			"			stream = getClass().getClassLoader().getResourceAsStream(path);" +
+			"           stream.close();\n" +
+			"           stream = null;\n" +
+			"       }\n" + 
+			"\n" + 
+			"		if (stream == null)\n" + 
+			"			return;\n" + 
+			"\n" + 
+			"		try {\n" + 
+			"			// Use the opened stream here\n" + 
+			"			stream.read();\n" + 
+			"		} finally {\n" + 
+			"			stream.close();\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"",
+		null,
+		true,
+		null,
+		options,
+		null);
+}
+
+// Bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
+// A resource is closed using various known close helpers
+public void testBug381445_1() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			GUAVA_CLOSEABLES_JAVA,
+			GUAVA_CLOSEABLES_CONTENT,
+			"org/apache/commons/io/IOUtils.java",
+			"package org.apache.commons.io;\n" +
+			"public class IOUtils {\n" +
+			"    public static void closeQuietly(java.io.Closeable closeable) {}\n" +
+			"}\n",
+			"Bug381445.java",
+			"import java.io.File;\n" +
+			"import java.io.FileInputStream;\n" +
+			"import java.io.InputStream;\n" +
+			"\n" +
+			"public class Bug381445 {\n" +
+			"	public void readFile(String path) throws Exception {\n" +
+			"		File file = new File(path);\n" +
+			"		InputStream stream1 = new FileInputStream(path);\n" +
+			"		InputStream stream2 = new FileInputStream(path);\n" +
+			"		InputStream stream3 = new FileInputStream(path);\n" +
+			"		InputStream stream4 = new FileInputStream(path);\n" +
+			"		try {\n" +
+			"			// Use the opened streams here\n" +
+			"			stream1.read();\n" +
+			"			stream2.read();\n" +
+			"			stream3.read();\n" +
+			"			stream4.read();\n" +
+			"		} finally {\n" +
+			"			com.google.common.io.Closeables.closeQuietly(stream1);\n" +
+			"			com.google.common.io.Closeables.close(stream2, false);\n" +
+			"			org.apache.commons.io.IOUtils.closeQuietly(stream3);\n" +
+			"			Closeables.closeQuietly(stream4);\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n" +
+			"class Closeables {\n" + // fake, should not be recognized
+			"	public static void closeQuietly(java.io.Closeable closeable) {}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in Bug381445.java (at line 11)\n" + 
+		"	InputStream stream4 = new FileInputStream(path);\n" + 
+		"	            ^^^^^^^\n" + 
+		"Potential resource leak: \'stream4\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options,
+		null);	
+}
+
+// Bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
+// A resource is closed in different places of the flow
+public void testBug381445_2() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			GUAVA_CLOSEABLES_JAVA,
+			GUAVA_CLOSEABLES_CONTENT,
+			"Bug381445.java",
+			"import java.io.File;\n" +
+			"import java.io.FileInputStream;\n" +
+			"import java.io.InputStream;\n" +
+			"import com.google.common.io.Closeables;\n" +
+			"\n" +
+			"public class Bug381445 {\n" +
+			"	public void readFile(String path) throws Exception {\n" +
+			"		File file = new File(path);\n" +
+			"		InputStream stream1 = new FileInputStream(path);\n" +
+			"		InputStream stream2 = new FileInputStream(path);\n" +
+			"		InputStream stream3 = new FileInputStream(path);\n" +
+			"		try {\n" +
+			"			// Use the opened streams here\n" +
+			"			stream1.read();\n" +
+			"			Closeables.closeQuietly(stream1);\n" +
+			"			stream2.read();\n" +
+			"			if (path.length() > 2)\n" +
+			"				Closeables.closeQuietly(stream2);\n" + // close inside if is too weak
+			"			stream3.read();\n" +
+			"		} finally {\n" +
+			"		}\n" +
+			"		Closeables.closeQuietly(stream3);\n" +
+			"	}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in Bug381445.java (at line 10)\n" + 
+		"	InputStream stream2 = new FileInputStream(path);\n" + 
+		"	            ^^^^^^^\n" + 
+		"Potential resource leak: \'stream2\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options,
+		null);	
+}
+
+// Bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
+// A close helper is referenced in various ways:
+public void testBug381445_3() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) return; // using static import
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			GUAVA_CLOSEABLES_JAVA,
+			GUAVA_CLOSEABLES_CONTENT,
+			"Bug381445a.java",
+			"import java.io.File;\n" +
+			"import java.io.FileInputStream;\n" +
+			"import java.io.InputStream;\n" +
+			"import static com.google.common.io.Closeables.closeQuietly;\n" +
+			"\n" +
+			"public class Bug381445a {\n" +
+			"	public void readFile(String path) throws Exception {\n" +
+			"		File file = new File(path);\n" +
+			"		InputStream stream = new FileInputStream(path);\n" +
+			"		try {\n" +
+			"			// Use the opened stream here\n" +
+			"			stream.read();\n" +
+			"		} finally {\n" +
+			"			closeQuietly(stream);\n" + // via static import
+			"		}\n" +
+			"	}\n" +
+			"}\n",
+			"Bug381445b.java",
+			"import java.io.File;\n" +
+			"import java.io.FileInputStream;\n" +
+			"import java.io.InputStream;\n" +
+			"import com.google.common.io.Closeables;\n" +
+			"\n" +
+			"public class Bug381445b extends Closeables {\n" +
+			"	public void readFile(String path) throws Exception {\n" +
+			"		File file = new File(path);\n" +
+			"		InputStream stream = new FileInputStream(path);\n" +
+			"		try {\n" +
+			"			// Use the opened streams here\n" +
+			"			stream.read();\n" +
+			"		} finally {\n" +
+			"			closeQuietly(stream);\n" + // via super class
+			"		}\n" +
+			"	}\n" +
+			"}\n",
+		},
+		"",
+		null,
+		true,
+		null, 
+		options,
+		null);	
+}
+
+// Bug 395977 - Resource leak warning behavior possibly incorrect for anonymous inner class
+// original test case
+public void testBug395977() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"WriterTest.java",
+			"import java.io.*;\n" + 
+			"\n" + 
+			"public class WriterTest implements Runnable\n" + 
+			"{\n" + 
+			"   private BufferedWriter m_Writer;\n" + 
+			"   \n" + 
+			"   public void run()\n" + 
+			"   {\n" + 
+			"      try\n" + 
+			"      {\n" + 
+			"         initializeWriter();\n" + 
+			"         \n" + 
+			"         m_Writer.write(\"string\");\n" + 
+			"         m_Writer.newLine();\n" + 
+			"         \n" + 
+			"         closeWriter();\n" + 
+			"      }\n" + 
+			"      catch (IOException ioe)\n" + 
+			"      {\n" + 
+			"         ioe.printStackTrace();\n" + 
+			"      }\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void initializeWriter()\n" + 
+			"      throws UnsupportedEncodingException, FileNotFoundException\n" + 
+			"   {\n" + 
+			"      m_Writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(\"file\"), \"UTF-8\"))\n" + 
+			"      {\n" + 
+			"         /**\n" + 
+			"          * Writes an LF character on all platforms, to avoid constantly flipping the line terminator style.\n" + 
+			"          */\n" + 
+			"         public void newLine() throws IOException\n" + 
+			"         {\n" + 
+			"            write('\\n');\n" + 
+			"         }\n" + 
+			"      };\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void closeWriter()\n" + 
+			"      throws IOException\n" + 
+			"   {\n" + 
+			"      m_Writer.close();\n" + 
+			"   }\n" + 
+			"}"
+		},
+		"",
+		null,
+		true,
+		null, 
+		options,
+		null);
+}
+
+// Bug 395977 - Resource leak warning behavior possibly incorrect for anonymous inner class
+// variant with named local class - don't accept as a secure resource wrapper
+public void testBug395977_1() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"WriterTest.java",
+			"import java.io.*;\n" + 
+			"\n" + 
+			"public class WriterTest implements Runnable\n" + 
+			"{\n" + 
+			"   private BufferedWriter m_Writer;\n" + 
+			"   \n" + 
+			"   public void run()\n" + 
+			"   {\n" + 
+			"      try\n" + 
+			"      {\n" + 
+			"         initializeWriter();\n" + 
+			"         \n" + 
+			"         m_Writer.write(\"string\");\n" + 
+			"         m_Writer.newLine();\n" + 
+			"         \n" + 
+			"         closeWriter();\n" + 
+			"      }\n" + 
+			"      catch (IOException ioe)\n" + 
+			"      {\n" + 
+			"         ioe.printStackTrace();\n" + 
+			"      }\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void initializeWriter()\n" + 
+			"      throws UnsupportedEncodingException, FileNotFoundException\n" + 
+			"   {\n" + 
+			"      class MyBufferedWriter extends BufferedWriter\n" + 
+			"      {\n" +
+			"         MyBufferedWriter(OutputStreamWriter writer) { super(writer); }\n" +
+			"         /**\n" + 
+			"          * Writes an LF character on all platforms, to avoid constantly flipping the line terminator style.\n" + 
+			"          */\n" + 
+			"         public void newLine() throws IOException\n" + 
+			"         {\n" + 
+			"            write('\\n');\n" + 
+			"         }\n" + 
+			"      };" +
+			"      m_Writer = new MyBufferedWriter(new OutputStreamWriter(new FileOutputStream(\"file\"), \"UTF-8\"));\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void closeWriter()\n" + 
+			"      throws IOException\n" + 
+			"   {\n" + 
+			"      m_Writer.close();\n" + 
+			"   }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in WriterTest.java (at line 37)\n" + 
+		"	};      m_Writer = new MyBufferedWriter(new OutputStreamWriter(new FileOutputStream(\"file\"), \"UTF-8\"));\n" + 
+		"	                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Potential resource leak: \'<unassigned Closeable value>\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options);
+}
+
+// Bug 395977 - Resource leak warning behavior possibly incorrect for anonymous inner class
+// anonymous class tries to "cheat" by overriding close()
+public void testBug395977_2() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"WriterTest.java",
+			"import java.io.*;\n" + 
+			"\n" + 
+			"public class WriterTest implements Runnable\n" + 
+			"{\n" + 
+			"   private BufferedWriter m_Writer;\n" + 
+			"   \n" + 
+			"   public void run()\n" + 
+			"   {\n" + 
+			"      try\n" + 
+			"      {\n" + 
+			"         initializeWriter();\n" + 
+			"         \n" + 
+			"         m_Writer.write(\"string\");\n" + 
+			"         m_Writer.newLine();\n" + 
+			"         \n" + 
+			"         closeWriter();\n" + 
+			"      }\n" + 
+			"      catch (IOException ioe)\n" + 
+			"      {\n" + 
+			"         ioe.printStackTrace();\n" + 
+			"      }\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void initializeWriter()\n" + 
+			"      throws UnsupportedEncodingException, FileNotFoundException\n" + 
+			"   {\n" + 
+			"      m_Writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(\"file\"), \"UTF-8\"))\n" + 
+			"      {\n" + 
+			"         public void close() { /* nop */}\n" +
+			"      };\n" + 
+			"   }\n" + 
+			"   \n" + 
+			"   private void closeWriter()\n" + 
+			"      throws IOException\n" + 
+			"   {\n" + 
+			"      m_Writer.close();\n" + 
+			"   }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in WriterTest.java (at line 27)\n" + 
+		"	m_Writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(\"file\"), \"UTF-8\"))\n" + 
+		"	                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Potential resource leak: \'<unassigned Closeable value>\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options);
+}
+
+// Bug 376053 - [compiler][resource] Strange potential resource leak problems
+// include line number when reporting against <unassigned Closeable value>
+public void testBug376053() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"Try.java",
+			"package xy;\n" + 
+			"\n" + 
+			"import java.io.FileNotFoundException;\n" + 
+			"import java.io.PrintStream;\n" + 
+			"\n" + 
+			"public class Try {\n" + 
+			"    public static void main(String[] args) throws FileNotFoundException {\n" + 
+			"        System.setOut(new PrintStream(\"log.txt\"));\n" + 
+			"        \n" + 
+			"        if (Math.random() > .5) {\n" + 
+			"            return;\n" + 
+			"        }\n" + 
+			"        System.out.println(\"Hello World\");\n" + 
+			"        return;\n" + 
+			"    }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in Try.java (at line 11)\n" + 
+		"	return;\n" + 
+		"	^^^^^^^\n" + 
+		"Potential resource leak: \'<unassigned Closeable value from line 8>\' may not be closed at this location\n" + 
+		"----------\n" + 
+		"2. ERROR in Try.java (at line 14)\n" + 
+		"	return;\n" + 
+		"	^^^^^^^\n" + 
+		"Potential resource leak: \'<unassigned Closeable value from line 8>\' may not be closed at this location\n" + 
+		"----------\n",
+		null,
+		true,
+		options);
 }
 }

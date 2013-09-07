@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,11 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for bug 383690 - [compiler] location of error re uninitialized final field should be aligned
+ *     Stephan Herrmann - Contributions for
+ *								bug 383690 - [compiler] location of error re uninitialized final field should be aligned
+ *								bug 388795 - [compiler] detection of name clash depends on order of super interfaces
+ *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
+ *								bug 406928 - computation of inherited methods seems damaged (affecting @Overrides)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -32567,7 +32571,7 @@ public void test0988() {
 			"1. ERROR in X.java (at line 7)\n" + 
 			"	abstract class GLinkElementView<M,CM> extends AbstractLinkView<M> {}\n" + 
 			"	               ^^^^^^^^^^^^^^^^\n" + 
-			"The return types are incompatible for the inherited methods EditPart.getViewer(), ILinkViewElement.getViewer(), AbstractLinkView<M>.getViewer()\n" + 
+			"The return types are incompatible for the inherited methods ILinkViewElement.getViewer(), EditPart.getViewer(), AbstractLinkView<M>.getViewer()\n" + 
 			"----------\n" + 
 			"2. ERROR in X.java (at line 11)\n" + 
 			"	public SheetViewer getViewer() { return null; }	\n" + 
@@ -38767,8 +38771,7 @@ public void test1132() {
 			"		X myThing = new X<Object>();\n" +
 			"		Integer i = myThing.getList().get(0); // Type Mismatch error - Since\n" +
 			"												// myThing is unbounded, return\n" +
-			"												// type List<Integer>\n" +
-			"												// incorrectly becomes unbounded\n" +
+			"												// type List<Integer> becomes unbounded\n" +
 			"	}\n" +
 			"\n" +
 			"	public List<Integer> getList() {\n" +
@@ -38800,12 +38803,12 @@ public void test1132() {
 		"	            ^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 		"Type mismatch: cannot convert from Object to Integer\n" +
 		"----------\n" +
-		"3. WARNING in X.java (at line 25)\n" +
+		"3. WARNING in X.java (at line 24)\n" +
 		"	X myThing = new X<Object>();\n" +
 		"	^\n" +
 		"X is a raw type. References to generic type X<T> should be parameterized\n" +
 		"----------\n" +
-		"4. WARNING in X.java (at line 26)\n" +
+		"4. WARNING in X.java (at line 25)\n" +
 		"	List<Integer> l = myThing.getList();\n" +
 		"	                  ^^^^^^^^^^^^^^^^^\n" +
 		"Type safety: The expression of type List needs unchecked conversion to conform to List<Integer>\n" +
@@ -42809,7 +42812,7 @@ public void test1239() {
 		"4. ERROR in X.java (at line 13)\n" +
 		"	public interface CombinedSubInterface extends SubInterface, OtherSubInterface {}\n" +
 		"	                 ^^^^^^^^^^^^^^^^^^^^\n" +
-		"The return types are incompatible for the inherited methods X.SuperInterface.and(X.SuperInterface), X.OtherSubInterface.and(X.SuperInterface), X.SubInterface.and(X.SuperInterface)\n" +
+		"The return types are incompatible for the inherited methods X.SubInterface.and(X.SuperInterface), X.OtherSubInterface.and(X.SuperInterface)\n" +
 		"----------\n" +
 		"5. WARNING in X.java (at line 15)\n" +
 		"	public interface OtherSubInterface extends SuperInterface {\n" +

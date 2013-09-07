@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,10 @@
  *     Stephan Herrmann - Contributions for 
  *								bug 366003 - CCE in ASTNode.resolveAnnotations(ASTNode.java:639)
  *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 393719 - [compiler] inconsistent warnings on iteration variables
+ *
+ *     Jesper S Moller - Contributions for
+ *									bug 393192 - Incomplete type hierarchy with > 10 annotations
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.parser;
 
@@ -3058,6 +3062,10 @@ protected void consumeEnhancedForStatementHeader(){
 	this.expressionLengthPtr--;
 	final Expression collection = this.expressionStack[this.expressionPtr--];
 	statement.collection = collection;
+	// https://bugs.eclipse.org/393719 - [compiler] inconsistent warnings on iteration variables
+	// let declaration(Source)End include the collection to achieve that @SuppressWarnings affects this part, too:
+	statement.elementVariable.declarationSourceEnd = collection.sourceEnd;
+	statement.elementVariable.declarationEnd = collection.sourceEnd;
 	statement.sourceEnd = this.rParenPos;
 
 	if(!this.statementRecoveryActivated &&
@@ -3074,6 +3082,7 @@ protected void consumeEnhancedForStatementHeaderInit(boolean hasModifiers) {
 
 	LocalDeclaration localDeclaration = createLocalDeclaration(identifierName, (int) (namePosition >>> 32), (int) namePosition);
 	localDeclaration.declarationSourceEnd = localDeclaration.declarationEnd;
+	localDeclaration.bits |= ASTNode.IsForeachElementVariable;
 
 	int extraDims = this.intStack[this.intPtr--];
 	this.identifierPtr--;
@@ -9743,7 +9752,7 @@ protected void parse() {
 			}
 		}
 	}
-
+	this.problemReporter.referenceContext = null; // Null this so we won't escalate problems needlessly (bug 393192)
 	if (DEBUG) System.out.println("-- EXIT FROM PARSE METHOD --");  //$NON-NLS-1$
 }
 public void parse(ConstructorDeclaration cd, CompilationUnitDeclaration unit, boolean recordLineSeparator) {

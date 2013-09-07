@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,6 +15,7 @@
  *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 384870 - [compiler] @Deprecated annotation not detected if preceded by other annotation
+ *								bug 393719 - [compiler] inconsistent warnings on iteration variables
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -117,6 +118,7 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 
 	// for local decls
 	public static final int IsArgument = Bit3;
+	public static final int IsForeachElementVariable = Bit5;
 
 	// for name refs or local decls
 	public static final int FirstAssignmentToLocal = Bit4;
@@ -493,8 +495,9 @@ public abstract class ASTNode implements TypeConstants, TypeIds {
 			return false;
 
 		ReferenceBinding refType = (ReferenceBinding) type;
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=397888
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385780
-		if (refType instanceof TypeVariableBinding) {
+		if ((this.bits & ASTNode.InsideJavadoc) == 0  && refType instanceof TypeVariableBinding) {
 			refType.modifiers |= ExtraCompilerModifiers.AccLocallyUsed;
 		}
 		// ignore references insing Javadoc comments

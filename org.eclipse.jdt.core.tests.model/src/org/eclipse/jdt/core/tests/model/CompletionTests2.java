@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,19 +30,25 @@ import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.jdt.core.CompletionContext;
+import org.eclipse.jdt.core.CompletionProposal;
+import org.eclipse.jdt.core.CompletionRequestor;
 import org.eclipse.jdt.core.IAccessRule;
 import org.eclipse.jdt.core.IClasspathAttribute;
 import org.eclipse.jdt.core.IClasspathContainer;
 import org.eclipse.jdt.core.IClasspathEntry;
 import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.codeassist.InternalCompletionContext;
 import org.eclipse.jdt.internal.codeassist.RelevanceConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.JavaModelManager;
+import org.eclipse.jdt.internal.core.SourceType;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
 
 public class CompletionTests2 extends ModifyingResourceTests implements RelevanceConstants {
@@ -5977,6 +5983,119 @@ public void testBug373409() throws Exception {
 			"ThreadLocal[CONSTRUCTOR_INVOCATION]{(), Ljava.llang.ThreadLocal;, ()V, ThreadLocal, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED + R_CONSTRUCTOR) + "}\n" +
 			"   ThreadLocal[TYPE_REF]{java.llang.ThreadLocal, java.llang, Ljava.llang.ThreadLocal;, null, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED + R_CONSTRUCTOR) + "}",
 			requestor.getResults());
+	} finally {
+		deleteProject("P");
+	}
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=397070
+public void testBug397070() throws JavaModelException {
+	this.workingCopies = new ICompilationUnit[1];
+	this.workingCopies[0] = getWorkingCopy(
+		"/Completion/src/test/Completion.java",
+		"package test;\n" +
+		"public class Completion implements {}\n" +
+		"public interface Completion2 extends {}\n" +
+		"public class Completion3 extends {}\n" +
+		"}\n");
+
+	class CompletionRequestor2 extends CompletionRequestor {
+		SourceType type = null;
+		public void acceptContext(CompletionContext con) {
+			this.type = null;
+			if (con instanceof InternalCompletionContext) {
+				InternalCompletionContext context = (InternalCompletionContext) con;
+				IJavaElement element = context.getEnclosingElement();
+				if (element instanceof org.eclipse.jdt.internal.core.SourceType) {
+					this.type = (SourceType) element;
+				}
+			}
+		}
+		public boolean isExtendedContextRequired() {
+			return true;
+		}
+		public SourceType getType() {
+			return this.type;
+		}
+		public void accept(CompletionProposal proposal) {
+			// Do nothing
+		}
+	}
+
+	CompletionRequestor2 requestor = new CompletionRequestor2();
+	String str = this.workingCopies[0].getSource();
+	String completeBehind = "Completion implements ";
+	int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	try {
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		SourceType type = requestor.getType();
+		String[] names = type.getSuperInterfaceTypeSignatures();
+		assertEquals("Incorrect syper interface signature", 0, names.length);
+
+		completeBehind = "Completion2 extends ";
+		cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		type = requestor.getType();
+		names = type.getSuperInterfaceTypeSignatures();
+		assertEquals("Incorrect syper interface signature", 0, names.length);
+
+		completeBehind = "Completion3 extends ";
+		cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
+		type = requestor.getType();
+		assertNull("Incorrect syper class signature", type.getSuperclassTypeSignature());
+	} catch (IllegalArgumentException iae) {
+		fail("Invalid completion context");
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=392581
+public void testBug392581() throws CoreException {
+	try {
+		// Create project and jar
+		IJavaProject p = createJavaProject("P", new String[] {"src"}, new String[]{"JCL_LIB"}, "bin");
+		createFolder("/P/src/p");
+		refresh(p);
+		// Create working copy
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+				"/P/src/p/B.java",
+				"class A {\n" +
+				"	protected String foo1(){\n" +
+				"		return \"From A\";\n" +
+				"  }\n" +
+				"}\n" +
+				"public class B extends A {\n" +
+				"	@Override\n" +
+				"	protected String foo1() {\n" +
+				"  		super. \n" +
+				"	}\n" +
+				"}");
+
+		// do completion
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true);
+		requestor.setRequireExtendedContext(true);
+		requestor.setComputeVisibleElements(true);
+		requestor.allowAllRequiredProposals();
+		NullProgressMonitor monitor = new NullProgressMonitor();
+
+	    String str = this.workingCopies[0].getSource();
+	    String completeBehind = "super.";
+	    int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+	    this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, monitor);
+	    
+	    assertResults(
+	    	"clone[METHOD_REF]{clone(), Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "equals[METHOD_REF]{equals(), Ljava.lang.Object;, (Ljava.lang.Object;)Z, equals, (obj), "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "finalize[METHOD_REF]{finalize(), Ljava.lang.Object;, ()V, finalize, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "getClass[METHOD_REF]{getClass(), Ljava.lang.Object;, ()Ljava.lang.Class;, getClass, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "hashCode[METHOD_REF]{hashCode(), Ljava.lang.Object;, ()I, hashCode, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "notify[METHOD_REF]{notify(), Ljava.lang.Object;, ()V, notify, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "notifyAll[METHOD_REF]{notifyAll(), Ljava.lang.Object;, ()V, notifyAll, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, ()V, wait, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (J)V, wait, (millis), "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "wait[METHOD_REF]{wait(), Ljava.lang.Object;, (JI)V, wait, (millis, nanos), "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED) + "}\n"
+	    	+ "foo1[METHOD_REF]{foo1(), Lp.A;, ()Ljava.lang.String;, foo1, null, "+ (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_STATIC + R_NON_RESTRICTED + R_EXACT_NAME + R_METHOD_OVERIDE) + "}",
+	    	requestor.getResults());
 	} finally {
 		deleteProject("P");
 	}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,10 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for bug 335093 - [compiler][null] minimal hook for future null annotation support
+ *     Stephan Herrmann - Contributions for
+ *								bug 335093 - [compiler][null] minimal hook for future null annotation support
+ *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *     Jesper S Moller - Contributions for bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -1016,6 +1019,19 @@ protected static class JavacTestOptions {
 	protected String[] getDefaultClassPaths() {
 		return DefaultJavaRuntimeEnvironment.getDefaultClassPaths();
 	}
+	/** Get class library paths built from default class paths plus the JDT null annotations. */
+	protected String[] getLibsWithNullAnnotations() throws IOException {
+		String[] defaultLibs = getDefaultClassPaths();
+		int len = defaultLibs.length;
+		String[] libs = new String[len+1];
+		System.arraycopy(defaultLibs, 0, libs, 0, len);
+		File bundleFile = FileLocator.getBundleFile(Platform.getBundle("org.eclipse.jdt.annotation"));
+		if (bundleFile.isDirectory())
+			libs[len] = bundleFile.getPath()+"/bin";
+		else
+			libs[len] = bundleFile.getPath();
+		return libs;
+	}
 	protected IErrorHandlingPolicy getErrorHandlingPolicy() {
 		return new IErrorHandlingPolicy() {
 			public boolean stopOnFirstError() {
@@ -1189,6 +1205,28 @@ protected static class JavacTestOptions {
 			null /* no vm arguments */,
 			// runtime results
 			expectedOutputString /* expected output string */,
+			null /* do not check error string */,
+			// javac options
+			JavacTestOptions.DEFAULT /* default javac test options */);
+	}
+	protected void runConformTest(String[] testFiles, Map customOptions) {
+		runTest(
+			// test directory preparation
+			true /* flush output directory */,
+			testFiles /* test files */,
+			// compiler options
+			null /* no class libraries */,
+			customOptions /* no custom options */,
+			false /* do not perform statements recovery */,
+			null /* no custom requestor */,
+			// compiler results
+			false /* expecting no compiler errors */,
+			null /* do not check compiler log */,
+			// runtime options
+			false /* do not force execution */,
+			null /* no vm arguments */,
+			// runtime results
+			null /* expected output string */,
 			null /* do not check error string */,
 			// javac options
 			JavacTestOptions.DEFAULT /* default javac test options */);

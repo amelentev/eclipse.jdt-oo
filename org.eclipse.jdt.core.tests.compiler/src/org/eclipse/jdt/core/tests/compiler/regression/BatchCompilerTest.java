@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,6 +21,10 @@
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *     Jesper Steen Moller - Contributions for
+ *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -48,7 +52,6 @@ import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.batch.ClasspathJar;
 import org.eclipse.jdt.internal.compiler.batch.ClasspathLocation;
 import org.eclipse.jdt.internal.compiler.batch.Main;
-import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.util.ManifestAnalyzer;
 
 public class BatchCompilerTest extends AbstractRegressionTest {
@@ -97,7 +100,7 @@ public BatchCompilerTest(String name) {
  * @see TestAll
  */
 public static Test suite() {
-	return buildUniqueComplianceTestSuite(testClass(), ClassFileConstants.JDK1_5);
+	return buildMinimalComplianceTestSuite(testClass(), F_1_5);
 }
 public static Class testClass() {
 	return BatchCompilerTest.class;
@@ -1890,6 +1893,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nullable\" value=\"org.eclipse.jdt.annotation.Nullable\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nullanalysis\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.inlineJsrBytecode\" value=\"disabled\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.shareCommonFinallyBlocks\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.targetPlatform\" value=\"1.5\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.unusedLocal\" value=\"optimize out\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.compliance\" value=\"1.5\"/>\n" + 
@@ -1948,7 +1952,8 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.missingSynchronizedOnInheritedMethod\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.noEffectAssignment\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.noImplicitStringConversion\" value=\"warning\"/>\n" + 
-			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nonExternalizedStringLiteral\" value=\"ignore\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nonExternalizedStringLiteral\" value=\"ignore\"/>\n" +
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nonnullParameterAnnotationDropped\" value=\"warning\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nullAnnotationInferenceConflict\" value=\"error\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nullReference\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.nullSpecViolation\" value=\"error\"/>\n" + 
@@ -1970,6 +1975,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.staticAccessReceiver\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.suppressOptionalErrors\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.suppressWarnings\" value=\"enabled\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.syntheticAccessEmulation\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.tasks\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.typeParameterHiding\" value=\"warning\"/>\n" + 
@@ -12628,18 +12634,18 @@ public void test313_warn_options() {
 		"	                     ^^^^^^\n" + 
 		"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
 		"----------\n" + 
-		"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
-		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
-		"	                               ^^^^^^\n" + 
-		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" + 
-		"----------\n" + 
+		"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
+		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
+		"	                               ^^^^^^\n" +
+		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+		"----------\n" +
 		"3 problems (3 warnings)", 
 		true);
 }
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=325342
 // -err option - regression tests to check option nullAnnot
-// Null warnings because of annotations, null spec violations configured as errors
+// Null warnings because of annotations, null spec violations plus one specific problem configured as errors
 public void test314_warn_options() {
 	this.runNegativeTest(
 		new String[] {
@@ -12664,7 +12670,7 @@ public void test314_warn_options() {
 		"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
 		+ " -sourcepath \"" + OUTPUT_DIR + "\""
 		+ " -1.5"
-		+ " -err:+nullAnnot -warn:-null -proc:none -d \"" + OUTPUT_DIR + "\"",
+		+ " -err:+nullAnnot -warn:-null -err:+nonnullNotRepeated -proc:none -d \"" + OUTPUT_DIR + "\"",
 		"",
 		"----------\n" + 
 		"1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
@@ -12677,11 +12683,11 @@ public void test314_warn_options() {
 		"	                     ^^^^^^\n" + 
 		"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
 		"----------\n" + 
-		"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
-		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
-		"	                               ^^^^^^\n" + 
-		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" + 
-		"----------\n" + 
+		"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
+		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
+		"	                               ^^^^^^\n" +
+		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+		"----------\n" +
 		"3 problems (3 errors)", 
 		true);
 }
@@ -13668,12 +13674,61 @@ public void testBug375366c() throws IOException {
 			"	                     ^^^^^^\n" + 
 			"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
 			"----------\n" + 
-			"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
-			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
-			"	                               ^^^^^^\n" + 
-			"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" + 
-			"----------\n" + 
-			"3 problems (3 errors)", 
+			"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
+			"	                               ^^^^^^\n" +
+			"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+			"----------\n" +
+			"3 problems (2 errors, 1 warning)", 
+			false/*don't flush*/);
+}
+
+// Bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
+// property file enables null annotation support, one optional warning disabled
+public void testBug375366d() throws IOException {
+	createOutputTestDirectory("regression/.settings");
+	Util.createFile(OUTPUT_DIR+"/.settings/org.eclipse.jdt.core.prefs",
+			"eclipse.preferences.version=1\n" + 
+			"org.eclipse.jdt.core.compiler.annotation.nullanalysis=enabled\n" +
+			"org.eclipse.jdt.core.compiler.problem.nonnullParameterAnnotationDropped=ignore\n");
+	this.runNegativeTest(
+			new String[] {
+					"p/X.java",
+					"package p;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class X {\n" +
+					"  @NonNull Object foo(@Nullable Object o, @NonNull Object o2) {\n" +
+					"	 return this;\n" +
+					"  }\n" +
+					"}\n" +
+					"class Y extends X {\n" +
+					"    @Nullable Object foo(Object o, Object o2) { return null; }\n" +
+					"}\n",
+					"org/eclipse/jdt/annotation/NonNull.java",
+					NONNULL_ANNOTATION_CONTENT,
+					"org/eclipse/jdt/annotation/Nullable.java",
+					NULLABLE_ANNOTATION_CONTENT,
+					"org/eclipse/jdt/annotation/NonNullByDefault.java",				
+					NONNULL_BY_DEFAULT_ANNOTATION_CONTENT
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "p" + File.separator + "X.java\""
+			+ " -sourcepath \"" + OUTPUT_DIR + "\""
+			+ " -1.5"
+			+ " -properties " + OUTPUT_DIR + File.separator +".settings" + File.separator + "org.eclipse.jdt.core.prefs "
+			+ " -d \"" + OUTPUT_DIR + "\"",
+			"",
+			"----------\n" +
+			"1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
+			"	^^^^^^^^^^^^^^^^\n" +
+			"The return type is incompatible with the @NonNull return from X.foo(Object, Object)\n" +
+			"----------\n" +
+			"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
+			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
+			"	                     ^^^^^^\n" +
+			"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" +
+			"----------\n" +
+			"2 problems (2 errors)", 
 			false/*don't flush*/);
 }
 
@@ -13724,6 +13779,27 @@ public void test385780_warn_option() {
 		"Unused type parameter T\n" + 
 		"----------\n" + 
 		"4 problems (4 warnings)",
+		true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=405225
+public void test405225_extdirs() {
+	// check the option introduced in bug 359721
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.FileReader;\n" +
+			"public class X {\n" +
+			"  void foo() throws java.io.IOException {\n" +
+			"      FileReader r = new FileReader(\"f1\");\n" +
+			"      char[] cs = new char[1024];\n" +
+			"	   r.read(cs);\n" +
+			"  }\n" +
+			"}\n"
+		},
+		"\"" + OUTPUT_DIR +  File.separator + "X.java\""
+		+ " -warn:-resource -1.7 -extdirs \"" + LIB_DIR + "\" -d \"" + OUTPUT_DIR + "\"",
+		"",
+		"",
 		true);
 }
 }

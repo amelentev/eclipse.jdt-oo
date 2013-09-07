@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,6 +18,7 @@
  *								bug 374605 - Unreasonable warning for enum-based switch statements
  *								bug 375366 - ECJ ignores unusedParameterIncludeDocCommentReference unless enableJavadoc option is set
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.batch;
 
@@ -1638,20 +1639,22 @@ private boolean checkVMVersion(long minimalSupportedVersion) {
 		return false;
 	}
 	switch(majorVersion) {
-		case 45 : // 1.0 and 1.1
+		case ClassFileConstants.MAJOR_VERSION_1_1 : // 1.0 and 1.1
 			return ClassFileConstants.JDK1_1 >= minimalSupportedVersion;
-		case 46 : // 1.2
+		case ClassFileConstants.MAJOR_VERSION_1_2 : // 1.2
 			return ClassFileConstants.JDK1_2 >= minimalSupportedVersion;
-		case 47 : // 1.3
+		case ClassFileConstants.MAJOR_VERSION_1_3 : // 1.3
 			return ClassFileConstants.JDK1_3 >= minimalSupportedVersion;
-		case 48 : // 1.4
+		case ClassFileConstants.MAJOR_VERSION_1_4 : // 1.4
 			return ClassFileConstants.JDK1_4 >= minimalSupportedVersion;
-		case 49 : // 1.5
+		case ClassFileConstants.MAJOR_VERSION_1_5 : // 1.5
 			return ClassFileConstants.JDK1_5 >= minimalSupportedVersion;
-		case 50 : // 1.6
+		case ClassFileConstants.MAJOR_VERSION_1_6 : // 1.6
 			return ClassFileConstants.JDK1_6 >= minimalSupportedVersion;
-		case 51 : // 1.7
+		case ClassFileConstants.MAJOR_VERSION_1_7 : // 1.7
 			return ClassFileConstants.JDK1_7 >= minimalSupportedVersion;
+		case ClassFileConstants.MAJOR_VERSION_1_8: // 1.8
+			return ClassFileConstants.JDK1_8 >= minimalSupportedVersion;
 	}
 	// unknown version
 	return false;
@@ -3683,6 +3686,9 @@ private void handleErrorOrWarningToken(String token, boolean isEnabling, int sev
 				return;
 			} else if (token.equals("nullUncheckedConversion")) { //$NON-NLS-1$
 				setSeverity(CompilerOptions.OPTION_ReportNullUncheckedConversion, severity, isEnabling);
+				return;
+			} else if (token.equals("nonnullNotRepeated")) { //$NON-NLS-1$
+				setSeverity(CompilerOptions.OPTION_ReportNonnullParameterAnnotationDropped, severity, isEnabling);
 				return;
 			}
 			

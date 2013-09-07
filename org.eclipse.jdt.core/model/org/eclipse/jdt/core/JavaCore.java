@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -96,6 +96,8 @@
  *									COMPILER_PB_MISSING_ENUM_CASE_DESPITE_DEFAULT
  *									COMPILER_PB_SWITCH_MISSING_DEFAULT_CASE
  *									COMPILER_INHERIT_NULL_ANNOTATIONS
+ *									COMPILER_PB_NONNULL_PARAMETER_ANNOTATION_DROPPED
+ *									COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS
  *******************************************************************************/
 
 package org.eclipse.jdt.core;
@@ -119,7 +121,6 @@ import org.eclipse.core.runtime.Plugin;
 import org.eclipse.core.runtime.QualifiedName;
 import org.eclipse.core.runtime.SubProgressMonitor;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
-
 import org.eclipse.core.resources.IContainer;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
@@ -133,7 +134,6 @@ import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRoot;
 import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.resources.ResourcesPlugin;
-
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.search.IJavaSearchConstants;
@@ -141,7 +141,6 @@ import org.eclipse.jdt.core.search.IJavaSearchScope;
 import org.eclipse.jdt.core.search.SearchEngine;
 import org.eclipse.jdt.core.search.SearchPattern;
 import org.eclipse.jdt.core.search.TypeNameRequestor;
-
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
@@ -1489,7 +1488,7 @@ public final class JavaCore extends Plugin {
 	 * <p>If the annotation specified by this option is applied to a type in a method
 	 *    signature or variable declaration, this will be interpreted as a specification
 	 *    that <code>null</code> is a legal value in that position. Currently supported
-	 *    positions are: method parameters, method return type and local variables.</p>
+	 *    positions are: method parameters, method return type, fields and local variables.</p>
 	 * <p>If a value whose type
 	 *    is annotated with this annotation is dereferenced without checking for null,
 	 *    the compiler will trigger a diagnostic as further controlled by
@@ -1515,7 +1514,7 @@ public final class JavaCore extends Plugin {
 	 * <p>If the annotation specified by this option is applied to a type in a method
 	 *    signature or variable declaration, this will be interpreted as a specification
 	 *    that <code>null</code> is <b>not</b> a legal value in that position. Currently
-	 *    supported positions are: method parameters, method return type and local variables.</p>
+	 *    supported positions are: method parameters, method return type, fields and local variables.</p>
 	 * <p>For values declared with this annotation, the compiler will never trigger a null
 	 *    reference diagnostic (as controlled by {@link #COMPILER_PB_POTENTIAL_NULL_REFERENCE}
 	 *    and {@link #COMPILER_PB_NULL_REFERENCE}), because the assumption is made that null
@@ -1539,8 +1538,8 @@ public final class JavaCore extends Plugin {
 	 * <p>This option defines a fully qualified Java type name that the compiler may use
 	 *    to perform special null analysis.</p>
 	 * <p>If the annotation is applied without an argument, all unannotated types in method signatures
-	 *    within the annotated element will be treated as if they were specified with the non-null annotation
-	 *    (see {@link #COMPILER_NONNULL_ANNOTATION_NAME}).</p>
+	 *    and field declarations within the annotated element will be treated as if they were specified
+	 *    with the non-null annotation (see {@link #COMPILER_NONNULL_ANNOTATION_NAME}).</p>
 	 * <p>If the annotation is applied with the constant <code>false</code> as its argument
 	 *    all corresponding defaults at outer scopes will be canceled for the annotated element.</p>
 	 * <p>This option only has an effect if the option {@link #COMPILER_ANNOTATION_NULL_ANALYSIS} is enabled.</p>
@@ -1591,6 +1590,9 @@ public final class JavaCore extends Plugin {
 	 *        for at least one of its parameters, tries to tighten that null contract by
 	 *        specifying a nonnull annotation for its corresponding parameter
 	 *        (prohibition of covariant parameters).</li>
+	 *    <li>A non-static field with a nonnull annotation is not definitely assigned at
+	 *        the end of each constructor.</li>
+	 *    <li>A static field with a nonnull annotation is not definitely assigned in static initializers.</li>
 	 *    </ol>
 	 *    In the above an expression is considered as <em>nullable</em> if
 	 *    either it is statically known to evaluate to the value <code>null</code>, or if it is
@@ -1687,6 +1689,20 @@ public final class JavaCore extends Plugin {
 	 */
 	public static final String COMPILER_PB_REDUNDANT_NULL_ANNOTATION = PLUGIN_ID + ".compiler.problem.redundantNullAnnotation"; //$NON-NLS-1$
 	/**
+	 * Compiler option ID: Perform syntactic null analysis for fields.
+	 * <p>When enabled, the compiler will detect certain syntactic constellations where a null
+	 *	  related warning against a field reference would normally be raised but can be suppressed
+	 *    at low risk given that the same field reference was known to be non-null immediately before.</p>
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.problem.syntacticNullAnalysisForFields"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "disabled", "enabled" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"disabled"</code></dd>
+	 * </dl>
+	 * @since 3.9
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_SYNTACTIC_NULL_ANALYSIS_FOR_FIELDS = JavaCore.PLUGIN_ID+".compiler.problem.syntacticNullAnalysisForFields"; //$NON-NLS-1$
+	/**
 	 * Compiler option ID: Inheritance of null annotations.
 	 * <p>When enabled, the compiler will check for each method without any explicit null annotations:
 	 *    If it overrides a method which has null annotations, it will treat the
@@ -1706,6 +1722,32 @@ public final class JavaCore extends Plugin {
 	 * @category CompilerOptionID
 	 */
 	public static final String COMPILER_INHERIT_NULL_ANNOTATIONS = JavaCore.PLUGIN_ID+".compiler.annotation.inheritNullAnnotations"; //$NON-NLS-1$
+	/**
+	 * Compiler option ID: Reporting Dropped Nonnull Parameter Annotations.
+	 * <p>When enabled, the compiler will issue an error or a warning against a parameter of 
+	 *    a method that overrides an inherited method
+	 *    if all of the following hold:</p>
+	 * <ul>
+	 *    <li>The overridden method declares the corresponding parameter as non-null (see {@link #COMPILER_NONNULL_ANNOTATION_NAME}).</li>
+	 *    <li>The parameter in the overriding method has no null annotation.</li>
+	 *    <li>The overriding method is not affected by a nullness default (see {@link #COMPILER_NONNULL_BY_DEFAULT_ANNOTATION_NAME}).</li>
+	 *    <li>Inheritance of null annotations is disabled (see {@link #COMPILER_INHERIT_NULL_ANNOTATIONS}).</li>
+	 * </ul>
+	 * <p>This particular situation bears the same inherent risk as any unannotated method parameter,
+	 *    because the compiler's null ananysis cannot decide wither <code>null</code> is or is not a legal value for this parameter.
+	 *    However, the annotation in the overridden method <em>suggests</em> that the parameter should also be annotated as non-null.
+	 *    If that is not intended or possible, it is recommended to annotate the parameter as nullable,
+	 *    in order to make this (legal) change of contract explicit.</p>   
+	 * <dl>
+	 * <dt>Option id:</dt><dd><code>"org.eclipse.jdt.core.compiler.problem.nonnullParameterAnnotationDropped"</code></dd>
+	 * <dt>Possible values:</dt><dd><code>{ "error", "warning", "ignore" }</code></dd>
+	 * <dt>Default:</dt><dd><code>"warning"</code></dd>
+	 * </dl>
+	 * @since 3.9
+	 * @category CompilerOptionID
+	 */
+	public static final String COMPILER_PB_NONNULL_PARAMETER_ANNOTATION_DROPPED = JavaCore.PLUGIN_ID+".compiler.problem.nonnullParameterAnnotationDropped"; //$NON-NLS-1$
+
 	/**
 	 * Compiler option ID: Setting Source Compatibility Mode.
 	 * <p>Specify whether which source level compatibility is used. From 1.4 on, <code>'assert'</code> is a keyword
@@ -4229,7 +4271,7 @@ public final class JavaCore extends Plugin {
 	 * <p>
 	 * The rule kind is one of {@link IAccessRule#K_ACCESSIBLE}, {@link IAccessRule#K_DISCOURAGED},
 	 * or {@link IAccessRule#K_NON_ACCESSIBLE}, optionally combined with {@link IAccessRule#IGNORE_IF_BETTER},
-	 * e..g. <code>IAccessRule.K_NON_ACCESSIBLE | IAccessRule.IGNORE_IF_BETTER</code>.
+	 * e.g. <code>IAccessRule.K_NON_ACCESSIBLE | IAccessRule.IGNORE_IF_BETTER</code>.
 	 * </p>
 	 *
 	 * @param filePattern the file pattern this access rule should match
@@ -4238,6 +4280,8 @@ public final class JavaCore extends Plugin {
 	 *                     {@link IAccessRule#IGNORE_IF_BETTER}
 	 * @return a new access rule
 	 * @since 3.1
+	 * 
+	 * @see IClasspathEntry#getExclusionPatterns()
 	 */
 	public static IAccessRule newAccessRule(IPath filePattern, int kind) {
 		return new ClasspathAccessRule(filePattern, kind);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -64,6 +64,13 @@ public class ASTConverter15Test extends ConverterTestSetup {
 		if (this.workingCopy != null) {
 			this.workingCopy.discardWorkingCopy();
 			this.workingCopy = null;
+		}
+	}
+	private void assertArrayEquals(int[] expectedAnnotationsSize,
+			int[] actualAnnotationsSize) {
+		assertEquals("wrong array size", expectedAnnotationsSize.length, actualAnnotationsSize.length);
+		for (int i = 0, max = expectedAnnotationsSize.length; i < max; i++) {
+			assertEquals("Wrong element at " + i, expectedAnnotationsSize[i], actualAnnotationsSize[i]);
 		}
 	}
 
@@ -11452,5 +11459,72 @@ public class ASTConverter15Test extends ConverterTestSetup {
 			deleteProject(jp);
 		}
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=376440
+	public void testBug376440() throws JavaModelException {
+		String str =
+				"package p;\n" +
+				 "class X extends p.Z<String>{}\n" +
+				 "class X extends  p.Z<String> {}\n" +
+				 "class Z<T> {}\n";
+		this.workingCopy = getWorkingCopy("/Converter15/src/p/X.java", true/*resolve*/);
+		ASTNode node = buildAST(str,this.workingCopy, false);
 
+		assertNotNull("No node", node);
+		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
+		CompilationUnit compilationUnit = (CompilationUnit) node;
+		assertEquals("Invaid no of types", 3, compilationUnit.types().size());
+		TypeDeclaration typeDecl = (TypeDeclaration) compilationUnit.types().get(0);
+		Type type = typeDecl.getSuperclassType();
+		ITypeBinding bindingFromAST = type.resolveBinding();
+		assertNotNull("Binding should not be null", bindingFromAST);
+		typeDecl = (TypeDeclaration) compilationUnit.types().get(1);
+		type = typeDecl.getSuperclassType();
+		try {
+			bindingFromAST = type.resolveBinding();
+		} catch(Exception e) {
+			fail("Should not throw exception, should just return null binding");
+		}
+		assertNull("Binding should be null", bindingFromAST);
+	}
+	/*
+	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=398520
+	 */
+	public void testBug398520() throws CoreException {
+		String jarLocation = getWorkspacePath()+"Converter15/bins/bug398520.jar";
+		IJavaProject jp = createJavaProject("Bug398520", new String[]{"src"}, new String[]{"CONVERTER_JCL15_LIB", jarLocation}, "bin", "1.5");
+		try {
+			this.workingCopy = getWorkingCopy("/Bug398520/src/testBug398520/C.java", true/*resolve*/);
+			String contents =
+				"package testBug398520;\n" +
+				"import pack.*;\n" +
+				"public class C {\n" +
+				"	 public Object foo() {\n" +
+				"        return new T<String, String>().new C().new Iter(\"\", 0, null);\n" +
+				"    }\n" +
+				"}\n";
+			ASTNode node = buildAST(
+					contents,
+					this.workingCopy,
+					true);
+			assertNotNull("No node", node);
+			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
+			CompilationUnit compilationUnit = (CompilationUnit) node;
+			assertEquals("Got problems", 0, compilationUnit.getProblems().length);
+			ASTNode astNode = getASTNode(compilationUnit, 0, 0, 0);
+			assertEquals("Not a return statement", ASTNode.RETURN_STATEMENT, astNode.getNodeType());
+			ReturnStatement statement = (ReturnStatement) astNode;
+			Expression expression = statement.getExpression();
+			ClassInstanceCreation creation = (ClassInstanceCreation) expression;
+			IMethodBinding methodBinding = creation.resolveConstructorBinding();
+			int[] expectedAnnotationsSize = new int[] { 1, 0, 1};
+			int[] actualAnnotationsSize = new int[] {
+					methodBinding.getParameterAnnotations(0).length,
+					methodBinding.getParameterAnnotations(1).length,
+					methodBinding.getParameterAnnotations(2).length
+			};
+			assertArrayEquals(expectedAnnotationsSize, actualAnnotationsSize);
+		} finally {
+			deleteProject(jp);
+		}
+	}
 }

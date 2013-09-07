@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,6 +17,11 @@
  *							bug 370639 - [compiler][resource] restore the default for resource leak warnings
  *							bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *							bug 388996 - [compiler][resource] Incorrect 'potential resource leak'
+ *							bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *     Jesper S Moller <jesper@selskabet.org> - Contributions for
+ *							bug 378674 - "The method can be declared as static" is wrong
+ *     Till Brychcy - Contributions for
+ *     						bug 413460 - NonNullByDefault is not inherited to Constructors when accessed via Class File
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -25,6 +30,7 @@ import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
@@ -63,9 +69,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 			if (analyseResources && !hasResourceWrapperType) { // allocation of wrapped closeables is analyzed specially
 				flowInfo = FakedTrackingVariable.markPassedToOutside(currentScope, this.arguments[i], flowInfo, flowContext, false);
 			}
-			if ((this.arguments[i].implicitConversion & TypeIds.UNBOXING) != 0) {
-				this.arguments[i].checkNPE(currentScope, flowContext, flowInfo);
-			}
+			this.arguments[i].checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 		}
 		analyseArguments(currentScope, flowContext, flowInfo, this.binding, this.arguments);
 	}
@@ -93,6 +97,8 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		// allocating a non-static member type without an enclosing instance of parent type
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=335845
 		currentScope.resetDeclaringClassMethodStaticFlag(this.binding.declaringClass.enclosingType());
+		// Reviewed for https://bugs.eclipse.org/bugs/show_bug.cgi?id=378674 :
+		// The corresponding problem (when called from static) is not produced until during code generation
 	}
 	manageEnclosingInstanceAccessIfNecessary(currentScope, flowInfo);
 	manageSyntheticAccessIfNecessary(currentScope, flowInfo);
@@ -432,6 +438,11 @@ public TypeBinding resolveType(BlockScope scope) {
 	if (!isDiamond && this.resolvedType.isParameterizedTypeWithActualArguments()) {
  		checkTypeArgumentRedundancy((ParameterizedTypeBinding) this.resolvedType, null, argumentTypes, scope);
  	}
+	final CompilerOptions compilerOptions = scope.compilerOptions();
+	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled && (this.binding.tagBits & TagBits.IsNullnessKnown) == 0) {
+		new ImplicitNullAnnotationVerifier(compilerOptions.inheritNullAnnotations)
+				.checkImplicitNullAnnotations(this.binding, null/*srcMethod*/, false, scope);
+	}
 	return allocationType;
 }
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1045,6 +1045,8 @@ public static Test suite() {
 	suite.addTest(new CompletionTests("testBug385858b"));
 	suite.addTest(new CompletionTests("testBug385858c"));
 	suite.addTest(new CompletionTests("testBug385858d"));
+	suite.addTest(new CompletionTests("testBug402574"));
+	suite.addTest(new CompletionTests("testBug370971"));
 	return suite;
 }
 public CompletionTests(String name) {
@@ -1057,6 +1059,21 @@ public void setUpSuite() throws Exception {
 		setUpProjectCompliance(COMPLETION_PROJECT, "1.4");
 	}
 	super.setUpSuite();
+}
+public void tearDownSuite() throws Exception {
+	if (COMPLETION_SUITES == null) {
+		deleteProject("Completion");
+	} else {
+		COMPLETION_SUITES.remove(getClass());
+		if (COMPLETION_SUITES.size() == 0) {
+			deleteProject("Completion");
+			COMPLETION_SUITES = null;
+		}
+	}
+	if (COMPLETION_SUITES == null) {
+		COMPLETION_PROJECT = null;
+	}
+	super.tearDownSuite();
 }
 private String getVarClassSignature(IEvaluationContext context) {
 	char[] varClassName = ((EvaluationContextWrapper)context).getVarClassName();
@@ -4388,7 +4405,7 @@ public void testCompletionAfterSupercall1() throws JavaModelException {
 	this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner);
 
 	assertResults(
-			"foo[METHOD_REF]{foo(), LCompletionAfterSupercall1_2;, ()V, foo, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_EXACT_NAME + R_NON_STATIC+ R_NON_RESTRICTED) + "}",
+			"foo[METHOD_REF]{foo(), LCompletionAfterSupercall1_2;, ()V, foo, null, " + (R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_EXACT_NAME + R_NON_STATIC+ R_NON_RESTRICTED + R_EXACT_NAME + R_METHOD_OVERIDE) + "}",
 			requestor.getResults());
 }
 public void testCompletionAfterSwitch() throws JavaModelException {
@@ -13796,6 +13813,20 @@ public void testCompletionMethodDeclaration5() throws JavaModelException {
 		} else {
 			assertResults(
 				"[POTENTIAL_METHOD_DECLARATION]{, LCompletionSuperClass;, ()V, , null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_NON_RESTRICTED)+"}\n" +
+				"abstract[KEYWORD]{abstract, null, null, abstract, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"class[KEYWORD]{class, null, null, class, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"enum[KEYWORD]{enum, null, null, enum, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"final[KEYWORD]{final, null, null, final, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"interface[KEYWORD]{interface, null, null, interface, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"native[KEYWORD]{native, null, null, native, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"private[KEYWORD]{private, null, null, private, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"protected[KEYWORD]{protected, null, null, protected, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"public[KEYWORD]{public, null, null, public, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"static[KEYWORD]{static, null, null, static, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"strictfp[KEYWORD]{strictfp, null, null, strictfp, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"synchronized[KEYWORD]{synchronized, null, null, synchronized, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"transient[KEYWORD]{transient, null, null, transient, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
+				"volatile[KEYWORD]{volatile, null, null, volatile, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_NON_RESTRICTED)+"}\n"+
 				"CompletionMethodDeclaration5[TYPE_REF]{CompletionMethodDeclaration5, , LCompletionMethodDeclaration5;, null, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_UNQUALIFIED + R_NON_RESTRICTED)+"}\n"+
 				"clone[METHOD_DECLARATION]{protected Object clone() throws CloneNotSupportedException, Ljava.lang.Object;, ()Ljava.lang.Object;, clone, null, "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_METHOD_OVERIDE + R_NON_RESTRICTED)+"}\n"+
 				"eqFoo[METHOD_DECLARATION]{public int eqFoo(int a, Object b), LCompletionSuperClass;, (ILjava.lang.Object;)I, eqFoo, (a, b), "+(R_DEFAULT + R_RESOLVED + R_INTERESTING + R_CASE + R_METHOD_OVERIDE + R_NON_RESTRICTED)+"}\n"+
@@ -25775,5 +25806,175 @@ public void testBug385858d() throws JavaModelException {
 			"expectedTypesKeys={Ltest/Completion$Inner;}\n" +
 			"completion token location={CONSTRUCTOR_START}",
 			requestor.getContext());
+}
+// Bug 402574 - Autocomplete does not recognize all enum constants when constants override methods
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=402574
+public void testBug402574() throws JavaModelException {
+	Map options = COMPLETION_PROJECT.getOptions(true);
+	Object savedOptionCompliance = options.get(CompilerOptions.OPTION_Source);
+	try {
+		options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_7);
+		COMPLETION_PROJECT.setOptions(options);
+		this.workingCopies = new ICompilationUnit[2];
+		this.workingCopies[1] = getWorkingCopy(
+			"/Completion/src/test/ExampleEnumNoAutocomplete.java",
+		    "public enum ExampleEnumNoAutocomplete {\n" +		
+			"    STUFF(\"a\", \"b\") {\n" +
+			"    @Override\n" +
+			"    public String getProperty1() {\n"+
+			"        return super.getProperty1().toUpperCase();\n" +
+			"    }\n" +
+			"    @Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		},\n" +
+			"		THINGS(\"c\", \"d\") {\n" +
+			"			@Override\n" +
+			"			public String getProperty1() {\n" +
+			"				return super.getProperty2();\n" +
+			"			}\n" +
+			"			@Override\n" +
+			"			public String getProperty2() {\n" +
+			"				return super.getProperty1();\n" +
+			"			}\n" +
+			"			@Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		},\n" +
+			"		MORE_STUFF(\"e\", \"f\") {\n" +
+			"			@Override\n" +
+			"			public String getProperty1() {\n" +
+			"				return getProperty2();\n" +
+			"			}\n" +
+			"			@Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		},\n" +
+			"		OTHER(\"g\", \"h\") {\n" +
+			"			@Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		},\n" +
+			"		STILL_OTHER(\"i\", \"j\") {\n" +
+			"			@Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		},\n" +
+			"		IT_MAY_BE_DUE_TO_MIXING_PERHAPS(\"k\", \"l\") {\n" +
+			"			@Override\n" +
+			"			public String getProperty1() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"			@Override\n" +
+			"			public String getProperty2() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"			@Override\n" +
+			"			public String getSomething() {\n" +
+			"				throw new UnsupportedOperationException(\"What is this, I don't even?!\");\n" +
+			"			}\n" +
+			"		};\n" +		
+			"		private final String property1;\n" +
+			"		private final String property2;\n" +	
+			"		ExampleEnumNoAutocomplete(final String property1, final String property2) {\n" +
+			"			this.property1 = property1;\n" +
+			"			this.property2 = property2;\n" +
+			"		}\n" +
+			"		public String getProperty1() {\n" +
+			"			return property1;\n" +
+			"		}\n" +
+			"		public String getProperty2() {\n" +
+			"			return property2;\n" +
+			"		}\n" +
+			"		public abstract String getSomething();\n" +
+			"	}\n");
+		this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/test/Tester.java",
+			"import java.util.EnumMap;\n" +
+			"import java.util.Map;\n" +
+			"public class Tester {\n" +
+			"	public static void main(String[] args) {\n" +
+			"		Map<ExampleEnumNoAutocomplete, Map<String, Object>> huh = new EnumMap<ExampleEnumNoAutocomplete, Map<String, Object>>(\n" +
+			"				ExampleEnumNoAutocomplete.class);\n" +
+			"		huh.put(ExampleEnumNoAutocomplete.STUFF, null);\n" +
+			"		ExampleEnumNoAutocomplete.   \n" +
+			"	}\n" +
+			"}\n");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, false, false, false, true);
+		requestor.allowAllRequiredProposals();
+		requestor.setRequireExtendedContext(true);
+		requestor.setComputeEnclosingElement(true);
+		NullProgressMonitor monitor = new NullProgressMonitor();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "		ExampleEnumNoAutocomplete.";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, monitor);
+		
+		assertResults(
+				"IT_MAY_BE_DUE_TO_MIXING_PERHAPS[FIELD_REF]{IT_MAY_BE_DUE_TO_MIXING_PERHAPS, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, IT_MAY_BE_DUE_TO_MIXING_PERHAPS, null, 26}\n" +
+				"MORE_STUFF[FIELD_REF]{MORE_STUFF, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, MORE_STUFF, null, 26}\n" +
+				"OTHER[FIELD_REF]{OTHER, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, OTHER, null, 26}\n" +
+				"STILL_OTHER[FIELD_REF]{STILL_OTHER, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, STILL_OTHER, null, 26}\n" +
+				"STUFF[FIELD_REF]{STUFF, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, STUFF, null, 26}\n" +
+				"THINGS[FIELD_REF]{THINGS, Ltest.ExampleEnumNoAutocomplete;, Ltest.ExampleEnumNoAutocomplete;, THINGS, null, 26}\n" +
+				"class[FIELD_REF]{class, null, Ljava.lang.Class<Ltest.ExampleEnumNoAutocomplete;>;, class, null, 26}\n" +
+				"valueOf[METHOD_REF]{valueOf(), Ltest.ExampleEnumNoAutocomplete;, (Ljava.lang.String;)Ltest.ExampleEnumNoAutocomplete;, valueOf, (arg0), 26}\n" +
+				"values[METHOD_REF]{values(), Ltest.ExampleEnumNoAutocomplete;, ()[Ltest.ExampleEnumNoAutocomplete;, values, null, 26}",
+				requestor.getResults());
+		assertEquals(false,
+			requestor.canUseDiamond(0));
+	} finally {
+		// Restore compliance settings.
+		options.put(CompilerOptions.OPTION_Source, savedOptionCompliance);
+		COMPLETION_PROJECT.setOptions(options);	
+	}
+}
+//Bug 370971 - Content Assist autocomplete broken within an array of anonymous classes instances
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=370971
+public void testBug370971() throws JavaModelException {
+	Map options = COMPLETION_PROJECT.getOptions(true);
+	Object savedOptionCompliance = options.get(CompilerOptions.OPTION_Source);
+	try {
+		options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_7);
+		COMPLETION_PROJECT.setOptions(options);
+		this.workingCopies = new ICompilationUnit[1];
+		this.workingCopies[0] = getWorkingCopy(
+			"/Completion/src/test/ExampleEnumNoAutocomplete.java",
+			"public class X {\n" +
+			"	private Object[] items = new Object[] {\n" +
+			"        new Object() {\n" +
+			"              @Override\n" +
+			"              public String toString() {\n" +
+			"                  return super.toS;\n" +
+			"              }\n" +
+			"        },\n" +
+			"        new Object() { }\n" +
+			"    } ;\n" +
+			"}\n");
+		CompletionTestsRequestor2 requestor = new CompletionTestsRequestor2(true, false, false, false, true);
+		requestor.allowAllRequiredProposals();
+		requestor.setRequireExtendedContext(true);
+		requestor.setComputeEnclosingElement(true);
+		NullProgressMonitor monitor = new NullProgressMonitor();
+		String str = this.workingCopies[0].getSource();
+		String completeBehind = "return super.toS";
+		int cursorLocation = str.lastIndexOf(completeBehind) + completeBehind.length();
+		this.workingCopies[0].codeComplete(cursorLocation, requestor, this.wcOwner, monitor);
+		
+		assertResults(
+				"toString[METHOD_REF]{toString(), Ljava.lang.Object;, ()Ljava.lang.String;, toString, null, 65}",
+				requestor.getResults());
+		assertEquals(false,
+			requestor.canUseDiamond(0));
+	} finally {
+		// Restore compliance settings.
+		options.put(CompilerOptions.OPTION_Source, savedOptionCompliance);
+		COMPLETION_PROJECT.setOptions(options);	
+	}
 }
 }

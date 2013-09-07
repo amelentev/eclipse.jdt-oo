@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2011 IBM Corporation and others.
+ * Copyright (c) 2009, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -58,7 +58,11 @@ public class JavadocContents {
 	private int tempLastAnchorFoundIndex;
 	
 	public JavadocContents(BinaryType type, String content) {
+		this(content);
 		this.type = type;
+	}
+	
+	public JavadocContents(String content) {
 		this.content = content != null ? content.toCharArray() : null;
 	}
 	/*
@@ -76,6 +80,28 @@ public class JavadocContents {
 		if (this.typeDocRange != null) {
 			if (this.typeDocRange == UNKNOWN_FORMAT) throw new JavaModelException(new JavaModelStatus(IJavaModelStatusConstants.UNKNOWN_JAVADOC_FORMAT, this.type));
 			return String.valueOf(CharOperation.subarray(this.content, this.typeDocRange[0], this.typeDocRange[1]));
+		}
+		return null;
+	}
+	
+	public String getPackageDoc() throws JavaModelException {
+		if (this.content == null) return null;
+		int[] range = null;
+		int index = CharOperation.indexOf(JavadocConstants.PACKAGE_DESCRIPTION_START, this.content, false, 0);
+		if (index == -1) return null;
+		index = CharOperation.indexOf(JavadocConstants.ANCHOR_SUFFIX, this.content, false, index);
+		if (index == -1) return null;
+		
+		int start = CharOperation.indexOf(JavadocConstants.H2_PREFIX, this.content, false, index);
+		if (start != -1) {
+			start = CharOperation.indexOf(JavadocConstants.H2_SUFFIX, this.content, false, start);
+			if (start != -1) index = start + JavadocConstants.H2_SUFFIX_LENGTH;
+		}
+		if (index != -1) {
+			int end = CharOperation.indexOf(JavadocConstants.BOTTOM_NAVBAR, this.content, false, index);
+			if (end == -1) end = this.content.length -1;
+			range = new int[]{index, end};
+			return String.valueOf(CharOperation.subarray(this.content, range[0], range[1]));
 		}
 		return null;
 	}
@@ -453,13 +479,22 @@ public class JavadocContents {
 			return;
 		}
 		/*
-		 * Check out to cut off the hierarchy see 119844
-		 * We remove what the contents between the start of class data and the first <P>
+		 * Cut off the type hierarchy, see bug 119844.
+		 * We remove the contents between the start of class data and where
+		 * we guess the actual class comment starts.
 		 */
 		int start = indexOfStartOfClassData + JavadocConstants.START_OF_CLASS_DATA_LENGTH;
-		int indexOfFirstParagraph = CharOperation.indexOf("<P>".toCharArray(), this.content, false, start); //$NON-NLS-1$
-		if (indexOfFirstParagraph != -1 && indexOfFirstParagraph < indexOfNextSummary) {
-			start = indexOfFirstParagraph;
+		int indexOfFirstParagraph = CharOperation.indexOf(JavadocConstants.P.toCharArray(), this.content, false, start, indexOfNextSummary);
+		int indexOfFirstDiv = CharOperation.indexOf(JavadocConstants.DIV_CLASS_BLOCK.toCharArray(), this.content, false, start, indexOfNextSummary);
+		int afterHierarchy = indexOfNextSummary;
+		if (indexOfFirstParagraph != -1 && indexOfFirstParagraph < afterHierarchy) {
+			afterHierarchy = indexOfFirstParagraph;
+		}
+		if (indexOfFirstDiv != -1 && indexOfFirstDiv < afterHierarchy) {
+			afterHierarchy = indexOfFirstDiv;
+		}
+		if (afterHierarchy != indexOfNextSummary) {
+			start = afterHierarchy;
 		}
 		
 		this.typeDocRange = new int[]{start, indexOfNextSummary};

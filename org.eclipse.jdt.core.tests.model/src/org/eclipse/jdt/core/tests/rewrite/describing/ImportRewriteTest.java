@@ -1,12 +1,13 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ *		IBM Corporation - initial API and implementation
+ *		Stephan Herrmann - Contribution for Bug 378024 - Ordering of comments between imports not preserved
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
 
@@ -65,6 +66,10 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
 	}
 
 	public static Test suite() {
+//		System.err.println("Warning, only part of the ImportRewriteTest are being executed!");
+//		Suite suite = new Suite(ImportRewriteTest.class.getName());
+//		suite.addTest(new ImportRewriteTest("testRemoveImports1"));
+//		return suite;
 		return allTests();
 	}
 
@@ -1913,6 +1918,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "import java.util.Map.*;\n" +
                 "\n" +
                 "/* lead 2*/import java.io.PrintWriter.*; // test2\n" +
+                "\n" +
                 "/* lead 3*/ import java.util.Map.SomethingElse; // test3\n" +
                 "// commen 3\n" + 
                 "\n" + 
@@ -1973,6 +1979,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "\n" + 
                 "// comment 1\n" + 
                 "/* lead 2*/import java.io.PrintWriter.*; // test2\n" +
+                "\n" +
                 "/* lead 1*/ import java.util.*; // test1\n" +
                 "import java.util.Map.*;\n" +
                 "/* lead 3*/ import java.util.Map.SomethingElse; // test3\n" +
@@ -2032,11 +2039,8 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "package pack1;\n" + 
                 "\n" +
                 "// comment 1\n" +
-				"/* lead 2*/" +
-				"import java.util.*;\n" + 
+				"/* lead 2*//* lead 1*/ import java.util.*; // test1\n" +
 				"// test2\n" +
-				"/* lead 1*/ \n" +
-				"// test1\n" +
 				"/* lead 3*/ \n" +
 				"// test3\n" +
 				"// commen 3\n" +
@@ -2096,8 +2100,7 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "\n" + 
                 "// comment 1\n" +
 				"/* lead 1*/ " +
-				"import java.util.Map.*;\n" + 
-				"// test1\n" +
+				"import java.util.Map.*; // test1\n" +
 				"/* lead 2*/\n" +
 				"// test2\n" +
 				"/* lead 3*/ \n" +
@@ -2159,10 +2162,9 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "// comment 1\n" +
                 "/* lead 2*/import java.io.PrintWriter.*; // test2\n" +
                 "\n" +
-                "/* lead 1*/ \n" +
+                "/* lead 1*/ import java.util.*;\n" +
                 " // test1\n" +
                 "// commen 3\n" +
-                "import java.util.*;\n" + 
                 "\n" + 
                 "public class C {\n" + 
                 "    public static void main(String[] args) {\n" + 
@@ -2173,6 +2175,1392 @@ public class ImportRewriteTest extends AbstractJavaModelTests {
                 "\n" + 
                 "        PrintWriter pw;\n" + 
                 "        System.out.println(\"hello\");\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=376930
+    // separating comment should not prevent folding into *-import
+    public void testBug376930_5e() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" +
+                "\n" +
+                "import java.util.Map;\n" +
+                "/* comment leading Map.Entry */\n" +
+                "import java.util.Map.Entry;\n" +
+                "\n" +
+                "public class C {\n" +
+                "    public static void main(String[] args) {\n" +
+                "        HashMap h;\n" +
+                "\n" +
+                "        Map.Entry e= null;\n" +
+                "        Entry e2= null;\n" +
+                "\n" +
+                "    }\n" +
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "javax", "org", "com" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, true);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "import java.util.*;\n" +
+                "/* comment leading Map.Entry */\n" + 
+                "import java.util.Map.Entry;\n" +
+                "\n" + 
+                "public class C {\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        HashMap h;\n" + 
+                "\n" + 
+                "        Map.Entry e= null;\n" + 
+                "        Entry e2= null;\n" + 
+                "\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    public void testBug378024() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * keep me with List\n" +
+                " *\n" +
+                " */\n" +
+                "import java.awt.List;// test1\n" +
+                "/*\n" +
+                " * keep me with Serializable\n" +
+                " */\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * keep me with HashMap\n" +
+                " */\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.awt", "java.io", "java.util" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * keep me with List\n" +
+                " *\n" +
+                " */\n" +
+                "import java.awt.List;// test1\n\n" +
+                "/*\n" +
+                " * keep me with Serializable\n" +
+                " */\n" +
+                "import java.io.Serializable;// test2\n\n" +
+                "/*\n" +
+                " * keep me with HashMap\n" +
+                " */\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    public void testBug378024b() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "import java.awt.List;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 1, 1, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "import java.awt.*;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "import java.io.*;// test2\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "import java.util.*;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // leading and trailing comments always move with imports. 
+    // comments in between stay where they are
+    public void testBug378024c() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 99, 99, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // leading and trailing comments always move with imports. 
+    // comments in between stay where they are
+    public void testBug378024c_1() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 99, 99, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // leading and trailing comments always move with imports, even if they get folded. 
+    // comments in between stay where they are
+    public void testBug378024c_2() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 1, 1, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.*;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.*;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "//lead 3\n" +
+                "import java.util.*;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // not adding an import should preserve its comments and put them at the end.
+    public void testBug378024d() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 1, 1, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.*;// test1\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.*;// test3\n" +
+                "// commen 3\n" + 
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // adding a new import should not disturb comments and import should be added in its group
+    public void testBug378024e() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.io.PrintWriter");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.*;\n" +
+                "// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // removing an import should preserve its comments at the end, and adding a new import should not disturb
+    // existing comments
+    public void testBug378024e_1() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.PrintWriter");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "import java.io.PrintWriter;\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // folding imports because of a newly added import should preserve comments
+    public void testBug378024f() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.io.PrintWriter");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.*;\n" +
+                "// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // folding imports because of a newly added import should preserve comments
+    public void testBug378024f_1() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * keep me with List\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * keep me with Serializable\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * keep me with Serializable 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 3\n" +
+                "import java.io.PrintWriter;// test3\n" +
+                "/*\n" +
+                " * keep me with PrintWriter\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me\n" +
+                " */\n" +
+                "\n" +
+                "//lead 4\n" +
+                "import java.util.HashMap;// test4\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 2, 2, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.io.PrintWriter");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * keep me with List\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "//lead 4\n" +
+                "import java.util.HashMap;// test4\n" +
+                "// commen 3\n" + 
+                "/*\n" +
+                " * keep me with Serializable\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "// lead 3\n" +
+                "import java.io.*;// test3\n" +
+                "/*\n" +
+                " * keep me with PrintWriter\n" +
+                " */\n" +
+                "// test2\n" +
+                "/*\n" +
+                " * keep me with Serializable 2\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me\n" +
+                " */\n" +
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // Re-ordering imports and converting them to *
+    public void testBug378024g() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.awt", "java.util", "java.io", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 1, 1, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+
+        apply(imports);
+
+        StringBuffer buf2 = new StringBuffer();
+        buf2.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.*;// test1\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.*;// test3\n" +
+                "// commen 3\n" + 
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.*;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        List l = new List();\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf2.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // Preserve comments when imports are removed in case the restoring of imports is enabled
+    // This will test changes in org.eclipse.jdt.internal.core.dom.rewrite.ImportRewriteAnalyzer.removeImport(String, boolean)
+    public void testBug378024h() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 99, 99, true);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.removeImport("java.awt.List");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "\n" +
+                "// lead 1\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // Preserve comments when imports are removed in case the restoring of imports is enabled
+    public void testBug378024h_1() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/* i am with List */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 99, 99, true);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.removeImport("java.awt.List");
+        imports.addImport("java.util.List");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "/* i am with List */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "import java.util.List;\n" +                
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // Preserve comments when imports are unfolded.
+    public void testBug378024i() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "import java.awt.*;// test1\n" +
+                "/* i am with List */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.*;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.*;// test3\n" +
+                "// commen 3\n" + 
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        HashMap e= null;\n" + 
+                "        PrintWriter p= null;\n" + 
+                "        List l= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 99, 99, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.io.PrintWriter");
+        imports.addImport("java.io.Serializable");
+        imports.addImport("java.util.HashMap");
+        imports.addImport("java.util.Map");
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/* i am with List */\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.PrintWriter;// test2\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "import java.io.Serializable;\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "// commen 3\n" + 
+                "import java.util.Map;\n" +
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        HashMap e= null;\n" + 
+                "        PrintWriter p= null;\n" + 
+                "        List l= null;\n" + 
+                "    }\n" + 
+                "}");
+        assertEqualString(cu.getSource(), buf.toString());
+    }
+    
+    // https://bugs.eclipse.org/bugs/show_bug.cgi?id=378024
+    // Preserve comments when imports are folded but a member type import is present
+    public void testBug378024j() throws Exception {
+        IPackageFragment pack1 = this.sourceFolder.createPackageFragment("pack1", false, null);
+        StringBuffer buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "import java.awt.List;// test1\n" +
+                "/* i am with List */\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.HashMap;// test3\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "\n" +
+                "/*keep me with Map.Entry*/\n" +
+                "import java.util.Map.Entry;// member type import\n" +
+                "/*keep me with Map.Entry 2*/\n" +
+                "\n" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "\n" +
+                "// lead 2\n" +
+                "import java.io.Serializable;// test2\n" +
+                "// commen 3\n" +
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
+                "    }\n" + 
+                "}");
+        ICompilationUnit cu = pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+
+        String[] order = new String[] { "java", "java.util", "com", "pack" };
+
+        ImportRewrite imports= newImportsRewrite(cu, order, 1, 1, false);
+        imports.setUseContextToFilterImplicitImports(true);
+        imports.addImport("java.awt.List");
+        imports.addImport("java.util.HashMap");
+        imports.addImport("java.util.Map.Entry");
+        imports.addImport("java.io.Serializable");
+
+        apply(imports);
+
+        buf = new StringBuffer();
+        buf.append(
+                "package pack1;\n" + 
+                "\n" +
+                "// comment 1\n" +
+                "/*\n" +
+                " * don't move me 1\n" +
+                " *\n" +
+                " */\n" +
+                "// lead 1\n" +
+                "import java.awt.*;// test1\n" +
+                "/* i am with List */\n" +
+                "\n" +
+                "//lead 3\n" +
+                "import java.util.*;// test3\n" +
+                "/*\n" +
+                " * don't move me 3\n" +
+                " */\n" +
+                "/*keep me with Map.Entry*/\n" +
+                "import java.util.Map.Entry;// member type import\n" +
+                "/*keep me with Map.Entry 2*/\n" +
+                "/*\n" +
+                " * don't move me 2\n" +
+                " */" +
+                "/*\n" +
+                " * don't move me 4\n" +
+                " */\n" +
+                "// lead 2\n" +
+                "import java.io.*;// test2\n" +
+                "// commen 3\n" +
+                "\n" + 
+                "public class C implements Serializable{\n" + 
+                "    public static void main(String[] args) {\n" + 
+                "        Map e= null;\n" + 
                 "    }\n" + 
                 "}");
         assertEqualString(cu.getSource(), buf.toString());

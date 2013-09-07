@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,11 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contribution for bug 282152 - [1.5][compiler] Generics code rejected by Eclipse but accepted by javac
+ *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
+ *								bug 282152 - [1.5][compiler] Generics code rejected by Eclipse but accepted by javac
+ *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 401456 - Code compiles from javac/intellij, but fails from eclipse
+ *								bug 405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -28,7 +32,7 @@ public class GenericsRegressionTest extends AbstractComparableTest {
 	// Static initializer to specify tests subset using TESTS_* static variables
 	// All specified tests which does not belong to the class are skipped...
 	static {
-//		TESTS_NAMES = new String[] { "test347426" };
+//		TESTS_NAMES = new String[] { "testBug405706" };
 //		TESTS_NAMES = new String[] { "test1464" };
 //		TESTS_NUMBERS = new int[] { 1465 };
 //		TESTS_RANGE = new int[] { 1097, -1 };
@@ -2648,5 +2652,267 @@ public void test385780() {
 		"Unused type parameter T\n" + 
 		"----------\n",
 		null, true, customOptions);
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// version with intermediate assignment, always worked
+public void testBug395002_1() {
+	runConformTest(new String[] {
+		"Client.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"public class Client {\n" +
+		"	<A extends SelfBound<?,A>> void foo3(A arg3) {\n" + 
+		"		SelfBound<?, A> var3 = arg3;\n" + 
+		"		SelfBound<? extends SelfBound<?, A>, ?> var4 = var3;\n" + 
+		"	}\n" +
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// version with direct assignment to local
+public void testBug395002_2() {
+	runConformTest(new String[] {
+		"Client.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"public class Client {\n" +
+		"	<A extends SelfBound<?,A>> void foo2(A arg2) {\n" + 
+		"		SelfBound<? extends SelfBound<?, A>, ?> var2 = arg2;\n" + 
+		"	}\n" +
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// version with direct assignment to field
+public void testBug395002_3() {
+	runConformTest(new String[] {
+		"Client.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"public class Client<A extends SelfBound<?,A>>  {\n" +
+		"	SelfBound<? extends SelfBound<?, A>, ?> field2;\n" +
+		"	void foo2(A arg2) {\n" + 
+		"		field2 = arg2;\n" + 
+		"	}\n" +
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// version with argument passing
+public void testBug395002_4() {
+	runConformTest(new String[] {
+		"Client.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"public class Client<A extends SelfBound<?,A>>  {\n" +
+		"	void bar(SelfBound<? extends SelfBound<?, A>, ?> argBar) {};\n" +
+		"	void foo2(A arg2) {\n" + 
+		"		bar(arg2);\n" + 
+		"	}\n" +
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// original problem with invocation of generic type
+public void testBug395002_full() {
+	runConformTest(new String[] {
+		"Bug.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"class Test<X extends SelfBound<? extends Y, ?>, Y> {\n" + 
+		"}\n" +
+		"public class Bug<A extends SelfBound<?, A>> {\n" + 
+		"	public Bug() {\n" + 
+		"		new Test<A, SelfBound<?, A>>();\n" + 
+		"	}\n" + 
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+// combined version with direct assignment to local + original problem w/ invocation of generic type
+public void testBug395002_combined() {
+	runConformTest(new String[] {
+		"Client.java",
+		"interface SelfBound<S extends SelfBound<S, T>, T> {\n" + 
+		"}\n" +
+		"class Test<X extends SelfBound<? extends Y, ?>, Y> {\n" + 
+		"}\n" +
+		"public class Client {\n" +
+		"	<A extends SelfBound<?,A>> void foo2(A arg2) {\n" + 
+		"		Object o = new Test<A, SelfBound<?, A>>();\n" + 
+		"		SelfBound<? extends SelfBound<?, A>, ?> var2 = arg2;\n" + 
+		"	}\n" +
+		"}\n"
+		});
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=397888
+public void test397888a() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(JavaCore.COMPILER_DOC_COMMENT_SUPPORT, JavaCore.ENABLED);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedTypeParameter, CompilerOptions.ERROR);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedParameter, CompilerOptions.ERROR);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedParameterIncludeDocCommentReference,
+	          CompilerOptions.ENABLED);
+
+	this.runNegativeTest(
+		 new String[] {
+ 		"X.java",
+         "/***\n" +
+         " * @param <T>\n" +
+         " */\n" +
+         "public class X <T> {\n"+
+         "/***\n" +
+         " * @param <S>\n" +
+         " */\n" +
+         "	public <S> void ph(int i) {\n"+
+         "	}\n"+
+         "}\n"
+         },
+ 		"----------\n" + 
+ 		"1. ERROR in X.java (at line 8)\n" + 
+ 		"	public <S> void ph(int i) {\n" + 
+ 		"	                       ^\n" + 
+ 		"The value of the parameter i is not used\n" + 
+ 		"----------\n",
+ 		null, true, customOptions);
+}        
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=397888
+public void test397888b() {
+	Map customOptions = getCompilerOptions();
+	customOptions.put(JavaCore.COMPILER_DOC_COMMENT_SUPPORT, JavaCore.ENABLED);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedTypeParameter, CompilerOptions.ERROR);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedParameterIncludeDocCommentReference,
+        CompilerOptions.DISABLED);
+
+	this.runNegativeTest(
+        new String[] {
+     		   "X.java",
+                "/***\n" +
+                " * @param <T>\n" +
+                " */\n" +
+                "public class X <T> {\n"+
+                "/***\n" +
+                " * @param <S>\n" +
+                " */\n" +
+                "public <S> void ph() {\n"+
+                "}\n"+
+                "}\n"
+        },
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	public class X <T> {\n" + 
+		"	                ^\n" + 
+		"Unused type parameter T\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 8)\n" + 
+		"	public <S> void ph() {\n" + 
+		"	        ^\n" + 
+		"Unused type parameter S\n" + 
+		"----------\n",
+		null, true, customOptions);
+}
+// Bug 401456 - Code compiles from javac/intellij, but fails from eclipse
+public void test401456() {
+	runConformTest(
+		new String[] {
+			"App.java",
+			"import java.util.List;\n" +
+			"\n" +
+			"public class App {\n" +
+			"\n" +
+			"    public interface Command_1<T> {\n" +
+			"        public void execute(T o);\n" +
+			"    }\n" +
+			"    public static class ObservableEventWithArg<T> {\n" +
+			"        public class Monitor {\n" +
+			"            public Object addListener(final Command_1<T> l) {\n" +
+			"                return null;\n" +
+			"            }\n" +
+			"        }\n" +
+			"    }\n" +
+			"    public static class Context<T> {\n" +
+			"          public ObservableEventWithArg<String>.Monitor getSubmissionErrorEventMonitor() {\n" +
+			"              return new ObservableEventWithArg<String>().new Monitor();\n" +
+			"        }\n" +
+			"    }\n" +
+			"\n" +
+			"    public static void main(String[] args) {\n" +
+			"        compileError(new Context<List<String>>());\n" +
+			"    }\n" +
+			"\n" +
+			"    private static void compileError(Context context) {\n" +
+			"        context.getSubmissionErrorEventMonitor().addListener(\n" + // here the inner message send bogusly resolved to ObservableEventWithArg#RAW.Monitor
+			"            new Command_1<String>() {\n" +
+			"                public void execute(String o) {\n" +
+			"                }\n" +
+			"            });\n" +
+			"    }\n" +
+			"}\n"
+		});
+}
+// https://bugs.eclipse.org/405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
+// original test
+public void testBug405706a() {
+	runNegativeTest(
+		new String[] {
+			"TypeUnsafe.java",
+			"import java.util.Collection;\n" + 
+			"\n" + 
+			"public class TypeUnsafe {\n" + 
+			"	public static <Type,\n" + 
+			"			CollectionType extends Collection<Type>>\n" + 
+			"			CollectionType\n" + 
+			"			nullAsCollection(Class<Type> clazz) {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		Collection<Integer> integers = nullAsCollection(String.class);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in TypeUnsafe.java (at line 12)\n" + 
+		"	Collection<Integer> integers = nullAsCollection(String.class);\n" + 
+		"	                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from Collection<String> to Collection<Integer>\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/405706 - Eclipse compiler fails to give compiler error when return type is a inferred generic
+// include compatibility List <: Collection
+public void testBug405706b() {
+	runNegativeTest(
+		new String[] {
+			"TypeUnsafe.java",
+			"import java.util.Collection;\n" + 
+			"import java.util.List;\n" + 
+			"\n" + 
+			"public class TypeUnsafe {\n" + 
+			"	public static <Type,\n" + 
+			"			CollectionType extends List<Type>>\n" + 
+			"			CollectionType\n" + 
+			"			nullAsList(Class<Type> clazz) {\n" + 
+			"		return null;\n" + 
+			"	}\n" + 
+			"\n" + 
+			"	public static void main(String[] args) {\n" + 
+			"		Collection<Integer> integers = nullAsList(String.class);\n" + 
+			"	}\n" + 
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in TypeUnsafe.java (at line 13)\n" + 
+		"	Collection<Integer> integers = nullAsList(String.class);\n" + 
+		"	                               ^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Type mismatch: cannot convert from List<String> to Collection<Integer>\n" + 
+		"----------\n");
 }
 }

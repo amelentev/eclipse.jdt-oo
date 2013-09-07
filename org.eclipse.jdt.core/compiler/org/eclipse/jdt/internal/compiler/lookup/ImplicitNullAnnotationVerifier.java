@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2012 GK Software AG and others.
+ * Copyright (c) 2012, 2013 GK Software AG and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -299,10 +299,8 @@ public class ImplicitNullAnnotationVerifier {
 				}
 			}
 			if (shouldComplain) {
-				boolean needNonNull = false;
 				char[][] annotationName;
 				if (inheritedNonNullNess == Boolean.TRUE) {
-					needNonNull = true;
 					annotationName = environment.getNonNullAnnotationName();
 				} else {
 					annotationName = environment.getNullableAnnotationName();
@@ -319,18 +317,24 @@ public class ImplicitNullAnnotationVerifier {
 					} else {
 						scope.problemReporter().cannotImplementIncompatibleNullness(currentMethod, inheritedMethod);
 					}
-				} else if (inheritedNonNullNess != null
-							&& currentNonNullNess == null) 
+				} else if (currentNonNullNess == null) 
 				{
-					// weak conflict (TODO reconsider this case)
-					if (currentArgument != null) {
-						scope.problemReporter().parameterLackingNullAnnotation(
+					// unannotated strictly conflicts only with inherited @Nullable
+					if (inheritedNonNullNess == Boolean.FALSE) { 
+						if (currentArgument != null) {
+							scope.problemReporter().parameterLackingNullableAnnotation(
+									currentArgument,
+									inheritedMethod.declaringClass,
+									annotationName);
+						} else {
+							scope.problemReporter().cannotImplementIncompatibleNullness(currentMethod, inheritedMethod);
+						}
+					} else if (inheritedNonNullNess == Boolean.TRUE) {
+						// not strictly a conflict, but a configurable warning is given anyway:
+						scope.problemReporter().parameterLackingNonnullAnnotation(
 								currentArgument,
 								inheritedMethod.declaringClass,
-								needNonNull,
 								annotationName);
-					} else {
-						scope.problemReporter().cannotImplementIncompatibleNullness(currentMethod, inheritedMethod);
 					}
 				}
 			}

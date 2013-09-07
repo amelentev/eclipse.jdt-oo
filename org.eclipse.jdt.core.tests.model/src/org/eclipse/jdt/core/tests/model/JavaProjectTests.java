@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -2213,38 +2213,40 @@ public void testRootGetPackageFragments2() throws CoreException {
  * Test that the correct package fragments exist in the project.
  * (regression test for bug 65693 Package Explorer shows .class files instead of .java)
  */
-public void testRootGetPackageFragments3() throws CoreException {
+public void _testRootGetPackageFragments3() throws CoreException {
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=403414
+	// Test disabled temporarily
 	try {
-		IJavaProject p1 = createJavaProject("P1");
+		IJavaProject p1 = createJavaProject("Bug65693_1");
 		createFile(
-			"/P1/X.java",
+			"/Bug65693_1/X.java",
 			"public class X {\n" +
 			"}"
 		);
-		getProject("P1").build(IncrementalProjectBuilder.FULL_BUILD, null);
-		IJavaProject p2 = createJavaProject("P2");
+		getProject("Bug65693_1").build(IncrementalProjectBuilder.FULL_BUILD, null);
+		IJavaProject p2 = createJavaProject("Bug65693_2");
 		editFile(
-			"/P2/.classpath",
+			"/Bug65693_2/.classpath",
 			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 			"<classpath>\n" +
 			"    <classpathentry kind=\"src\" path=\"\"/>\n" +
-			"    <classpathentry kind=\"lib\" path=\"/P1\"/>\n" +
+			"    <classpathentry kind=\"lib\" path=\"/Bug65693_1\"/>\n" +
 			"    <classpathentry kind=\"output\" path=\"\"/>\n" +
 			"</classpath>"
 		);
 		IPackageFragment pkg = p1.getPackageFragmentRoot(p1.getProject()).getPackageFragment("");
 		assertElementsEqual(
-			"Unexpected packages for P1",
-			"X.java [in <default> [in <project root> [in P1]]]",
+			"Unexpected packages for Bug65693_1",
+			"X.java [in <default> [in <project root> [in Bug65693_1]]]",
 			pkg.getChildren());
 		pkg = p2.getPackageFragmentRoot(p1.getProject()).getPackageFragment("");
 		assertElementsEqual(
-			"Unexpected packages for P2",
-			"X.class [in <default> [in /P1 [in P2]]]",
+			"Unexpected packages for Bug65693_2",
+			"X.class [in <default> [in /Bug65693_1 [in Bug65693_2]]]",
 			pkg.getChildren());
 	} finally {
-		deleteProject("P1");
-		deleteProject("P2");
+		deleteProject("Bug65693_1");
+		deleteProject("Bug65693_2");
 	}
 }
 /**

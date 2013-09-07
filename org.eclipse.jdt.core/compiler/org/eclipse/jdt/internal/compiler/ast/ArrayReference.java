@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,8 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -52,6 +54,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	this.receiver.checkNPE(currentScope, flowContext, flowInfo);
 	flowInfo = this.receiver.analyseCode(currentScope, flowContext, flowInfo);
 	flowInfo = this.position.analyseCode(currentScope, flowContext, flowInfo);
+	this.position.checkNPEbyUnboxing(currentScope, flowContext, flowInfo);
 	// account for potential ArrayIndexOutOfBoundsException:
 	flowContext.recordAbruptExit();
 	return flowInfo;
@@ -180,7 +183,7 @@ public void generatePostIncrement(BlockScope currentScope, CodeStream codeStream
 	codeStream.arrayAtPut(this.resolvedType.id, false);
 }
 
-public int nullStatus(FlowInfo flowInfo) {
+public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 	return FlowInfo.UNKNOWN;
 }
 
