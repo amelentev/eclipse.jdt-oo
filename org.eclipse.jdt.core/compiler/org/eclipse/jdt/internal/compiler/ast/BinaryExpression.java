@@ -125,9 +125,7 @@ public Constant optimizedBooleanConstant() {
 // but rely upon generateOptimizedStringConcatenationCreation instead
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	if (this.translate != null) {
-		Expression e = this.translate;
-		this.translate = null; // prevent loop
-		e.generateCode(currentScope, codeStream, valueRequired);
+		this.removeTranslate().generateCode(currentScope, codeStream, valueRequired);
 		return;
 	}
 	int pc = codeStream.position;
@@ -1818,7 +1816,7 @@ public static TypeBinding overloadBinaryOperator(BinaryExpression that, BlockSco
 	String method = (String) binaryOperators.get(that.operatorToString());
 	if (method != null) {
 		// find method
-		MessageSend ms = Assignment.findMethod(scope, that.left, method, new Expression[]{that.right});
+		MessageSend ms = Expression.findMethod(scope, that.left, method, new Expression[]{that.right});
 		if (ms != null) { // found
 			if ("compareTo".equals(method)) { //$NON-NLS-1$
 				// rewrite to `left.compareTo(right) </> 0`

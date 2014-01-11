@@ -67,9 +67,7 @@ public FlowInfo analyseCode(
 		CodeStream codeStream,
 		boolean valueRequired) {
 		if (this.translate != null) {
-			Expression e = this.translate;
-			this.translate = null; // prevent loop
-			e.generateCode(currentScope, codeStream, valueRequired);
+			this.removeTranslate().generateCode(currentScope, codeStream, valueRequired);
 			return;
 		}
 		int pc = codeStream.position;
@@ -225,7 +223,7 @@ public FlowInfo analyseCode(
 		String method = (String) unaryOperators.get(that.operatorToString());
 		if (method != null) {
 			// find method
-			MessageSend ms = Assignment.findMethod(scope, that.expression, method, new Expression[0]);
+			MessageSend ms = Expression.findMethod(scope, that.expression, method, new Expression[0]);
 			if (ms != null) {
 				that.translate = ms;
 				that.constant = Constant.NotAConstant;

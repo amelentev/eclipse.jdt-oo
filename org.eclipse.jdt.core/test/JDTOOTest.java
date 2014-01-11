@@ -37,4 +37,13 @@ public class JDTOOTest extends TestCase {
 	public void testCompAss() throws Exception {
 		compile("CompAss", "../../tests");
 	}
+	public void testVecMat() throws Exception {
+		compile("VecMat", "../../tests");
+	}
+	public void testIndexBoxing() throws Exception {
+		compile("IndexBoxing", "../../tests");
+	}
+	public void testBoxing() throws Exception {
+		compile("Boxing", "../../tests");
+	}
 }

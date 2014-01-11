@@ -19,6 +19,7 @@
 package org.eclipse.jdt.internal.compiler.ast;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
@@ -63,7 +64,16 @@ public abstract class Expression extends Statement {
 	public TypeBinding resolvedType;
 
 	/** for OO desugar */
-	public MessageSend translate;
+	protected MessageSend translate;
+	protected MessageSend removeTranslate() {
+		MessageSend e = this.translate;
+		this.translate = null; // prevent loop
+		if (!Arrays.equals("valueOf".toCharArray(), e.selector)) {
+			this.implicitConversion = e.implicitConversion = this.implicitConversion | e.implicitConversion;
+			this.bits = e.bits = this.bits | e.bits;
+		}
+		return e;
+	}
 
 public static final boolean isConstantValueRepresentable(Constant constant, int constantTypeID, int targetTypeID) {
 	//true if there is no loss of precision while casting.
@@ -594,6 +604,11 @@ public boolean checkUnsafeCast(Scope scope, TypeBinding castType, TypeBinding ex
  * Also check unsafe type operations.
  */
 public void computeConversion(Scope scope, TypeBinding runtimeType, TypeBinding compileTimeType) {
+	if (this.translate != null) {
+		if (!Arrays.equals("valueOf".toCharArray(), this.translate.selector))
+			this.translate.computeConversion(scope, runtimeType, compileTimeType);
+		return;
+	}
 	if (runtimeType == null || compileTimeType == null)
 		return;
 	if (this.implicitConversion != 0) return; // already set independently
@@ -1148,4 +1163,31 @@ public void traverse(ASTVisitor visitor, ClassScope scope) {
 public VariableBinding nullAnnotatedVariableBinding() {
 	return null;
 }
+
+protected static MessageSend findMethod(BlockScope scope, Expression receiver, String selector, Expression[] args) {
+	char[] s = selector.toCharArray();
+	MessageSend ms = new MessageSend();
+	ms.receiver = receiver;
+	ms.selector = s;
+	ms.arguments = args;
+	ms.actualReceiverType = receiver.resolvedType;
+	TypeBinding[] targs = new TypeBinding[args.length];
+	for (int i = 0; i < args.length; i++)
+		targs[i] = args[i].resolvedType;
+	ms.binding = scope.getMethod(ms.actualReceiverType, s, targs, ms);
+	if (ms.binding != null && ms.binding.isValidBinding()) {
+		boolean argsContainCast = false;
+		for (Expression e : args)
+			argsContainCast |= e instanceof CastExpression;
+		if (checkInvocationArguments(scope, ms.receiver, ms.actualReceiverType, ms.binding, ms.arguments, targs, argsContainCast, ms))
+			ms.bits |= ASTNode.Unchecked;
+		ms.resolvedType = ms.binding.returnType;
+		ms.constant = Constant.NotAConstant;
+		ms.sourceStart = receiver.sourceStart;
+		ms.sourceEnd = receiver.sourceEnd;
+		return ms;
+	}
+	return null;
+}
+
 }

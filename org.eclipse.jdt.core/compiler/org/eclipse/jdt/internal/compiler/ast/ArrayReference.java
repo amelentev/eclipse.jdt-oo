@@ -62,9 +62,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 
 public void generateAssignment(BlockScope currentScope, CodeStream codeStream, Assignment assignment, boolean valueRequired) {
 	if (this.translate != null) {
-		Expression e = this.translate;
-		this.translate = null;
-		e.generateCode(currentScope, codeStream, valueRequired);
+		this.removeTranslate().generateCode(currentScope, codeStream, valueRequired);
 		return;
 	}
 	int pc = codeStream.position;
@@ -88,10 +86,8 @@ public void generateAssignment(BlockScope currentScope, CodeStream codeStream, A
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	int pc = codeStream.position;
 	if (this.translate != null) {
-		Expression e = this.translate;
-		this.translate = null;
-		e.generateCode(currentScope, codeStream, valueRequired);
-		codeStream.checkcast(e.resolvedType);
+		this.removeTranslate().generateCode(currentScope, codeStream, valueRequired);
+		return;
 	} else {
 		this.receiver.generateCode(currentScope, codeStream, true);
 		if (this.receiver instanceof CastExpression	// ((type[])null)[0]
@@ -206,7 +202,7 @@ public TypeBinding resolveType(BlockScope scope) {
 			this.resolvedType = ((this.bits & ASTNode.IsStrictlyAssigned) == 0) ? elementType.capture(scope, this.sourceEnd) : elementType;
 		} else {
 			this.position.resolveType(scope);
-			MessageSend ms = Assignment.findMethod(scope, this.receiver, "get", new Expression[]{this.position}); //$NON-NLS-1$
+			MessageSend ms = Expression.findMethod(scope, this.receiver, "get", new Expression[]{this.position}); //$NON-NLS-1$
 			if (ms == null)
 				scope.problemReporter().referenceMustBeArrayTypeAt(arrayType, this);
 			else {

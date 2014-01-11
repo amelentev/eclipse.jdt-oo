@@ -50,9 +50,7 @@ public class ArrayAllocationExpression extends Expression {
 	 */
 	public void generateCode(BlockScope currentScope, 	CodeStream codeStream, boolean valueRequired) {
 		if (this.translate!=null) {
-			Expression e = this.translate;
-			this.translate = null; // prevent loop
-			e.generateCode(currentScope, codeStream, valueRequired);
+			this.removeTranslate().generateCode(currentScope, codeStream, valueRequired);
 			return;
 		}
 

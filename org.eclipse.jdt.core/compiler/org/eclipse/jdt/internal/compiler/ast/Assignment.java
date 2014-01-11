@@ -177,26 +177,12 @@ public StringBuffer printStatement(int indent, StringBuffer output) {
 	return print(indent, output).append(';');
 }
 
-public static MessageSend findMethod(Scope scope, Expression receiver, String selector, Expression[] args) {
-	char[] s = selector.toCharArray();
-	MessageSend ms = new MessageSend();
-	ms.receiver = receiver;
-	ms.selector = s;
-	ms.arguments = args;
-	ms.actualReceiverType = receiver.resolvedType;
-	TypeBinding[] targs = new TypeBinding[args.length];
-	for (int i = 0; i < args.length; i++)
-		targs[i] = args[i].resolvedType;
-	ms.binding = scope.getMethod(ms.actualReceiverType, s, targs, ms);
-	/// XXX: implicit conversion?
-	if (ms.binding != null && ms.binding.isValidBinding()) {
-		ms.resolvedType = ms.binding.returnType;
-		ms.constant = Constant.NotAConstant;
-		ms.sourceStart = receiver.sourceStart;
-		ms.sourceEnd = receiver.sourceEnd;
-		return ms;
-	}
-	return null;
+@Override
+public void computeConversion(Scope scope, TypeBinding runtimeType, TypeBinding compileTimeType) {
+	if (this.lhs.translate != null)
+		this.lhs.translate.computeConversion(scope, runtimeType, compileTimeType);
+	else
+		super.computeConversion(scope, runtimeType, compileTimeType);
 }
 
 public TypeBinding resolveType(BlockScope scope) {
@@ -229,9 +215,9 @@ public TypeBinding resolveType(BlockScope scope) {
 		ArrayReference alhs = (ArrayReference) this.lhs;
 		if (!alhs.receiver.resolvedType.isArrayType()) {
 			Expression[] args = new Expression[]{alhs.position, this.expression};
-			MessageSend ms = findMethod(scope, alhs.receiver, "set", args); //$NON-NLS-1$
+			MessageSend ms = Expression.findMethod(scope, alhs.receiver, "set", args); //$NON-NLS-1$
 			if (ms==null)
-				ms = findMethod(scope, alhs.receiver, "put", args); //$NON-NLS-1$
+				ms = Expression.findMethod(scope, alhs.receiver, "put", args); //$NON-NLS-1$
 			if (ms==null)
 				scope.problemReporter().referenceMustBeArrayTypeAt(alhs.receiver.resolvedType, alhs);
 			else {

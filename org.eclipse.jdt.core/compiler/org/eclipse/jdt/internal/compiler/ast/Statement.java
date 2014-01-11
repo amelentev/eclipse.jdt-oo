@@ -229,7 +229,7 @@ private static boolean tryBoxingOverload(TypeBinding expressionType, TypeBinding
 	BlockScope bscope = (BlockScope) scope;
 	Expression receiver = new SingleNameReference(targetType.shortReadableName(), expression.sourceStart);
 	receiver.resolvedType = targetType;
-	MessageSend ms = Assignment.findMethod(bscope, receiver, "valueOf", new Expression[]{expression}); //$NON-NLS-1$
+	MessageSend ms = Expression.findMethod(bscope, receiver, "valueOf", new Expression[]{expression}); //$NON-NLS-1$
 	if (ms != null && ms.resolvedType == targetType) {
 		ms.resolve(bscope);
 		expression.translate = ms;
