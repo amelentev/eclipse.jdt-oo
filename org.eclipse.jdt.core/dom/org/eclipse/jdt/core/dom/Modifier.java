@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -31,17 +31,20 @@ import java.util.Map;
  *    <b>transient</b>
  *    <b>volatile</b>
  *    <b>strictfp</b>
+ *    <b>default</b>
  * </pre>
  * <p>
  * The numeric values of these flags match the ones for class
- * files as described in the Java Virtual Machine Specification.
- * Note that Java model class {@link org.eclipse.jdt.core.Flags} also
- * provides the same constants as this class.
+ * files as described in the Java Virtual Machine Specification
+ * (except for {@link #DEFAULT}). Note that the Java model class
+ * {@link org.eclipse.jdt.core.Flags} also provides the same
+ * constants as this class.
  * </p>
  *
  * @since 2.0
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public final class Modifier extends ASTNode implements IExtendedModifier {
 
 	/**
@@ -88,6 +91,17 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 
 		/** "volatile" modifier with flag value {@link Modifier#VOLATILE}. */
 		public static final ModifierKeyword VOLATILE_KEYWORD = new ModifierKeyword("volatile", VOLATILE);//$NON-NLS-1$
+
+		/**
+		 * "default" modifier with flag value {@link Modifier#DEFAULT} (added in JLS8 API).
+		 * <p>
+		 * Note that the value of this modifier is
+		 * internal and is not specified in the Java Virtual Machine Specification.
+		 * </p>
+		 * @since 3.10
+		 */
+		public static final ModifierKeyword DEFAULT_KEYWORD = new ModifierKeyword("default", DEFAULT);//$NON-NLS-1$
+
 		static {
 			KEYWORDS = new HashMap(20);
 			ModifierKeyword[] ops = {
@@ -101,7 +115,8 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 					SYNCHRONIZED_KEYWORD,
 					TRANSIENT_KEYWORD,
 					VOLATILE_KEYWORD,
-					STRICTFP_KEYWORD
+					STRICTFP_KEYWORD,
+					DEFAULT_KEYWORD
 				};
 			for (int i = 0; i < ops.length; i++) {
 				KEYWORDS.put(ops[i].toString(), ops[i]);
@@ -292,6 +307,17 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 	 */
 	public static final int VOLATILE = 0x0040;
 
+	/**
+	 * "default" modifier constant (bit mask) (added in JLS8 API).
+	 * Applicable only to methods in interfaces (but not for annotation methods with a default value).
+	 * <p>
+	 * Note that the value of this flag is internal and is not
+	 * specified in the Java Virtual Machine Specification.
+	 * </p>
+	 * @since 3.10
+	 */
+	public static final int DEFAULT = 0x10000;
+
 	static {
 		List properyList = new ArrayList(2);
 		createPropertyList(Modifier.class, properyList);
@@ -440,6 +466,19 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 	 */
 	public static boolean isVolatile(int flags) {
 		return (flags & VOLATILE) != 0;
+	}
+
+	/**
+	 * Returns whether the given flags includes the "default" modifier.
+	 * Applicable only to methods in interfaces.
+	 *
+	 * @param flags the modifier flags
+	 * @return <code>true</code> if the <code>DEFAULT</code> bit is set
+	 * and <code>false</code> otherwise
+	 * @since 3.10
+	 */
+	public static boolean isDefault(int flags) {
+		return (flags & DEFAULT) != 0;
 	}
 
 	/**
@@ -661,6 +700,15 @@ public final class Modifier extends ASTNode implements IExtendedModifier {
 	 */
 	public boolean isVolatile() {
 		return this.modifierKeyword == ModifierKeyword.VOLATILE_KEYWORD;
+	}
+
+	/**
+	 * Answer true if the receiver is the default modifier, false otherwise.
+	 * @return true if the receiver is the default modifier, false otherwise
+	 * @since 3.10
+	 */
+	public boolean isDefault() {
+		return this.modifierKeyword == ModifierKeyword.DEFAULT_KEYWORD;
 	}
 
 	/* (omit javadoc for this method)

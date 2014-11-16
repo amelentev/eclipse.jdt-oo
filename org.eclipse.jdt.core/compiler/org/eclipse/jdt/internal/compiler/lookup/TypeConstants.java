@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,6 +13,15 @@
  *								bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
  *								bug 400421 - [compiler] Null analysis for fields does not take @com.google.inject.Inject into account
  *								bug 382069 - [null] Make the null analysis consider JUnit's assertNotNull similarly to assertions
+ *								Bug 405569 - Resource leak check false positive when using DbUtils.closeQuietly
+ *								Bug 427199 - [1.8][resource] avoid resource leak warnings on Streams that have no resource
+ *								Bug 425183 - [1.8][inference] make CaptureBinding18 safe
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *    Jesper S Moller - Contributions for
+ *								Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335
+ *								Bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
+ *    Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                              Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -57,6 +66,7 @@ public interface TypeConstants {
     char[] WILDCARD_CAPTURE_NAME_PREFIX = "capture#".toCharArray(); //$NON-NLS-1$
     char[] WILDCARD_CAPTURE_NAME_SUFFIX = "-of ".toCharArray(); //$NON-NLS-1$
 	char[] WILDCARD_CAPTURE = { '!' };
+	char[] CAPTURE18 = { '^' };
 	char[] BYTE = "byte".toCharArray(); //$NON-NLS-1$
 	char[] SHORT = "short".toCharArray(); //$NON-NLS-1$
 	char[] INT = "int".toCharArray(); //$NON-NLS-1$
@@ -83,6 +93,13 @@ public interface TypeConstants {
     char[] UPPER_LOCAL_VARIABLE = "LOCAL_VARIABLE".toCharArray(); //$NON-NLS-1$
     char[] UPPER_ANNOTATION_TYPE = "ANNOTATION_TYPE".toCharArray(); //$NON-NLS-1$
     char[] UPPER_PACKAGE = "PACKAGE".toCharArray(); //$NON-NLS-1$
+    char[] ANONYMOUS_METHOD = "lambda$".toCharArray(); //$NON-NLS-1$
+    char[] DESERIALIZE_LAMBDA = "$deserializeLambda$".toCharArray(); //$NON-NLS-1$
+    char[] LAMBDA_TYPE = "<lambda>".toCharArray(); //$NON-NLS-1$
+    
+	// jsr308
+	char[] TYPE_USE_TARGET  = "TYPE_USE".toCharArray(); //$NON-NLS-1$
+	char[] TYPE_PARAMETER_TARGET = "TYPE_PARAMETER".toCharArray(); //$NON-NLS-1$
     
     // common 3rd party package components:
     char[] ORG = "org".toCharArray(); //$NON-NLS-1$
@@ -94,7 +111,14 @@ public interface TypeConstants {
     char[] LANG3 = "lang3".toCharArray(); //$NON-NLS-1$
     char[] COM = "com".toCharArray(); //$NON-NLS-1$
     char[] GOOGLE = "google".toCharArray(); //$NON-NLS-1$
-
+    char[] JDT = "jdt".toCharArray(); //$NON-NLS-1$
+    char[] INTERNAL = "internal".toCharArray(); //$NON-NLS-1$
+    char[] COMPILER = "compiler".toCharArray(); //$NON-NLS-1$
+    char[] LOOKUP = "lookup".toCharArray(); //$NON-NLS-1$
+    char[] TYPEBINDING = "TypeBinding".toCharArray(); //$NON-NLS-1$
+    char[] DOM = "dom".toCharArray(); //$NON-NLS-1$
+    char[] ITYPEBINDING = "ITypeBinding".toCharArray(); //$NON-NLS-1$
+    
 	// Constant compound names
 	char[][] JAVA_LANG = {JAVA, LANG};
 	char[][] JAVA_IO = {JAVA, IO};
@@ -134,7 +158,9 @@ public interface TypeConstants {
 	char[][] JAVA_LANG_DEPRECATED = {JAVA, LANG, "Deprecated".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_DOCUMENTED = {JAVA, LANG, ANNOTATION, "Documented".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_INHERITED = {JAVA, LANG, ANNOTATION, "Inherited".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_ANNOTATION_REPEATABLE = {JAVA, LANG, ANNOTATION, "Repeatable".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_OVERRIDE = {JAVA, LANG, "Override".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_FUNCTIONAL_INTERFACE = {JAVA, LANG, "FunctionalInterface".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_RETENTION = {JAVA, LANG, ANNOTATION, "Retention".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_SUPPRESSWARNINGS = {JAVA, LANG, "SuppressWarnings".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_ANNOTATION_TARGET = {JAVA, LANG, ANNOTATION, "Target".toCharArray()}; //$NON-NLS-1$
@@ -148,6 +174,7 @@ public interface TypeConstants {
 	char[][] JAVA_IO_IOEXCEPTION = new char[][] { JAVA, IO, "IOException".toCharArray()};//$NON-NLS-1$
 	char[][] JAVA_IO_OBJECTOUTPUTSTREAM = new char[][] { JAVA, IO, "ObjectOutputStream".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_IO_OBJECTINPUTSTREAM = new char[][] { JAVA, IO, "ObjectInputStream".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_NIO_FILE_FILES = new char[][] { JAVA, "nio".toCharArray(), "file".toCharArray(), "Files".toCharArray() };   //$NON-NLS-1$//$NON-NLS-2$//$NON-NLS-3$
 	// javax.rmi.CORBA.Stub
 	char[][] JAVAX_RMI_CORBA_STUB = new char[][] {
 			JAVAX,
@@ -170,24 +197,36 @@ public interface TypeConstants {
 			INVOKE,
 			"MethodHandle$PolymorphicSignature".toCharArray() //$NON-NLS-1$
 	};
+	char[][] JAVA_LANG_INVOKE_LAMBDAMETAFACTORY = {JAVA, LANG, INVOKE, "LambdaMetafactory".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_INVOKE_SERIALIZEDLAMBDA = {JAVA, LANG, INVOKE, "SerializedLambda".toCharArray()}; //$NON-NLS-1$
+	char[][] JAVA_LANG_INVOKE_METHODHANDLES = {JAVA, LANG, INVOKE, "MethodHandles".toCharArray()}; //$NON-NLS-1$
 	char[][] JAVA_LANG_AUTOCLOSEABLE =  {JAVA, LANG, "AutoCloseable".toCharArray()}; //$NON-NLS-1$
 	char[] CLOSE = "close".toCharArray(); //$NON-NLS-1$
 	// known helper functions for closing a Closeable (all receive a Closeable as their first argument):
 	public static class CloseMethodRecord {
 		public char[][] typeName;
 		public char[] selector;
-		public CloseMethodRecord(char[][] typeName, char[] selector) {
+		public int numCloseableArgs;
+		public CloseMethodRecord(char[][] typeName, char[] selector, int num) {
 			this.typeName = typeName;
 			this.selector = selector;
+			this.numCloseableArgs = num;
 		}
 	}
 	char[][] GUAVA_CLOSEABLES = { COM, GOOGLE, "common".toCharArray(), IO, "Closeables".toCharArray() }; //$NON-NLS-1$ //$NON-NLS-2$
 	char[][] APACHE_IOUTILS = { ORG, APACHE, COMMONS, IO, "IOUtils".toCharArray() }; //$NON-NLS-1$
+	char[][] APACHE_DBUTILS = { ORG, APACHE, COMMONS, "dbutils".toCharArray(), "DbUtils".toCharArray() }; //$NON-NLS-1$ //$NON-NLS-2$
 	char[] CLOSE_QUIETLY = "closeQuietly".toCharArray(); //$NON-NLS-1$
 	CloseMethodRecord[] closeMethods = new CloseMethodRecord[] {
-		new CloseMethodRecord(GUAVA_CLOSEABLES, CLOSE_QUIETLY),
-		new CloseMethodRecord(GUAVA_CLOSEABLES, CLOSE),
-		new CloseMethodRecord(APACHE_IOUTILS, CLOSE_QUIETLY)
+		new CloseMethodRecord(GUAVA_CLOSEABLES, CLOSE_QUIETLY, 1),
+		new CloseMethodRecord(GUAVA_CLOSEABLES, CLOSE, 1),
+		new CloseMethodRecord(APACHE_IOUTILS, CLOSE_QUIETLY, 1),
+		new CloseMethodRecord(APACHE_DBUTILS, CLOSE, 1),
+		new CloseMethodRecord(APACHE_DBUTILS, CLOSE_QUIETLY, 3), // closeQuietly(Connection,Statement,ResultSet) 
+		new CloseMethodRecord(APACHE_DBUTILS, "commitAndClose".toCharArray(), 1), //$NON-NLS-1$
+		new CloseMethodRecord(APACHE_DBUTILS, "commitAndCloseQuietly".toCharArray(), 1), //$NON-NLS-1$
+		new CloseMethodRecord(APACHE_DBUTILS, "rollbackAndClose".toCharArray(), 1), //$NON-NLS-1$
+		new CloseMethodRecord(APACHE_DBUTILS, "rollbackAndCloseQuietly".toCharArray(), 1), //$NON-NLS-1$
 	};
 	// white lists of closeables:
 	char[][] JAVA_IO_WRAPPER_CLOSEABLES = new char[][] {
@@ -242,6 +281,9 @@ public interface TypeConstants {
 		"CharArrayWriter".toCharArray(), //$NON-NLS-1$
 		"StringBufferInputStream".toCharArray(), //$NON-NLS-1$
 	};
+	char[][] RESOURCE_FREE_CLOSEABLE_STREAM = new char[][] {
+		JAVA, UTIL, "stream".toCharArray(), "Stream".toCharArray() //$NON-NLS-1$ //$NON-NLS-2$
+	};
 	
 	// different assertion utilities:
 	char[] ASSERT_CLASS = "Assert".toCharArray(); //$NON-NLS-1$
@@ -262,6 +304,9 @@ public interface TypeConstants {
 	char[] VALIDATE_CLASS = "Validate".toCharArray(); //$NON-NLS-1$
 	char[][] ORG_APACHE_COMMONS_LANG_VALIDATE = new char[][] { ORG, APACHE, COMMONS, LANG, VALIDATE_CLASS };
 	char[][] ORG_APACHE_COMMONS_LANG3_VALIDATE = new char[][] { ORG, APACHE, COMMONS, LANG3, VALIDATE_CLASS };
+	char[][] ORG_ECLIPSE_JDT_INTERNAL_COMPILER_LOOKUP_TYPEBINDING = new char[][] { ORG, ECLIPSE, JDT, INTERNAL, COMPILER, LOOKUP, TYPEBINDING };
+	char[][] ORG_ECLIPSE_JDT_CORE_DOM_ITYPEBINDING = new char[][] { ORG, ECLIPSE, JDT, CORE, DOM, ITYPEBINDING };
+
 	// ... methods:
 	char[] IS_TRUE = "isTrue".toCharArray(); //$NON-NLS-1$
 	char[] NOT_NULL = "notNull".toCharArray(); //$NON-NLS-1$
@@ -306,6 +351,16 @@ public interface TypeConstants {
 	char[] SYNTHETIC_ACCESS_METHOD_PREFIX =  "access$".toCharArray(); //$NON-NLS-1$
 	char[] SYNTHETIC_ENUM_CONSTANT_INITIALIZATION_METHOD_PREFIX =  " enum constant initialization$".toCharArray(); //$NON-NLS-1$
 	char[] SYNTHETIC_STATIC_FACTORY =  "<factory>".toCharArray(); //$NON-NLS-1$
+
+	// constants in enum org.eclipse.jdt.annotation.DefaultLocation:
+	char[] DEFAULT_LOCATION__PARAMETER = "PARAMETER".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__RETURN_TYPE = "RETURN_TYPE".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__FIELD = "FIELD".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__TYPE_ARGUMENT = "TYPE_ARGUMENT".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__TYPE_PARAMETER = "TYPE_PARAMETER".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__TYPE_BOUND = "TYPE_BOUND".toCharArray(); //$NON-NLS-1$
+	char[] DEFAULT_LOCATION__ARRAY_CONTENTS = "ARRAY_CONTENTS".toCharArray(); //$NON-NLS-1$
+
 
 	// synthetic package-info name
 	public static final char[] PACKAGE_INFO_NAME = "package-info".toCharArray(); //$NON-NLS-1$

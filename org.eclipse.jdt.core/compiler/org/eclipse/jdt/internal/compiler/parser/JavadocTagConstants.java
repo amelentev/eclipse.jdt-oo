@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -147,6 +147,8 @@ public interface JavadocTagConstants {
 		{},
 		// since 1.7
 		{},
+		// since 1.8
+		{}
 	};
 	public static final char[][][] INLINE_TAGS = {
 		// since 1.0
@@ -165,6 +167,8 @@ public interface JavadocTagConstants {
 		{},
 		// since 1.7
 		{},
+		// since 1.8
+		{}
 	};
 	public final static int INLINE_TAGS_LENGTH = INLINE_TAGS.length;
 	public final static int BLOCK_TAGS_LENGTH = BLOCK_TAGS.length;

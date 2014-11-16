@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2012 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -902,7 +902,7 @@ public void test038() {
 		"1. WARNING in X.java (at line 19)\n" +
 		"	public void valueChanged(TreeSelectionEvent e) {\n" +
 		"	                                            ^\n" +
-		"The parameter e is hiding another local variable defined in an enclosing type scope\n" +
+		"The parameter e is hiding another local variable defined in an enclosing scope\n" +
 		"----------\n" +
 		"2. ERROR in X.java (at line 23)\n" +
 		"	static {\n" +
@@ -917,7 +917,7 @@ public void test038() {
 		"4. WARNING in X.java (at line 26)\n" +
 		"	public void actionPerformed(ActionEvent e) {\n" +
 		"	                                        ^\n" +
-		"The parameter e is hiding another local variable defined in an enclosing type scope\n" +
+		"The parameter e is hiding another local variable defined in an enclosing scope\n" +
 		"----------\n");
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=111898

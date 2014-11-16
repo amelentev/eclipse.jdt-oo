@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2004, 2012 IBM Corporation and others.
+ * Copyright (c) 2004, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -56,17 +56,24 @@ import org.eclipse.jdt.core.tests.model.ModifyingResourceTests;
 import org.eclipse.jdt.core.tests.util.Util;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.core.dom.SourceRangeVerifier;
 
 public class AbstractASTTests extends ModifyingResourceTests implements DefaultMarkedNodeLabelProviderOptions {
 
 	/** @deprecated Using deprecated code */
 	private static final int AST_INTERNAL_JLS2 = AST.JLS2;
 	/**
-	 * Internal synonynm for deprecated constant AST.JSL3
+	 * Internal synonym for deprecated constant AST.JSL3
 	 * to alleviate deprecation warnings.
 	 * @deprecated
 	 */
 	/*package*/ static final int AST_INTERNAL_JLS3 = AST.JLS3;
+	/**
+	 * Internal synonym for deprecated constant AST.JSL4
+	 * to alleviate deprecation warnings.
+	 * @deprecated
+	 */
+	/*package*/ static final int AST_INTERNAL_JLS4 = AST.JLS4;
 	public static final int astInternalJLS2() {
 		return AST_INTERNAL_JLS2;
 	}
@@ -78,6 +85,13 @@ public class AbstractASTTests extends ModifyingResourceTests implements DefaultM
 		super(name);
 	}
 
+	public void setUpSuite() throws Exception {
+		super.setUpSuite();
+		
+		SourceRangeVerifier.DEBUG = true;
+		SourceRangeVerifier.DEBUG_THROW = true;
+	}
+	
 	/*
 	 * Removes the *start* and *end* markers from the given source
 	 * and remembers the positions.
@@ -468,8 +482,10 @@ public class AbstractASTTests extends ModifyingResourceTests implements DefaultM
 		String option = cu.getJavaProject().getOption(JavaCore.COMPILER_COMPLIANCE, true);
 		long jdkLevel = CompilerOptions.versionToJdkLevel(option);
 		int JLSLevel = AST_INTERNAL_JLS3;
-		if (jdkLevel >= ClassFileConstants.JDK1_7) {
-			JLSLevel = AST.JLS4;
+		if (jdkLevel >= ClassFileConstants.JDK1_8) {
+			JLSLevel = AST.JLS8;
+		} else if (jdkLevel >= ClassFileConstants.JDK1_7) {
+			JLSLevel = AST_INTERNAL_JLS4;
 		}
 		return buildASTs(
 				JLSLevel,

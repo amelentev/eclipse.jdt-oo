@@ -1340,4 +1340,62 @@ public class ScannerTest extends AbstractRegressionTest {
 			assertTrue("Should not fail with InvalidInputException", false);
 		}
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=383062
+	public void test062() {
+		IScanner scanner = ToolFactory.createScanner(false, false, false, JavaCore.VERSION_1_4);
+		char[] source = "->".toCharArray(); //$NON-NLS-1$
+		scanner.setSource(source);
+		scanner.resetTo(0, source.length - 1);
+		int token = 0;
+		try {
+			token = scanner.getNextToken();
+		} catch (InvalidInputException e) {
+			// ignore ...
+		}
+		assertEquals("Expecting ->", ITerminalSymbols.TokenNameARROW, token);
+	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=383062
+	public void test063() {
+		IScanner scanner = ToolFactory.createScanner(false, false, false, JavaCore.VERSION_1_4);
+		char[] source = "::".toCharArray(); //$NON-NLS-1$
+		scanner.setSource(source);
+		scanner.resetTo(0, source.length - 1);
+		int token = 0;
+		try {
+			token = scanner.getNextToken();
+		} catch (InvalidInputException e) {
+			// ignore.
+		}
+		assertEquals("Expecting ::", ITerminalSymbols.TokenNameCOLON_COLON, token);
+	}
+
+	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=443854
+	public void test064() {
+		String source =
+				"public enum X {\n" + 
+				"	Hello\\u205fworld;\n" + 
+				"	public static void main(String[] args) {\n" + 
+				"		System.out.println(Hello\\u205fworld);\n" + 
+				"		System.out.println(Character.isJavaIdentifierPart('\\u205f')); // false\n" + 
+				"	}\n" + 
+				"}";
+		if (this.complianceLevel > ClassFileConstants.JDK1_5) {
+			this.runNegativeTest(
+				new String[] {
+					"X.java",
+					source
+				},
+				"----------\n" + 
+				"1. ERROR in X.java (at line 2)\n" + 
+				"	Hello\\u205fworld;\n" + 
+				"	     ^^^^^^\n" + 
+				"Syntax error on token \"Invalid Character\", , expected\n" + 
+				"----------\n" + 
+				"2. ERROR in X.java (at line 4)\n" + 
+				"	System.out.println(Hello\\u205fworld);\n" + 
+				"	                        ^^^^^^\n" + 
+				"Syntax error on token \"Invalid Character\", invalid AssignmentOperator\n" + 
+				"----------\n");
+		}
+	}
 }

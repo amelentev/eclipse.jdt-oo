@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,10 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *        Jesper Steen Moeller - Contribution for
+ *                          Bug 406973 - [compiler] Parse MethodParameters attribute
  *******************************************************************************/
 package org.eclipse.jdt.internal.core.util;
 
@@ -114,6 +118,12 @@ public class MethodInfo extends ClassFileStruct implements IMethodInfo {
 				this.attributes[attributesIndex++] = new RuntimeInvisibleParameterAnnotationsAttribute(classFileBytes, constantPool, offset + readOffset);
 			} else if (equals(attributeName, IAttributeNamesConstants.ANNOTATION_DEFAULT)) {
 				this.attributes[attributesIndex++] = new AnnotationDefaultAttribute(classFileBytes, constantPool, offset + readOffset);
+			} else if (equals(attributeName, IAttributeNamesConstants.RUNTIME_VISIBLE_TYPE_ANNOTATIONS)) {
+				this.attributes[attributesIndex++] = new RuntimeVisibleTypeAnnotationsAttribute(classFileBytes, constantPool, offset + readOffset);
+			} else if (equals(attributeName, IAttributeNamesConstants.RUNTIME_INVISIBLE_TYPE_ANNOTATIONS)) {
+				this.attributes[attributesIndex++] = new RuntimeInvisibleTypeAnnotationsAttribute(classFileBytes, constantPool, offset + readOffset);
+			} else if (equals(attributeName, IAttributeNamesConstants.METHOD_PARAMETERS)) {
+				this.attributes[attributesIndex++] = new MethodParametersAttribute(classFileBytes, constantPool, offset + readOffset);
 			} else {
 				this.attributes[attributesIndex++] = new ClassFileAttribute(classFileBytes, constantPool, offset + readOffset);
 			}

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,10 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 365531 - [compiler][null] investigate alternative strategy for internally encoding nullness defaults
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *     Jesper Steen Moller - Contributions for
+ *								Bug 412150 [1.8] [compiler] Enable reflected parameter names during annotation processing
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -32,9 +36,16 @@ public abstract class Binding {
 	public static final int GENERIC_TYPE = TYPE | ASTNode.Bit12;
 	public static final int TYPE_PARAMETER = TYPE | ASTNode.Bit13;
 	public static final int INTERSECTION_TYPE = TYPE | ASTNode.Bit14;
+	// jsr 308
+	public static final int TYPE_USE = TYPE | ASTNode.Bit15;
+	public static final int INTERSECTION_CAST_TYPE = TYPE | ASTNode.Bit16;
+	public static final int POLY_TYPE = TYPE | ASTNode.Bit17;
+	
+	// In the unlikely event you add a new type binding, remember to update TypeBindingVisitor and Scope.substitute methods. 
 
 	// Shared binding collections
 	public static final TypeBinding[] NO_TYPES = new TypeBinding[0];
+	public static final ReferenceBinding[] NO_REFERENCE_TYPES = new ReferenceBinding[0];
 	public static final TypeBinding[] NO_PARAMETERS = new TypeBinding[0];
 	public static final ReferenceBinding[] NO_EXCEPTIONS = new ReferenceBinding[0];
 	public static final ReferenceBinding[] ANY_EXCEPTION = new ReferenceBinding[] { null }; // special handler for all exceptions
@@ -45,15 +56,55 @@ public abstract class Binding {
 	public static final TypeVariableBinding[] NO_TYPE_VARIABLES = new TypeVariableBinding[0];
 	public static final AnnotationBinding[] NO_ANNOTATIONS = new AnnotationBinding[0];
 	public static final ElementValuePair[] NO_ELEMENT_VALUE_PAIRS = new ElementValuePair[0];
-
+	public static final char[][] NO_PARAMETER_NAMES = new char[0][];
+	
 	public static final FieldBinding[] UNINITIALIZED_FIELDS = new FieldBinding[0];
 	public static final MethodBinding[] UNINITIALIZED_METHODS = new MethodBinding[0];
 	public static final ReferenceBinding[] UNINITIALIZED_REFERENCE_TYPES = new ReferenceBinding[0];
 
+	static final InferenceVariable[] NO_INFERENCE_VARIABLES = new InferenceVariable[0];
+	static final TypeBound[] NO_TYPE_BOUNDS = new TypeBound[0];
+
 	// Nullness defaults:
 	public static final int NO_NULL_DEFAULT = 0;
-	public static final int NULL_UNSPECIFIED_BY_DEFAULT = 1;
-	public static final int NONNULL_BY_DEFAULT = 2;
+	// SE5 style:
+	public static final int NONNULL_BY_DEFAULT = 1;
+	public static final int NULL_UNSPECIFIED_BY_DEFAULT = 2;
+	// JSR308 style:
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#PARAMETER
+	 */
+	public static final int DefaultLocationParameter = ASTNode.Bit4;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#RETURN_TYPE
+	 */
+	public static final int DefaultLocationReturnType = ASTNode.Bit5;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#FIELD
+	 */
+	public static final int DefaultLocationField = ASTNode.Bit6;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#TYPE_ARGUMENT
+	 */
+	public static final int DefaultLocationTypeArgument = ASTNode.Bit7;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#TYPE_PARAMETER
+	 */
+	public static final int DefaultLocationTypeParameter = ASTNode.Bit8;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#TYPE_BOUND
+	 */
+	public static final int DefaultLocationTypeBound = ASTNode.Bit9;
+	/**
+	 * Bit in defaultNullness bit vectors, representing the enum constant DefaultLocation#ARRAY_CONTENTS
+	 * TODO: this constant is not yet used, due to difficulty to discern these annotations between SE5 / SE8
+	 */
+	public static final int DefaultLocationArrayContents = ASTNode.Bit10;
+
+	public static final int NullnessDefaultMASK = 
+			NULL_UNSPECIFIED_BY_DEFAULT | // included to terminate search up the parent chain
+			DefaultLocationParameter | DefaultLocationReturnType | DefaultLocationField |
+			DefaultLocationTypeArgument | DefaultLocationTypeParameter | DefaultLocationTypeBound | DefaultLocationArrayContents;
 
 	/*
 	* Answer the receiver's binding type from Binding.BindingID.
@@ -77,6 +128,8 @@ public abstract class Binding {
 	/**
 	 * Compute the tagbits for standard annotations. For source types, these could require
 	 * lazily resolving corresponding annotation nodes, in case of forward references.
+	 * For type use bindings, this method still returns the tagbits corresponding to the type 
+	 * declaration binding.
 	 * @see org.eclipse.jdt.internal.compiler.lookup.SourceTypeBinding#getAnnotationTagBits()
 	 */
 	public long getAnnotationTagBits() {
@@ -92,6 +145,10 @@ public abstract class Binding {
 		// empty block
 	}
 
+	public boolean isAnnotationType() {
+		return false;
+	}
+	
 	/* API
 	* Answer true if the receiver is not a problem binding
 	*/
@@ -99,6 +156,9 @@ public abstract class Binding {
 		return problemId() == ProblemReasons.NoError;
 	}
 	public boolean isVolatile() {
+		return false;
+	}
+	public boolean isTaggedRepeatable() {
 		return false;
 	}
 	public boolean isParameter() {
@@ -120,5 +180,14 @@ public abstract class Binding {
 	 */
 	public char[] shortReadableName(){
 		return readableName();
+	}
+	public AnnotationBinding[] getAnnotations() {
+		return Binding.NO_ANNOTATIONS;
+	}
+	public void setAnnotations(AnnotationBinding[] annotations, Scope scope) {
+		setAnnotations(annotations);
+	}
+	public void setAnnotations(AnnotationBinding[] annotations) {
+		// Left to subtypes.
 	}
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,7 @@
  *     IBM Corporation  - initial API and implementation
  *     Brock Janiczak   - Contribution for bug 150741
  *     Ray V. (voidstar@gmail.com) - Contribution for bug 282988
+ *     Jesper S Moller - Contribution for bug 402173
  *******************************************************************************/
 package org.eclipse.jdt.core.formatter;
 
@@ -26,6 +27,7 @@ import org.eclipse.jdt.internal.formatter.align.Alignment;
  * @noinstantiate This class is not intended to be instantiated by clients.
  * @noextend This class is not intended to be subclassed by clients.
  */
+@SuppressWarnings("rawtypes")
 public class DefaultCodeFormatterConstants {
 
 	/**
@@ -39,6 +41,7 @@ public class DefaultCodeFormatterConstants {
  	 * @see #FORMATTER_BRACE_POSITION_FOR_METHOD_DECLARATION
  	 * @see #FORMATTER_BRACE_POSITION_FOR_SWITCH
 	 * @see #FORMATTER_BRACE_POSITION_FOR_TYPE_DECLARATION
+	 * @see #FORMATTER_BRACE_POSITION_FOR_LAMBDA_BODY
 	 * @since 3.0
 	 */
 	public static final String END_OF_LINE = "end_of_line";	//$NON-NLS-1$
@@ -606,6 +609,21 @@ public class DefaultCodeFormatterConstants {
 	 * @since 3.0
 	 */
 	public static final String FORMATTER_BRACE_POSITION_FOR_TYPE_DECLARATION = JavaCore.PLUGIN_ID + ".formatter.brace_position_for_type_declaration";	//$NON-NLS-1$
+
+	/**
+	 * <pre>
+	 * FORMATTER / Option to position the braces of a lambda block
+	 *     - option id:         "org.eclipse.jdt.core.formatter.brace_position_for_lambda_body"
+	 *     - possible values:   { END_OF_LINE, NEXT_LINE, NEXT_LINE_SHIFTED, NEXT_LINE_ON_WRAP }
+	 *     - default:           END_OF_LINE
+	 * </pre>
+	 * @see #END_OF_LINE
+	 * @see #NEXT_LINE
+	 * @see #NEXT_LINE_SHIFTED
+	 * @see #NEXT_LINE_ON_WRAP
+	 * @since 3.10
+	 */
+	public static final String FORMATTER_BRACE_POSITION_FOR_LAMBDA_BODY = JavaCore.PLUGIN_ID + ".formatter.brace_position_for_lambda_body";	//$NON-NLS-1$
 
 	/**
 	 * <pre>
@@ -1386,6 +1404,18 @@ public class DefaultCodeFormatterConstants {
 
 	/**
 	 * <pre>
+	 * FORMATTER / Option to insert a new line after a type annotation
+	 *     - option id:         "org.eclipse.jdt.core.formatter.insert_new_line_after_type_annotation"
+	 *     - possible values:   { INSERT, DO_NOT_INSERT }
+	 *     - default:           DO_NOT_INSERT
+	 * </pre>
+	 * @see JavaCore#INSERT
+	 * @see JavaCore#DO_NOT_INSERT
+	 * @since 3.10
+	 */
+	public static final String FORMATTER_INSERT_NEW_LINE_AFTER_TYPE_ANNOTATION = JavaCore.PLUGIN_ID + ".formatter.insert_new_line_after_type_annotation";//$NON-NLS-1$
+	/**
+	 * <pre>
 	 * FORMATTER / Option to insert a new line after an annotation on a parameter
 	 *     - option id:         "org.eclipse.jdt.core.formatter.insert_new_line_after_annotation_on_parameter"
 	 *     - possible values:   { INSERT, DO_NOT_INSERT }
@@ -2000,6 +2030,18 @@ public class DefaultCodeFormatterConstants {
 	 * @since 3.1
 	 */
 	public static final String FORMATTER_INSERT_SPACE_AFTER_ELLIPSIS  = JavaCore.PLUGIN_ID + ".formatter.insert_space_after_ellipsis";	//$NON-NLS-1$
+	/**
+	 * <pre>
+	 * FORMATTER / Option to insert a space after the -> in lambda expressions
+	 *     - option id:         "org.eclipse.jdt.core.formatter.insert_space_after_lambda_arrow"
+	 *     - possible values:   { INSERT, DO_NOT_INSERT }
+	 *     - default:           INSERT
+	 * </pre>
+	 * @see JavaCore#INSERT
+	 * @see JavaCore#DO_NOT_INSERT
+	 * @since 3.10
+	 */
+	public static final String FORMATTER_INSERT_SPACE_AFTER_LAMBDA_ARROW  = JavaCore.PLUGIN_ID + ".formatter.insert_space_after_lambda_arrow";	//$NON-NLS-1$
 	/**
 	 * <pre>
 	 * FORMATTER / Option to insert a space after the opening angle bracket in parameterized type reference
@@ -2927,6 +2969,18 @@ public class DefaultCodeFormatterConstants {
 	public static final String FORMATTER_INSERT_SPACE_BEFORE_ELLIPSIS  = JavaCore.PLUGIN_ID + ".formatter.insert_space_before_ellipsis";	//$NON-NLS-1$
 	/**
 	 * <pre>
+	 * FORMATTER / Option to insert a space before lambda ->
+	 *     - option id:         "org.eclipse.jdt.core.formatter.insert_space_before_lambda_arrow"
+	 *     - possible values:   { INSERT, DO_NOT_INSERT }
+	 *     - default:           INSERT
+	 * </pre>
+	 * @see JavaCore#INSERT
+	 * @see JavaCore#DO_NOT_INSERT
+	 * @since 3.10
+	 */
+	public static final String FORMATTER_INSERT_SPACE_BEFORE_LAMBDA_ARROW = JavaCore.PLUGIN_ID + ".formatter.insert_space_before_lambda_arrow";	//$NON-NLS-1$
+	/**
+	 * <pre>
 	 * FORMATTER / Option to insert a space before the opening angle bracket in parameterized type reference
 	 *     - option id:         "org.eclipse.jdt.core.formatter.insert_space_before_opening_angle_bracket_in_parameterized_type_reference"
 	 *     - possible values:   { INSERT, DO_NOT_INSERT }
@@ -3838,6 +3892,7 @@ public class DefaultCodeFormatterConstants {
  	 * @see #FORMATTER_BRACE_POSITION_FOR_METHOD_DECLARATION
  	 * @see #FORMATTER_BRACE_POSITION_FOR_SWITCH
 	 * @see #FORMATTER_BRACE_POSITION_FOR_TYPE_DECLARATION
+	 * @see #FORMATTER_BRACE_POSITION_FOR_LAMBDA_BODY
 	 * @since 3.0
 	 */
 	public static final String NEXT_LINE = "next_line"; //$NON-NLS-1$
@@ -3853,6 +3908,7 @@ public class DefaultCodeFormatterConstants {
  	 * @see #FORMATTER_BRACE_POSITION_FOR_METHOD_DECLARATION
  	 * @see #FORMATTER_BRACE_POSITION_FOR_SWITCH
 	 * @see #FORMATTER_BRACE_POSITION_FOR_TYPE_DECLARATION
+	 * @see #FORMATTER_BRACE_POSITION_FOR_LAMBDA_BODY
 	 * @since 3.0
 	 */
     public static final String NEXT_LINE_ON_WRAP = "next_line_on_wrap"; //$NON-NLS-1$
@@ -3868,6 +3924,7 @@ public class DefaultCodeFormatterConstants {
  	 * @see #FORMATTER_BRACE_POSITION_FOR_METHOD_DECLARATION
  	 * @see #FORMATTER_BRACE_POSITION_FOR_SWITCH
 	 * @see #FORMATTER_BRACE_POSITION_FOR_TYPE_DECLARATION
+	 * @see #FORMATTER_BRACE_POSITION_FOR_LAMBDA_BODY
 	 * @since 3.0
 	 */
 	public static final String NEXT_LINE_SHIFTED = "next_line_shifted";	//$NON-NLS-1$
@@ -3937,7 +3994,7 @@ public class DefaultCodeFormatterConstants {
 	 * @param wrapStyle the given wrapping style
 	 * @param indentStyle the given indent style
 	 *
-	 * @return the new alignement value
+	 * @return the new alignment value
 	 */
 	public static String createAlignmentValue(boolean forceSplit, int wrapStyle, int indentStyle) {
 		int alignmentValue = 0;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,6 +29,7 @@ public class RunCompletionModelTests extends junit.framework.TestCase {
 			COMPLETION_SUITES.add(CompletionTests.class);
 			COMPLETION_SUITES.add(CompletionTests2.class);
 			COMPLETION_SUITES.add(CompletionTests_1_5.class);
+			COMPLETION_SUITES.add(CompletionTests18.class);
 			COMPLETION_SUITES.add(CompletionContextTests.class);
 			COMPLETION_SUITES.add(CompletionContextTests_1_5.class);
 			COMPLETION_SUITES.add(CompletionWithMissingTypesTests.class);

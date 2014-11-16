@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,6 +8,9 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Erling Ellingsen -  patch for bug 125570
+ *     Stephan Herrmann - Contribution for
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *								Bug 434570 - Generic type mismatch for parametrized class annotation attribute with inner class
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -41,6 +44,20 @@ public class CompilationUnitScope extends Scope {
 	
 	private ImportBinding[] tempImports;	// to keep a record of resolved imports while traversing all in faultInImports()
 	
+	/**
+	 * Flag that should be set during annotation traversal or similar runs
+	 * to prevent caching of failures regarding imports of yet to be generated classes.
+	 */
+	public boolean suppressImportErrors;
+	
+	/**
+	 * Skips import caching if unresolved imports were
+	 * found last time.
+	 */
+	private boolean skipCachingImports;
+
+	boolean connectingHierarchy;
+
 public CompilationUnitScope(CompilationUnitDeclaration unit, LookupEnvironment environment) {
 	super(COMPILATION_UNIT_SCOPE, null);
 	this.environment = environment;
@@ -300,11 +317,20 @@ public char[] computeConstantPoolName(LocalTypeBinding localType) {
 }
 
 void connectTypeHierarchy() {
-	for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
-		this.topLevelTypes[i].scope.connectTypeHierarchy();
+	this.connectingHierarchy = true;
+	try {
+		for (int i = 0, length = this.topLevelTypes.length; i < length; i++)
+			this.topLevelTypes[i].scope.connectTypeHierarchy();
+	} finally {
+		this.connectingHierarchy = false;
+	}
 }
 void faultInImports() {
-	if (this.typeOrPackageCache != null)
+	boolean unresolvedFound = false;
+	// should report unresolved only if we are not suppressing caching of failed resolutions
+	boolean reportUnresolved = !this.suppressImportErrors;
+
+	if (this.typeOrPackageCache != null && !this.skipCachingImports)
 		return; // can be called when a field constant is resolved before static imports
 	if (this.referenceContext.imports == null) {
 		this.typeOrPackageCache = new HashtableOfObject(1);
@@ -375,7 +401,10 @@ void faultInImports() {
 				if (importBinding.problemId() == ProblemReasons.Ambiguous) {
 					// keep it unless a duplicate can be found below
 				} else {
-					problemReporter().importProblem(importReference, importBinding);
+					unresolvedFound = true;
+					if (reportUnresolved) {
+						problemReporter().importProblem(importReference, importBinding);
+					}
 					continue nextImport;
 				}
 			}
@@ -412,6 +441,7 @@ void faultInImports() {
 		if (!binding.onDemand && binding.resolvedImport instanceof ReferenceBinding || binding instanceof ImportConflictBinding)
 			this.typeOrPackageCache.put(binding.compoundName[binding.compoundName.length - 1], binding);
 	}
+	this.skipCachingImports = this.suppressImportErrors && unresolvedFound;
 }
 public void faultInTypes() {
 	faultInImports();
@@ -770,14 +800,16 @@ public String toString() {
 	return "--- CompilationUnit Scope : " + new String(this.referenceContext.getFileName()); //$NON-NLS-1$
 }
 private ReferenceBinding typeToRecord(TypeBinding type) {
-	if (type.isArrayType())
-		type = ((ArrayBinding) type).leafComponentType;
+	while (type.isArrayType())
+		type = ((ArrayBinding) type).leafComponentType();
 
 	switch (type.kind()) {
 		case Binding.BASE_TYPE :
 		case Binding.TYPE_PARAMETER :
 		case Binding.WILDCARD_TYPE :
 		case Binding.INTERSECTION_TYPE :
+		case Binding.INTERSECTION_CAST_TYPE: // constituents would have been recorded.
+		case Binding.POLY_TYPE: // not a real type, will mutate into one, hopefully soon.
 			return null;
 		case Binding.PARAMETERIZED_TYPE :
 		case Binding.RAW_TYPE :
@@ -852,6 +884,7 @@ private int checkAndRecordImportBinding(
 			conflictingType = null;
 	}
 	// collisions between an imported static field & a type should be checked according to spec... but currently not by javac
+	final char[] name = compoundName[compoundName.length - 1];
 	if (importBinding instanceof ReferenceBinding || conflictingType != null) {
 		ReferenceBinding referenceBinding = conflictingType == null ? (ReferenceBinding) importBinding : conflictingType;
 		ReferenceBinding typeToCheck = referenceBinding.problemId() == ProblemReasons.Ambiguous
@@ -860,17 +893,17 @@ private int checkAndRecordImportBinding(
 		if (importReference.isTypeUseDeprecated(typeToCheck, this))
 			problemReporter().deprecatedType(typeToCheck, importReference);
 
-		ReferenceBinding existingType = typesBySimpleNames.get(compoundName[compoundName.length - 1]);
+		ReferenceBinding existingType = typesBySimpleNames.get(name);
 		if (existingType != null) {
 			// duplicate test above should have caught this case, but make sure
-			if (existingType == referenceBinding) {
+			if (TypeBinding.equalsEquals(existingType, referenceBinding)) {
 				// https://bugs.eclipse.org/bugs/show_bug.cgi?id=302865
 				// Check all resolved imports to see if this import qualifies as a duplicate
 				for (int j = 0; j < this.importPtr; j++) {
 					ImportBinding resolved = this.tempImports[j];
 					if (resolved instanceof ImportConflictBinding) {
 						ImportConflictBinding importConflictBinding = (ImportConflictBinding) resolved;
-						if (importConflictBinding.conflictingTypeBinding == referenceBinding) {
+						if (TypeBinding.equalsEquals(importConflictBinding.conflictingTypeBinding, referenceBinding)) {
 							if (!importReference.isStatic()) {
 								// resolved is implicitly static
 								problemReporter().duplicateImport(importReference);
@@ -893,18 +926,38 @@ private int checkAndRecordImportBinding(
 					return -1;
 				}
 			}
+			if (importReference.isStatic() && importBinding instanceof ReferenceBinding && compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8) {
+				// 7.5.3 says nothing about collision of single static imports and JDK8 tolerates them, though use is flagged.
+				for (int j = 0; j < this.importPtr; j++) {
+					ImportBinding resolved = this.tempImports[j];
+					if (resolved.isStatic() && resolved.resolvedImport instanceof ReferenceBinding && importBinding != resolved.resolvedImport) {
+						if (CharOperation.equals(name, resolved.compoundName[resolved.compoundName.length - 1])) {
+							ReferenceBinding type = (ReferenceBinding) resolved.resolvedImport;
+							resolved.resolvedImport = new ProblemReferenceBinding(new char[][] { name }, type, ProblemReasons.Ambiguous);
+							return -1;
+						}
+					}
+				}
+			}
 			problemReporter().duplicateImport(importReference);
 			return -1;
 		}
-		typesBySimpleNames.put(compoundName[compoundName.length - 1], referenceBinding);
+		typesBySimpleNames.put(name, referenceBinding);
 	} else if (importBinding instanceof FieldBinding) {
 		for (int j = 0; j < this.importPtr; j++) {
 			ImportBinding resolved = this.tempImports[j];
 			// find other static fields with the same name
 			if (resolved.isStatic() && resolved.resolvedImport instanceof FieldBinding && importBinding != resolved.resolvedImport) {
-				if (CharOperation.equals(compoundName[compoundName.length - 1], resolved.compoundName[resolved.compoundName.length - 1])) {
-					problemReporter().duplicateImport(importReference);
-					return -1;
+				if (CharOperation.equals(name, resolved.compoundName[resolved.compoundName.length - 1])) {
+					if (compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8) {
+						// 7.5.3 says nothing about collision of single static imports and JDK8 tolerates them, though use is flagged.
+						FieldBinding field = (FieldBinding) resolved.resolvedImport;
+						resolved.resolvedImport = new ProblemFieldBinding(field, field.declaringClass, name, ProblemReasons.Ambiguous);
+						return -1;
+					} else {
+						problemReporter().duplicateImport(importReference);
+						return -1;
+					}
 				}
 			}
 		}
@@ -915,5 +968,11 @@ private int checkAndRecordImportBinding(
 		recordImportBinding(new ImportConflictBinding(compoundName, importBinding, conflictingType, importReference));
 	}
 	return this.importPtr;
+}
+@Override
+public boolean hasDefaultNullnessFor(int location) {
+	if (this.fPackage != null)
+		return (this.fPackage.defaultNullness & location) != 0;
+	return false;
 }
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -39,6 +39,20 @@ public class ASTConverterTest extends ConverterTestSetup {
 	}
 	public static Test suite() {
 		return buildModelTestSuite(ASTConverterTest.class);
+	}
+	/** 
+	 * Internal access method to MethodDeclaration#thrownExceptions() for avoiding deprecated warnings.
+	 * @deprecated
+	 */
+	private static List internalThrownExceptions(MethodDeclaration methodDeclaration) {
+		return methodDeclaration.thrownExceptions();
+	}
+
+	/**
+	 * @deprecated
+	 */
+	private Type componentType(ArrayType array) {
+		return array.getComponentType();
 	}
 
 	/** @deprecated using deprecated code */
@@ -7678,8 +7692,8 @@ public class ASTConverterTest extends ConverterTestSetup {
 		assertNotNull("No result", result); //$NON-NLS-1$
 		assertTrue("Not a compilation unit", result instanceof CompilationUnit); //$NON-NLS-1$
 		CompilationUnit compilationUnit = (CompilationUnit) result;
-		assertEquals("Wrong size", 1, compilationUnit.getMessages().length); //$NON-NLS-1$
-		assertEquals("Wrong size", 1, compilationUnit.getProblems().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 2, compilationUnit.getMessages().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 2, compilationUnit.getProblems().length); //$NON-NLS-1$
 	}
 
 	/**
@@ -7810,13 +7824,13 @@ public class ASTConverterTest extends ConverterTestSetup {
 		ITypeBinding typeBinding = arrayType.resolveBinding();
 		checkSourceRange(type, "java.lang.Object[][]", source); //$NON-NLS-1$
 		assertNotNull("No type binding", typeBinding); //$NON-NLS-1$
-		Type elementType = arrayType.getComponentType();
+		Type elementType = componentType(arrayType);
 		ITypeBinding typeBinding2 = elementType.resolveBinding();
 		assertNotNull("No type binding2", typeBinding2); //$NON-NLS-1$
 		assertEquals("wrong dimension", 1, typeBinding2.getDimensions()); //$NON-NLS-1$
 		assertEquals("wrong name", "Object[]", typeBinding2.getName());		 //$NON-NLS-1$ //$NON-NLS-2$
 		assertTrue("Not an array type", elementType.isArrayType()); //$NON-NLS-1$
-		Type elementType2 = ((ArrayType) elementType).getComponentType();
+		Type elementType2 = componentType(((ArrayType) elementType));
 		assertTrue("Not a simple type", elementType2.isSimpleType()); //$NON-NLS-1$
 		ITypeBinding typeBinding3 = elementType2.resolveBinding();
 		assertNotNull("No type binding3", typeBinding3); //$NON-NLS-1$
@@ -8157,7 +8171,7 @@ public class ASTConverterTest extends ConverterTestSetup {
 		ITypeBinding typeBinding3 = simpleType.resolveBinding();
 		assertNotNull("no type binding3", typeBinding3); //$NON-NLS-1$
 		assertEquals("wrong name", "Object", typeBinding3.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType2 = (ArrayType) type;
 		ITypeBinding typeBinding4 = arrayType2.resolveBinding();
@@ -8199,14 +8213,14 @@ public class ASTConverterTest extends ConverterTestSetup {
 		ITypeBinding typeBinding3 = simpleType.resolveBinding();
 		assertNotNull("no type binding3", typeBinding3); //$NON-NLS-1$
 		assertEquals("wrong name", "Object", typeBinding3.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType2 = (ArrayType) type;
 		checkSourceRange(arrayType2, "Object[10][]", source); //$NON-NLS-1$
 		ITypeBinding typeBinding4 = arrayType2.resolveBinding();
 		assertNotNull("no type binding4", typeBinding4); //$NON-NLS-1$
 		assertEquals("wrong name", "Object[][]", typeBinding4.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType2.getComponentType();
+		type = componentType(arrayType2);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType3 = (ArrayType) type;
 		ITypeBinding typeBinding5 = arrayType3.resolveBinding();
@@ -8314,10 +8328,18 @@ public class ASTConverterTest extends ConverterTestSetup {
 		assertNotNull("not null", node); //$NON-NLS-1$
 		assertTrue("not a MethodDeclaration", node instanceof MethodDeclaration); //$NON-NLS-1$
 		MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-		List thrownExceptions = methodDeclaration.thrownExceptions();
-		assertEquals("Wrong size", 1, thrownExceptions.size()); //$NON-NLS-1$
-		Name name = (Name) thrownExceptions.get(0);
-		IBinding binding = name.resolveBinding();
+		IBinding binding;
+		if (node.getAST().apiLevel() < AST.JLS8) {
+			List thrownExceptions = internalThrownExceptions(methodDeclaration);
+			assertEquals("Wrong size", 1, thrownExceptions.size()); //$NON-NLS-1$
+			Name name = (Name) thrownExceptions.get(0);
+			binding = name.resolveBinding();			
+		} else {
+			List thrownExceptionTypes = methodDeclaration.thrownExceptionTypes();
+			assertEquals("Wrong size", 1, thrownExceptionTypes.size()); //$NON-NLS-1$
+			Type type = (Type) thrownExceptionTypes.get(0);
+			binding = type.resolveBinding();			
+		}
 		assertEquals("wrong type", IBinding.TYPE, binding.getKind()); //$NON-NLS-1$
 		assertEquals("wrong name", "IOException", binding.getName()); //$NON-NLS-1$ //$NON-NLS-2$
 	}

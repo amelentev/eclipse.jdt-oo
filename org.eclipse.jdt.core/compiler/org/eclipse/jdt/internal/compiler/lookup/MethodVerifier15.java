@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,13 +12,25 @@
  *								bug 365519 - editorial cleanup after bug 186342 and bug 365387
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *								bug 388795 - [compiler] detection of name clash depends on order of super interfaces
+ *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
+ *								bug 390883 - [1.8][compiler] Unable to override default method
  *								bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
+ *								bug 401246 - [1.8][compiler] abstract class method should now trump conflicting default methods
+ *								bug 401796 - [1.8][compiler] don't treat default methods as overriding an independent inherited abstract method
+ *								bug 403867 - [1.8][compiler] Suspect error about duplicate default methods
+ *								bug 391376 - [1.8] check interaction of default methods with bridge methods and generics
  *								bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
  *								bug 409473 - [compiler] JDT cannot compile against JRE 1.8
+ *								Bug 420080 - [1.8] Overridden Default method is reported as duplicated
+ *								Bug 404690 - [1.8][compiler] revisit bridge generation after VM bug is fixed
  *								Bug 410325 - [1.7][compiler] Generified method override different between javac and eclipse compiler
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *								Bug 390889 - [1.8][compiler] Evaluate options to support 1.7- projects against 1.8 JRE.
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+
+import java.util.Arrays;
 
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
@@ -31,29 +43,12 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.problem.ProblemSeverities;
 import org.eclipse.jdt.internal.compiler.util.HashtableOfObject;
 import org.eclipse.jdt.internal.compiler.util.SimpleSet;
+import org.eclipse.jdt.internal.compiler.util.Sorting;
 
 class MethodVerifier15 extends MethodVerifier {
 
 MethodVerifier15(LookupEnvironment environment) {
 	super(environment);
-}
-boolean areMethodsCompatible(MethodBinding one, MethodBinding two) {
-	// use the original methods to test compatibility, but do not check visibility, etc
-	one = one.original();
-	two = one.findOriginalInheritedMethod(two);
-
-	if (two == null)
-		return false; // method's declaringClass does not inherit from inheritedMethod's
-
-	return isParameterSubsignature(one, two);
-}
-boolean areReturnTypesCompatible(MethodBinding one, MethodBinding two) {
-	if (one.returnType == two.returnType) return true;
-	if (this.type.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) {
-		return areReturnTypesCompatible0(one, two);
-	} else {
-		return areTypesEqual(one.returnType.erasure(), two.returnType.erasure());
-	}
 }
 // Given `overridingMethod' which overrides `inheritedMethod' answer whether some subclass method that
 // differs in erasure from overridingMethod could override `inheritedMethod'
@@ -72,7 +67,7 @@ boolean canSkipInheritedMethods() {
 }
 boolean canSkipInheritedMethods(MethodBinding one, MethodBinding two) {
 	return two == null // already know one is not null
-		|| (one.declaringClass == two.declaringClass && !one.declaringClass.isParameterizedType());
+		|| (TypeBinding.equalsEquals(one.declaringClass, two.declaringClass) && !one.declaringClass.isParameterizedType());
 }
 void checkConcreteInheritedMethod(MethodBinding concreteMethod, MethodBinding[] abstractMethods) {
 	super.checkConcreteInheritedMethod(concreteMethod, abstractMethods);
@@ -81,7 +76,9 @@ void checkConcreteInheritedMethod(MethodBinding concreteMethod, MethodBinding[] 
 	AbstractMethodDeclaration srcMethod = null;
 	if (analyseNullAnnotations && this.type.equals(concreteMethod.declaringClass)) // is currentMethod from the current type?
 		srcMethod = concreteMethod.sourceMethod();
-	boolean hasNonNullDefault = concreteMethod.hasNonNullDefault();
+	boolean useTypeAnnotations = this.environment.globalOptions.sourceLevel >= ClassFileConstants.JDK1_8;
+	boolean hasNonNullDefault = analyseNullAnnotations &&
+			concreteMethod.hasNonNullDefaultFor(Binding.DefaultLocationParameter|Binding.DefaultLocationReturnType, useTypeAnnotations);
 	for (int i = 0, l = abstractMethods.length; i < l; i++) {
 		MethodBinding abstractMethod = abstractMethods[i];
 		if (concreteMethod.isVarargs() != abstractMethod.isVarargs())
@@ -89,7 +86,7 @@ void checkConcreteInheritedMethod(MethodBinding concreteMethod, MethodBinding[] 
 
 		// so the parameters are equal and the return type is compatible b/w the currentMethod & the substituted inheritedMethod
 		MethodBinding originalInherited = abstractMethod.original();
-		if (originalInherited.returnType != concreteMethod.returnType)
+		if (TypeBinding.notEquals(originalInherited.returnType, concreteMethod.returnType))
 			if (!isAcceptableReturnTypeOverride(concreteMethod, abstractMethod))
 				problemReporter().unsafeReturnTypeOverride(concreteMethod, originalInherited, this.type);
 
@@ -98,7 +95,7 @@ void checkConcreteInheritedMethod(MethodBinding concreteMethod, MethodBinding[] 
 		// bridge will be/would have been generated in the context of the super class since
 		// the bridge itself will be inherited. See https://bugs.eclipse.org/bugs/show_bug.cgi?id=298362
 		if (originalInherited.declaringClass.isInterface()) {
-			if ((concreteMethod.declaringClass == this.type.superclass && this.type.superclass.isParameterizedType() && !areMethodsCompatible(concreteMethod, originalInherited))
+			if ((TypeBinding.equalsEquals(concreteMethod.declaringClass, this.type.superclass) && this.type.superclass.isParameterizedType() && !areMethodsCompatible(concreteMethod, originalInherited))
 				|| this.type.superclass.erasure().findSuperTypeOriginatingFrom(originalInherited.declaringClass) == null)
 					this.type.addSyntheticBridgeMethod(originalInherited, concreteMethod.original());
 		}
@@ -113,7 +110,7 @@ void checkForBridgeMethod(MethodBinding currentMethod, MethodBinding inheritedMe
 
 	// so the parameters are equal and the return type is compatible b/w the currentMethod & the substituted inheritedMethod
 	MethodBinding originalInherited = inheritedMethod.original();
-	if (originalInherited.returnType != currentMethod.returnType)
+	if (TypeBinding.notEquals(originalInherited.returnType, currentMethod.returnType))
 		if (!isAcceptableReturnTypeOverride(currentMethod, inheritedMethod))
 			problemReporter(currentMethod).unsafeReturnTypeOverride(currentMethod, originalInherited, this.type);
 
@@ -130,7 +127,7 @@ void checkForBridgeMethod(MethodBinding currentMethod, MethodBinding inheritedMe
 		MethodBinding[] current = (MethodBinding[]) this.currentMethods.get(bridge.selector);
 		for (int i = current.length - 1; i >= 0; --i) {
 			final MethodBinding thisMethod = current[i];
-			if (thisMethod.areParameterErasuresEqual(bridge) && thisMethod.returnType.erasure() == bridge.returnType.erasure()) {
+			if (thisMethod.areParameterErasuresEqual(bridge) && TypeBinding.equalsEquals(thisMethod.returnType.erasure(), bridge.returnType.erasure())) {
 				// use inherited method for problem reporting.
 				problemReporter(thisMethod).methodNameClash(thisMethod, inheritedMethod.declaringClass.isRawType() ? inheritedMethod : inheritedMethod.original(), ProblemSeverities.Error);
 				return;	
@@ -186,7 +183,7 @@ void checkForNameClash(MethodBinding currentMethod, MethodBinding inheritedMetho
 		if (length != inheritedParams.length) return; // no match
 
 		for (int i = 0; i < length; i++)
-			if (currentParams[i] != inheritedParams[i])
+			if (TypeBinding.notEquals(currentParams[i], inheritedParams[i]))
 				if (currentParams[i].isBaseType() != inheritedParams[i].isBaseType() || !inheritedParams[i].isCompatibleWith(currentParams[i]))
 					return; // no chance that another inherited method's bridge method can collide
 
@@ -217,7 +214,7 @@ void checkForNameClash(MethodBinding currentMethod, MethodBinding inheritedMetho
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (next == interfacesToVisit[b]) continue nextInterface;
+							if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}
@@ -241,7 +238,7 @@ void checkForNameClash(MethodBinding currentMethod, MethodBinding inheritedMetho
 					nextInterface : for (int a = 0; a < itsLength; a++) {
 						ReferenceBinding next = itsInterfaces[a];
 						for (int b = 0; b < nextPosition; b++)
-							if (next == interfacesToVisit[b]) continue nextInterface;
+							if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 						interfacesToVisit[nextPosition++] = next;
 					}
 				}
@@ -268,40 +265,103 @@ void checkInheritedMethods(MethodBinding inheritedMethod, MethodBinding otherInh
 	detectInheritedNameClash(inheritedMethod.original(), otherInheritedMethod.original());
 }
 // 8.4.8.4
-void checkInheritedMethods(MethodBinding[] methods, int length, boolean[] isOverridden) {
+void checkInheritedMethods(MethodBinding[] methods, int length, boolean[] isOverridden, boolean[] isInherited) {
 	boolean continueInvestigation = true;
 	MethodBinding concreteMethod = null;
+	MethodBinding abstractSuperClassMethod = null;
+	boolean playingTrump = false; // invariant: playingTrump => (concreteMethod == null)
 	for (int i = 0; i < length; i++) {
-		// when unexpectedly seeing a non-abstract interface method regard it as abstract, too, for this check:
-		boolean isAbstract = methods[i].isAbstract() || methods[i].declaringClass.isInterface();
-		if (!isAbstract) {
-			if (concreteMethod != null) {
-				// https://bugs.eclipse.org/195802 with https://bugs.eclipse.org/410325
-				// If a replace method (from findReplacedMethod()) is the rawified version of another
-				// don't count this as duplicates:
-				//   (Not asking ParameterizedGenericMethodBinding.isRawMethod(),
-				//    because that is true only for methods of a RawTypeBinding,
-				//    but here we look for rawness regarding the method's type variables).
-				if (concreteMethod.declaringClass == methods[i].declaringClass 
-						&& concreteMethod.typeVariables.length != methods[i].typeVariables.length) 
-				{
-					if (concreteMethod.typeVariables == Binding.NO_TYPE_VARIABLES
-							&& concreteMethod.original() == methods[i])
+		if (!methods[i].declaringClass.isInterface()
+				&& TypeBinding.notEquals(methods[i].declaringClass, this.type)
+				&& methods[i].isAbstract())
+		{
+			abstractSuperClassMethod = methods[i];
+			break;
+		}
+	}
+	for (int i = 0; i < length; i++) {
+		// methods not inherited as of 8.4.8 cannot create a name clash,
+		// but could still cause errors against return types etc. (below)
+		if (isInherited[i] && !methods[i].isAbstract()) {
+			// 8.4.8.4 defines an exception for default methods if
+			// (a) there exists an abstract method declared in a superclass of C and inherited by C
+			// (b) that is override-equivalent with the two methods.
+			if (methods[i].isDefaultMethod()
+					&& abstractSuperClassMethod != null							// condition (a)
+					&& areParametersEqual(abstractSuperClassMethod, methods[i]) // condition (b)...
+					&& concreteMethod == null) {
+				// skip, class method trumps this default method (concreteMethod remains null)
+				playingTrump = true;
+			} else {
+				playingTrump = false;
+				if (concreteMethod != null) {
+					// re-checking compatibility is needed for https://bugs.eclipse.org/346029
+					if (isOverridden[i] && areMethodsCompatible(concreteMethod, methods[i])) {
 						continue;
-					if (methods[i].typeVariables == Binding.NO_TYPE_VARIABLES
-							&& methods[i].original() == concreteMethod)
-						continue;
-				}
+					}
+					// https://bugs.eclipse.org/195802 with https://bugs.eclipse.org/410325
+					// If a replace method (from findReplacedMethod()) is the rawified version of another
+					// don't count this as duplicates:
+					//   (Not asking ParameterizedGenericMethodBinding.isRawMethod(),
+					//    because that is true only for methods of a RawTypeBinding,
+					//    but here we look for rawness regarding the method's type variables).
+					if (TypeBinding.equalsEquals(concreteMethod.declaringClass, methods[i].declaringClass) 
+							&& concreteMethod.typeVariables.length != methods[i].typeVariables.length) 
+					{
+						if (concreteMethod.typeVariables == Binding.NO_TYPE_VARIABLES
+								&& concreteMethod.original() == methods[i])
+							continue;
+						if (methods[i].typeVariables == Binding.NO_TYPE_VARIABLES
+								&& methods[i].original() == concreteMethod)
+							continue;
+					}
 
-				problemReporter().duplicateInheritedMethods(this.type, concreteMethod, methods[i]);
-				continueInvestigation = false;
+					problemReporter().duplicateInheritedMethods(this.type, concreteMethod, methods[i],
+											this.environment.globalOptions.sourceLevel >= ClassFileConstants.JDK1_8);
+					continueInvestigation = false;
+				}
+				concreteMethod = methods[i];
 			}
-			concreteMethod = methods[i];
 		}
 	}
 	if (continueInvestigation) {
-		super.checkInheritedMethods(methods, length, isOverridden);
+		if (playingTrump) {
+			// multiple abstract & default methods are OK on this branch, but then the class must be declared abstract:
+			if (!this.type.isAbstract()) {
+				problemReporter().abstractMethodMustBeImplemented(this.type, abstractSuperClassMethod);
+				return;
+			}
+		} else {
+			if (concreteMethod != null && concreteMethod.isDefaultMethod()) {
+				if (this.environment.globalOptions.complianceLevel >= ClassFileConstants.JDK1_8) {
+					if (!checkInheritedDefaultMethods(methods, length))
+						return;
+				}
+			}
+		}
+		super.checkInheritedMethods(methods, length, isOverridden, isInherited);
 	}
+}
+boolean checkInheritedDefaultMethods(MethodBinding[] methods, int length) {
+	// JLS8  9.4.1 (interface) and  8.4.8.4 (class):
+	// default method clashes with other inherited method which is override-equivalent 
+	if (length < 2) return true;
+	boolean ok = true;
+	findDefaultMethod: for (int i=0; i<length; i++) {
+		if (methods[i].isDefaultMethod()) {
+			findEquivalent: for (int j=0; j<length; j++) {
+				if (j == i) continue findEquivalent;
+				if (isMethodSubsignature(methods[i], methods[j])) {
+					if (!doesMethodOverride(methods[i], methods[j]) && !doesMethodOverride(methods[j], methods[i])) { 
+						problemReporter().inheritedDefaultMethodConflictsWithOtherInherited(this.type, methods[i], methods[j]);
+						ok = false;
+					}
+					continue findDefaultMethod;
+				}
+			}
+		}
+	}
+	return ok;
 }
 boolean checkInheritedReturnTypes(MethodBinding method, MethodBinding otherMethod) {
 	if (areReturnTypesCompatible(method, otherMethod)) return true;
@@ -332,7 +392,8 @@ void checkAgainstInheritedMethods(MethodBinding currentMethod, MethodBinding[] m
 		AbstractMethodDeclaration srcMethod = null;
 		if (this.type.equals(currentMethod.declaringClass)) // is currentMethod from the current type?
 			srcMethod = currentMethod.sourceMethod();
-		boolean hasNonNullDefault = currentMethod.hasNonNullDefault();
+		boolean useTypeAnnotations = options.sourceLevel >= ClassFileConstants.JDK1_8;
+		boolean hasNonNullDefault = currentMethod.hasNonNullDefaultFor(Binding.DefaultLocationParameter|Binding.DefaultLocationReturnType, useTypeAnnotations);
 		for (int i = length; --i >= 0;)
 			if (!currentMethod.isStatic() && !methods[i].isStatic())
 				checkNullSpecInheritance(currentMethod, srcMethod, hasNonNullDefault, true, methods[i], this.type.scope, null);
@@ -349,10 +410,10 @@ void checkNullSpecInheritance(MethodBinding currentMethod, AbstractMethodDeclara
 		return;
 	}
 	// in this context currentMethod can be inherited, too. Recurse if needed.
-	if (currentMethod.declaringClass != this.type 
+	if (TypeBinding.notEquals(currentMethod.declaringClass, this.type) 
 			&& (currentMethod.tagBits & TagBits.IsNullnessKnown) == 0) 
 	{
-		this.buddyImplicitNullAnnotationsVerifier.checkImplicitNullAnnotations(currentMethod, srcMethod, complain, this.type.scope);
+		this.buddyImplicitNullAnnotationsVerifier.checkImplicitNullAnnotations(currentMethod, srcMethod, complain, scope);
 	}
 	super.checkNullSpecInheritance(currentMethod, srcMethod, hasNonNullDefault, complain, inheritedMethod, scope, inheritedNonNullnessInfos);
 }
@@ -451,9 +512,10 @@ void checkMethods() {
 	char[][] methodSelectors = this.inheritedMethods.keyTable;
 	nextSelector : for (int s = methodSelectors.length; --s >= 0;) {
 		if (methodSelectors[s] == null) continue nextSelector;
-
 		MethodBinding[] current = (MethodBinding[]) this.currentMethods.get(methodSelectors[s]);
 		MethodBinding[] inherited = (MethodBinding[]) this.inheritedMethods.valueTable[s];
+		// ensure that if we have a concrete method this shows up at position [0]:
+		inherited = Sorting.concreteFirst(inherited, inherited.length);
 		
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=296660, if current type is exposed,
 		// inherited methods of super classes are too. current != null case handled below.
@@ -467,7 +529,7 @@ void checkMethods() {
 			int length = inherited.length;
 			for (int i = 0; i < length; i++) {
 				MethodBinding inheritedMethod = inherited[i];
-				if (inheritedMethod.isPublic() && !inheritedMethod.declaringClass.isPublic())
+				if (inheritedMethod.isPublic() && (!inheritedMethod.declaringClass.isInterface() && !inheritedMethod.declaringClass.isPublic()))
 					this.type.addSyntheticBridgeMethod(inheritedMethod.original());
 			}
 		}
@@ -492,6 +554,8 @@ void checkMethods() {
 		// - methods that are overridden by a current method
 		boolean[] skip = new boolean[inheritedLength];
 		boolean[] isOverridden = new boolean[inheritedLength];
+		boolean[] isInherited = new boolean[inheritedLength];
+		Arrays.fill(isInherited, true);
 		if (current != null) {
 			for (int i = 0, length1 = current.length; i < length1; i++) {
 				MethodBinding currentMethod = current[i];
@@ -528,9 +592,10 @@ void checkMethods() {
 		// (and perform some side effects : bridge methods & use flags)
 		for (int i = 0; i < inheritedLength; i++) {
 			MethodBinding matchMethod = foundMatch[i];
+			
 			if (matchMethod == null && current != null && this.type.isPublic()) { // current == null case handled already.
 				MethodBinding inheritedMethod = inherited[i];
-				if (inheritedMethod.isPublic() && !inheritedMethod.declaringClass.isPublic()) {
+				if (inheritedMethod.isPublic() && (!inheritedMethod.declaringClass.isInterface() && !inheritedMethod.declaringClass.isPublic())) {
 					this.type.addSyntheticBridgeMethod(inheritedMethod.original());
 				}
 			}
@@ -549,11 +614,11 @@ void checkMethods() {
 				// Skip the otherInheritedMethod if it is completely replaced by inheritedMethod
 				// This elimination used to happen rather eagerly in computeInheritedMethods step
 				// itself earlier. (https://bugs.eclipse.org/bugs/show_bug.cgi?id=302358)
-				if (inheritedMethod.declaringClass != otherInheritedMethod.declaringClass) {
+				if (TypeBinding.notEquals(inheritedMethod.declaringClass, otherInheritedMethod.declaringClass)) {
 					// these method calls produce their effect as side-effects into skip and isOverridden:
-					if (isSkippableOrOverridden(inheritedMethod, otherInheritedMethod, skip, isOverridden, j))
+					if (isSkippableOrOverridden(inheritedMethod, otherInheritedMethod, skip, isOverridden, isInherited, j))
 						continue;
-					if (isSkippableOrOverridden(otherInheritedMethod, inheritedMethod, skip, isOverridden, i))
+					if (isSkippableOrOverridden(otherInheritedMethod, inheritedMethod, skip, isOverridden, isInherited, i))
 						continue;
 				}
 			}
@@ -588,8 +653,29 @@ void checkMethods() {
 			}
 			if (index == -1) continue;
 
-			if (index > 0)
-				checkInheritedMethods(matchingInherited, index + 1, isOverridden); // pass in the length of matching
+			if (index > 0) {
+				int length = index + 1;
+				boolean[] matchingIsOverridden;
+				boolean[] matchingIsInherited;
+				if (length != inheritedLength) { // transfer inherited & overridden status to align with subset of methods.
+					matchingIsOverridden = new boolean[length];
+					matchingIsInherited = new boolean[length];
+					for (int j = 0; j < length; j++) {
+						for (int k = 0; k < inheritedLength; k++) {
+							if (matchingInherited[j] == inherited[k]) {
+								matchingIsOverridden[j] = isOverridden[k];
+								matchingIsInherited[j] = isInherited[k];
+								break;
+							}
+						}
+					}
+				} else {
+					matchingIsOverridden = isOverridden;
+					matchingIsInherited = isInherited;
+				}
+				
+				checkInheritedMethods(matchingInherited, length, matchingIsOverridden, matchingIsInherited); // pass in the length of matching
+			}
 			else if (mustImplementAbstractMethods && matchingInherited[0].isAbstract() && matchMethod == null)
 				checkAbstractMethod(matchingInherited[0]);
 			while (index >= 0) matchingInherited[index--] = null; // clear the previous contents of the matching methods
@@ -605,16 +691,20 @@ void checkMethods() {
  * TODO(stephan) currently (as of Bug 410325), the boarder between skip and isOverridden is blurred,
  *                should reassess after more experience with this patch.
  */
-boolean isSkippableOrOverridden(MethodBinding specific, MethodBinding general, boolean[] skip, boolean[] isOverridden, int idx) {
+boolean isSkippableOrOverridden(MethodBinding specific, MethodBinding general, boolean[] skip, boolean[] isOverridden, boolean[] isInherited, int idx) {
 	boolean specificIsInterface = specific.declaringClass.isInterface();
 	boolean generalIsInterface = general.declaringClass.isInterface();
 	if (!specificIsInterface && generalIsInterface) {
-		if (isInterfaceMethodImplemented(general, specific, general.declaringClass)) {
+		if (!specific.isAbstract() && isParameterSubsignature(specific, general)) {
+			// 8.4.8: abstract and default methods are not inherited if a concrete method with a subsignature is defined or inherited in C
+			isInherited[idx] = false;
+			return true;
+		} else if (isInterfaceMethodImplemented(general, specific, general.declaringClass)) {
 			skip[idx] = true;
 			isOverridden[idx] = true;
 			return true;
 		}
-	} else if (specificIsInterface == generalIsInterface) {
+	} else if (specificIsInterface == generalIsInterface) { 
 		if (specific.declaringClass.isCompatibleWith(general.declaringClass) && isMethodSubsignature(specific, general)) {
 			skip[idx] = true;
 			isOverridden[idx] = true;
@@ -626,11 +716,12 @@ boolean isSkippableOrOverridden(MethodBinding specific, MethodBinding general, b
 /* 'general' is considered as replaced by 'specific' if
  * - 'specific' is "at least as concrete as" 'general'
  * - 'specific' has a signature that is a subsignature of the substituted signature of 'general' (as seen from specific's declaring class)  
+ * - default methods should also be considered replaced by class methods that meet the signature that is a subsignature criteria.
  */
 MethodBinding findReplacedMethod(MethodBinding specific, MethodBinding general) {
 	MethodBinding generalSubstitute = computeSubstituteMethod(general, specific);
 	if (generalSubstitute != null 
-			&& (!specific.isAbstract() || general.isAbstract())	// if (abstract(specific) => abstract(general)) check if 'specific' overrides 'general' 
+			&& (!specific.isAbstract() || general.isAbstract() || (general.isDefaultMethod() && specific.declaringClass.isClass()))	// if (abstract(specific) => abstract(general)) check if 'specific' overrides 'general' 
 			&& isSubstituteParameterSubsignature(specific, generalSubstitute)) 
 	{
 		return generalSubstitute;
@@ -696,64 +787,6 @@ void checkTypeVariableMethods(TypeParameter typeParameter) {
 		}
 	}
 }
-MethodBinding computeSubstituteMethod(MethodBinding inheritedMethod, MethodBinding currentMethod) {
-	if (inheritedMethod == null) return null;
-	if (currentMethod.parameters.length != inheritedMethod.parameters.length) return null; // no match
-
-	// due to hierarchy & compatibility checks, we need to ensure these 2 methods are resolved
-	if (currentMethod.declaringClass instanceof BinaryTypeBinding)
-		((BinaryTypeBinding) currentMethod.declaringClass).resolveTypesFor(currentMethod);
-	if (inheritedMethod.declaringClass instanceof BinaryTypeBinding)
-		((BinaryTypeBinding) inheritedMethod.declaringClass).resolveTypesFor(inheritedMethod);
-
-	TypeVariableBinding[] inheritedTypeVariables = inheritedMethod.typeVariables;
-	int inheritedLength = inheritedTypeVariables.length;
-	if (inheritedLength == 0) return inheritedMethod; // no substitution needed
-	TypeVariableBinding[] typeVariables = currentMethod.typeVariables;
-	int length = typeVariables.length;
-	if (length == 0)
-		return inheritedMethod.asRawMethod(this.environment);
-	if (length != inheritedLength)
-		return inheritedMethod; // no match JLS 8.4.2
-
-	// interface I { <T> void foo(T t); }
-	// class X implements I { public <T extends I> void foo(T t) {} }
-	// for the above case, we do not want to answer the substitute method since its not a match
-	TypeBinding[] arguments = new TypeBinding[length];
-	System.arraycopy(typeVariables, 0, arguments, 0, length);
-	ParameterizedGenericMethodBinding substitute =
-		this.environment.createParameterizedGenericMethod(inheritedMethod, arguments);
-	for (int i = 0; i < inheritedLength; i++) {
-		TypeVariableBinding inheritedTypeVariable = inheritedTypeVariables[i];
-		TypeBinding argument = arguments[i];
-		if (argument instanceof TypeVariableBinding) {
-			TypeVariableBinding typeVariable = (TypeVariableBinding) argument;
-			if (typeVariable.firstBound == inheritedTypeVariable.firstBound) {
-				if (typeVariable.firstBound == null)
-					continue; // both are null
-			} else if (typeVariable.firstBound != null && inheritedTypeVariable.firstBound != null) {
-				if (typeVariable.firstBound.isClass() != inheritedTypeVariable.firstBound.isClass())
-					return inheritedMethod; // not a match
-			}
-			if (Scope.substitute(substitute, inheritedTypeVariable.superclass) != typeVariable.superclass)
-				return inheritedMethod; // not a match
-			int interfaceLength = inheritedTypeVariable.superInterfaces.length;
-			ReferenceBinding[] interfaces = typeVariable.superInterfaces;
-			if (interfaceLength != interfaces.length)
-				return inheritedMethod; // not a match
-			next : for (int j = 0; j < interfaceLength; j++) {
-				TypeBinding superType = Scope.substitute(substitute, inheritedTypeVariable.superInterfaces[j]);
-				for (int k = 0; k < interfaceLength; k++)
-					if (superType == interfaces[k])
-						continue next;
-				return inheritedMethod; // not a match
-			}
-		} else if (inheritedTypeVariable.boundCheck(substitute, argument, this.type.scope) != TypeConstants.OK) {
-	    	return inheritedMethod;
-		}
-	}
-   return substitute;
-}
 boolean detectInheritedNameClash(MethodBinding inherited, MethodBinding otherInherited) {
 	if (!inherited.areParameterErasuresEqual(otherInherited))
 		return false;
@@ -761,11 +794,11 @@ boolean detectInheritedNameClash(MethodBinding inherited, MethodBinding otherInh
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=323693
 	// When reporting a name clash between two inherited methods, we should not look for a
 	// signature clash, but instead should be looking for method descriptor clash. 
-	if (inherited.returnType.erasure() != otherInherited.returnType.erasure())
+	if (TypeBinding.notEquals(inherited.returnType.erasure(), otherInherited.returnType.erasure()))
 		return false;
 	// skip it if otherInherited is defined by a subtype of inherited's declaringClass or vice versa.
 	// avoid being order sensitive and check with the roles reversed also.
-	if (inherited.declaringClass.erasure() != otherInherited.declaringClass.erasure()) {
+	if (TypeBinding.notEquals(inherited.declaringClass.erasure(), otherInherited.declaringClass.erasure())) {
 		if (inherited.declaringClass.findSuperTypeOriginatingFrom(otherInherited.declaringClass) != null)
 			return false;
 		if (otherInherited.declaringClass.findSuperTypeOriginatingFrom(inherited.declaringClass) != null)
@@ -784,7 +817,7 @@ boolean detectNameClash(MethodBinding current, MethodBinding inherited, boolean 
 	if (this.environment.globalOptions.complianceLevel == ClassFileConstants.JDK1_6) {
 		// for 1.6 return types also need to be checked
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=317719
-		if (current.returnType.erasure() != original.returnType.erasure())
+		if (TypeBinding.notEquals(current.returnType.erasure(), original.returnType.erasure()))
 			severity = ProblemSeverities.Warning;
 	}
 	if (!treatAsSynthetic) {
@@ -814,9 +847,6 @@ boolean detectNameClash(MethodBinding current, MethodBinding inherited, boolean 
 	if (severity == ProblemSeverities.Warning) return false;
 	return true;
 }
-public boolean doesMethodOverride(MethodBinding method, MethodBinding inheritedMethod) {
-	return couldMethodOverride(method, inheritedMethod) && areMethodsCompatible(method, inheritedMethod);
-}
 boolean doTypeVariablesClash(MethodBinding one, MethodBinding substituteTwo) {
 	// one has type variables and substituteTwo did not pass bounds check in computeSubstituteMethod()
 	return one.typeVariables != Binding.NO_TYPE_VARIABLES && !(substituteTwo instanceof ParameterizedGenericMethodBinding);
@@ -845,7 +875,7 @@ SimpleSet findSuperinterfaceCollisions(ReferenceBinding superclass, ReferenceBin
 				nextInterface : for (int a = 0; a < itsLength; a++) {
 					ReferenceBinding next = itsInterfaces[a];
 					for (int b = 0; b < nextPosition; b++)
-						if (next == interfacesToVisit[b]) continue nextInterface;
+						if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 					interfacesToVisit[nextPosition++] = next;
 				}
 			}
@@ -864,7 +894,7 @@ SimpleSet findSuperinterfaceCollisions(ReferenceBinding superclass, ReferenceBin
 				nextInterface : for (int a = 0; a < itsLength; a++) {
 					ReferenceBinding next = itsInterfaces[a];
 					for (int b = 0; b < nextPosition; b++)
-						if (next == interfacesToVisit[b]) continue nextInterface;
+						if (TypeBinding.equalsEquals(next, interfacesToVisit[b])) continue nextInterface;
 					interfacesToVisit[nextPosition++] = next;
 				}
 			}
@@ -879,7 +909,7 @@ SimpleSet findSuperinterfaceCollisions(ReferenceBinding superclass, ReferenceBin
 			TypeBinding erasure = current.erasure();
 			for (int j = i + 1; j < nextPosition; j++) {
 				ReferenceBinding next = interfacesToVisit[j];
-				if (next.isValidBinding() && next.erasure() == erasure) {
+				if (next.isValidBinding() && TypeBinding.equalsEquals(next.erasure(), erasure)) {
 					if (copy == null)
 						copy = new SimpleSet(nextPosition);
 					copy.add(interfacesToVisit[i]);
@@ -889,21 +919,6 @@ SimpleSet findSuperinterfaceCollisions(ReferenceBinding superclass, ReferenceBin
 		}
 	}
 	return copy;
-}
-boolean hasGenericParameter(MethodBinding method) {
-	if (method.genericSignature() == null) return false;
-
-	// may be only the return type that is generic, need to check parameters
-	TypeBinding[] params = method.parameters;
-	for (int i = 0, l = params.length; i < l; i++) {
-		TypeBinding param = params[i].leafComponentType();
-		if (param instanceof ReferenceBinding) {
-			int modifiers = ((ReferenceBinding) param).modifiers;
-			if ((modifiers & ExtraCompilerModifiers.AccGenericSignature) != 0)
-				return true;
-		}
-	}
-	return false;
 }
 boolean isAcceptableReturnTypeOverride(MethodBinding currentMethod, MethodBinding inheritedMethod) {
 	// called when currentMethod's return type is compatible with inheritedMethod's return type
@@ -919,7 +934,7 @@ boolean isAcceptableReturnTypeOverride(MethodBinding currentMethod, MethodBindin
 	TypeBinding currentReturnType = currentMethod.returnType.leafComponentType();
 	switch (currentReturnType.kind()) {
 	   	case Binding.TYPE_PARAMETER :
-	   		if (currentReturnType == inheritedMethod.returnType.leafComponentType())
+	   		if (TypeBinding.equalsEquals(currentReturnType, inheritedMethod.returnType.leafComponentType()))
 	   			return true;
 	   		//$FALL-THROUGH$
 		default :
@@ -935,9 +950,15 @@ boolean isInterfaceMethodImplemented(MethodBinding inheritedMethod, MethodBindin
 		return false; // must hold onto ParameterizedMethod to see if a bridge method is necessary
 
 	inheritedMethod = computeSubstituteMethod(inheritedMethod, existingMethod);
-	return inheritedMethod != null
-		&& inheritedMethod.returnType == existingMethod.returnType // keep around to produce bridge methods
-		&& doesMethodOverride(existingMethod, inheritedMethod);
+	if (inheritedMethod == null
+			|| TypeBinding.notEquals(inheritedMethod.returnType, existingMethod.returnType)) // need to keep around to produce bridge methods? ...
+		return false;
+
+	if (!doesMethodOverride(existingMethod, inheritedMethod))
+		return false;
+
+	return TypeBinding.notEquals(this.type, existingMethod.declaringClass) // ... not if inheriting the bridge situation from a superclass
+			&& !existingMethod.declaringClass.isInterface();
 }
 public boolean isMethodSubsignature(MethodBinding method, MethodBinding inheritedMethod) {
 	if (!org.eclipse.jdt.core.compiler.CharOperation.equals(method.selector, inheritedMethod.selector))
@@ -950,44 +971,11 @@ public boolean isMethodSubsignature(MethodBinding method, MethodBinding inherite
 	MethodBinding inheritedOriginal = method.findOriginalInheritedMethod(inheritedMethod);
 	return isParameterSubsignature(method, inheritedOriginal == null ? inheritedMethod : inheritedOriginal);
 }
-boolean isParameterSubsignature(MethodBinding method, MethodBinding inheritedMethod) {
-	MethodBinding substitute = computeSubstituteMethod(inheritedMethod, method);
-	return substitute != null && isSubstituteParameterSubsignature(method, substitute);
-}
-// if method "overrides" substituteMethod then we can skip over substituteMethod while resolving a message send
-// if it does not then a name clash error is likely
-boolean isSubstituteParameterSubsignature(MethodBinding method, MethodBinding substituteMethod) {
-	if (!areParametersEqual(method, substituteMethod)) {
-		// method can still override substituteMethod in cases like :
-		// <U extends Number> void c(U u) {}
-		// @Override void c(Number n) {}
-		// but method cannot have a "generic-enabled" parameter type
-		if (substituteMethod.hasSubstitutedParameters() && method.areParameterErasuresEqual(substituteMethod))
-			return method.typeVariables == Binding.NO_TYPE_VARIABLES && !hasGenericParameter(method);
-
-		// see https://bugs.eclipse.org/bugs/show_bug.cgi?id=279836
-		if (method.declaringClass.isRawType() && substituteMethod.declaringClass.isRawType())
-			if (method.hasSubstitutedParameters() && substituteMethod.hasSubstitutedParameters())
-				return areMethodsCompatible(method, substituteMethod);
-
-		return false;
-	}
-
-	if (substituteMethod instanceof ParameterizedGenericMethodBinding) {
-		if (method.typeVariables != Binding.NO_TYPE_VARIABLES)
-			return !((ParameterizedGenericMethodBinding) substituteMethod).isRaw;
-		// since substituteMethod has substituted type variables, method cannot have a generic signature AND no variables -> its a name clash if it does
-		return !hasGenericParameter(method);
-	}
-
-	// if method has its own variables, then substituteMethod failed bounds check in computeSubstituteMethod()
-	return method.typeVariables == Binding.NO_TYPE_VARIABLES;
-}
 boolean isUnsafeReturnTypeOverride(MethodBinding currentMethod, MethodBinding inheritedMethod) {
 	// called when currentMethod's return type is NOT compatible with inheritedMethod's return type
 
 	// JLS 3 �8.4.5: more are accepted, with an unchecked conversion
-	if (currentMethod.returnType == inheritedMethod.returnType.erasure()) {
+	if (TypeBinding.equalsEquals(currentMethod.returnType, inheritedMethod.returnType.erasure())) {
 		TypeBinding[] currentParams = currentMethod.parameters;
 		TypeBinding[] inheritedParams = inheritedMethod.parameters;
 		for (int i = 0, l = currentParams.length; i < l; i++)

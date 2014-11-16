@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,12 +10,11 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
 
+
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
@@ -29,24 +28,17 @@ import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 public class ASTRewritingGroupNodeTest extends ASTRewritingTest {
-	private static final Class THIS= ASTRewritingGroupNodeTest.class;
 
 	public ASTRewritingGroupNodeTest(String name) {
 		super(name);
 	}
 
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
+	public ASTRewritingGroupNodeTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingGroupNodeTest.class);
 	}
 
 	public void testCollapsedTargetNodes() throws Exception {

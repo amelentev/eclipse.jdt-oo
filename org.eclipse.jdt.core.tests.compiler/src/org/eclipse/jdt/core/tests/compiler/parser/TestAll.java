@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -44,7 +44,7 @@ public TestAll(String testName) {
 	super(testName);
 }
 
-public static Test suite() {
+public static TestSuite getTestSuite(boolean addComplianceDiagnoseTest) {
 	ArrayList testClasses = new ArrayList();
 
 	/* completion tests */
@@ -70,7 +70,8 @@ public static Test suite() {
 	testClasses.add(SyntaxErrorTest.class);
 	testClasses.add(DualParseSyntaxErrorTest.class);
 	testClasses.add(ParserTest.class);
-	testClasses.add(ComplianceDiagnoseTest.class);
+	if (addComplianceDiagnoseTest)
+		testClasses.add(ComplianceDiagnoseTest.class);
 
 	TestSuite all = new TestSuite(TestAll.class.getName());
 	int possibleComplianceLevels = AbstractCompilerTest.getPossibleComplianceLevels();
@@ -128,7 +129,27 @@ public static Test suite() {
 		TestCase.RUN_ONLY_ID = null;
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_7, tests_1_7));
 	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_1_8) != 0) {
+		ArrayList tests_1_8 = (ArrayList)testClasses.clone();
+		tests_1_8.addAll(TEST_CLASSES_1_5);
+		tests_1_8.add(ParserTest1_7.class);
+		tests_1_8.add(LambdaExpressionSyntaxTest.class);
+		tests_1_8.add(ReferenceExpressionSyntaxTest.class);
+		tests_1_8.add(TypeAnnotationSyntaxTest.class);
+		tests_1_8.add(CompletionParserTest18.class);
+		tests_1_8.add(SelectionParserTest18.class);
+		// Reset forgotten subsets tests
+		TestCase.TESTS_PREFIX = null;
+		TestCase.TESTS_NAMES = null;
+		TestCase.TESTS_NUMBERS= null;
+		TestCase.TESTS_RANGE = null;
+		TestCase.RUN_ONLY_ID = null;
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_8, tests_1_8));
+	}
 
 	return all;
+}
+public static Test suite() {
+	return getTestSuite(true);
 }
 }

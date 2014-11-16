@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2010 IBM Corporation and others.
+ * Copyright (c) 2003, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,17 +15,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Type parameter node (added in JLS3 API).
+ * Type parameter declaration node (added in JLS3 API).
+ * 
  * <pre>
  * TypeParameter:
- *    TypeVariable [ <b>extends</b> Type { <b>&</b> Type } ]
+ *    { ExtendedModifier } Identifier [ <b>extends</b> Type { <b>&</b> Type } ]
  * </pre>
  *
  * @since 3.1
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class TypeParameter extends ASTNode {
 
+	/**
+	 * The "modifiers" structural property of this node type (element type: {@link IExtendedModifier}) (added in JLS8 API).
+	 * @since 3.10
+	 */
+	public static final ChildListPropertyDescriptor MODIFIERS_PROPERTY =
+			new ChildListPropertyDescriptor(TypeParameter.class, "modifiers", IExtendedModifier.class, CYCLE_RISK); //$NON-NLS-1$
+	
 	/**
 	 * The "name" structural property of this node type (child type: {@link SimpleName}).
 	 */
@@ -44,6 +53,13 @@ public class TypeParameter extends ASTNode {
 	 * or null if uninitialized.
 	 */
 	private static final List PROPERTY_DESCRIPTORS;
+	/**
+	 * A list of property descriptors (element type:
+	 * {@link StructuralPropertyDescriptor}),
+	 * or null if uninitialized.
+	 * @since 3.10
+	 */
+	private static final List PROPERTY_DESCRIPTORS_8_0;
 
 	static {
 		List propertyList = new ArrayList(3);
@@ -51,6 +67,13 @@ public class TypeParameter extends ASTNode {
 		addProperty(NAME_PROPERTY, propertyList);
 		addProperty(TYPE_BOUNDS_PROPERTY, propertyList);
 		PROPERTY_DESCRIPTORS = reapPropertyList(propertyList);
+		
+		propertyList = new ArrayList(4);
+		createPropertyList(TypeParameter.class, propertyList);
+		addProperty(MODIFIERS_PROPERTY, propertyList);
+		addProperty(NAME_PROPERTY, propertyList);
+		addProperty(TYPE_BOUNDS_PROPERTY, propertyList);
+		PROPERTY_DESCRIPTORS_8_0 = reapPropertyList(propertyList);
 	}
 
 	/**
@@ -64,11 +87,18 @@ public class TypeParameter extends ASTNode {
 	 * {@link StructuralPropertyDescriptor})
 	 */
 	public static List propertyDescriptors(int apiLevel) {
-		return PROPERTY_DESCRIPTORS;
+		switch (apiLevel) {
+			case AST.JLS2_INTERNAL :
+			case AST.JLS3_INTERNAL :
+			case AST.JLS4_INTERNAL:
+				return PROPERTY_DESCRIPTORS;
+			default :
+				return PROPERTY_DESCRIPTORS_8_0;
+		}
 	}
 
 	/**
-	 * The type variable node; lazily initialized; defaults to an unspecfied,
+	 * The type variable node; lazily initialized; defaults to an unspecified,
 	 * but legal, name.
 	 */
 	private SimpleName typeVariableName = null;
@@ -80,6 +110,13 @@ public class TypeParameter extends ASTNode {
 	private ASTNode.NodeList typeBounds =
 		new ASTNode.NodeList(TYPE_BOUNDS_PROPERTY);
 
+	/**
+	 * The modifiers (element type: {@link IExtendedModifier}).
+	 * Null in JLS < 8. Added in JLS8; defaults to an empty list
+	 * (see constructor).
+	 */
+	private ASTNode.NodeList modifiers = null;
+	
 	/**
 	 * Creates a new unparented node for a parameterized type owned by the
 	 * given AST. By default, an unspecified, but legal, type variable name,
@@ -93,6 +130,9 @@ public class TypeParameter extends ASTNode {
 	TypeParameter(AST ast) {
 		super(ast);
 	    unsupportedIn2();
+	    if (ast.apiLevel >= AST.JLS8) {
+			this.modifiers = new ASTNode.NodeList(MODIFIERS_PROPERTY);
+		}
 	}
 
 	/* (omit javadoc for this method)
@@ -122,6 +162,9 @@ public class TypeParameter extends ASTNode {
 	 * Method declared on ASTNode.
 	 */
 	final List internalGetChildListProperty(ChildListPropertyDescriptor property) {
+		if (property == MODIFIERS_PROPERTY) {
+			return modifiers();
+		}
 		if (property == TYPE_BOUNDS_PROPERTY) {
 			return typeBounds();
 		}
@@ -142,6 +185,10 @@ public class TypeParameter extends ASTNode {
 	ASTNode clone0(AST target) {
 		TypeParameter result = new TypeParameter(target);
 		result.setSourceRange(getStartPosition(), getLength());
+		if (this.ast.apiLevel >= AST.JLS8) {
+			result.modifiers().addAll(
+					ASTNode.copySubtrees(target, modifiers()));
+		}
 		result.setName((SimpleName) ((ASTNode) getName()).clone(target));
 		result.typeBounds().addAll(
 			ASTNode.copySubtrees(target, typeBounds()));
@@ -163,6 +210,9 @@ public class TypeParameter extends ASTNode {
 		boolean visitChildren = visitor.visit(this);
 		if (visitChildren) {
 			// visit children in normal left to right reading order
+			if (this.ast.apiLevel >= AST.JLS8) {
+				acceptChildren(visitor, this.modifiers);
+			}
 			acceptChild(visitor, getName());
 			acceptChildren(visitor, this.typeBounds);
 		}
@@ -236,13 +286,29 @@ public class TypeParameter extends ASTNode {
 	public List typeBounds() {
 		return this.typeBounds;
 	}
+	
+	/**
+	 * Returns the live ordered list of modifiers for this TypeParameter node (added in JLS8 API).
+	 *
+	 * @return the live list of modifiers (element type: {@link IExtendedModifier})
+	 * @exception UnsupportedOperationException if this operation is used
+	 *            in a JLS2, JLS3 or JLS4 AST
+	 * @since 3.10
+	 */
+	public List modifiers() {
+		// more efficient than just calling unsupportedIn2_3_4() to check
+		if (this.modifiers == null) {
+			unsupportedIn2_3_4();
+		}
+		return this.modifiers;
+	}
 
 	/* (omit javadoc for this method)
 	 * Method declared on ASTNode.
 	 */
 	int memSize() {
 		// treat Code as free
-		return BASE_NODE_SIZE + 2 * 4;
+		return BASE_NODE_SIZE + 3 * 4;
 	}
 
 	/* (omit javadoc for this method)
@@ -251,6 +317,7 @@ public class TypeParameter extends ASTNode {
 	int treeSize() {
 		return
 			memSize()
+			+ (this.modifiers == null ? 0 : this.modifiers.listSize())
 			+ (this.typeVariableName == null ? 0 : getName().treeSize())
 			+ this.typeBounds.listSize();
 	}

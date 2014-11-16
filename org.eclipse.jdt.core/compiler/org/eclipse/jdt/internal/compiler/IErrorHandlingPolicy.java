@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,11 +11,12 @@
 package org.eclipse.jdt.internal.compiler;
 
 /*
- * Handler policy is responsible to answer the 2 following
+ * Handler policy is responsible to answer the 3 following
  * questions:
  * 1. should the handler stop on first problem which appears
  *	to be a real error (that is, not a warning),
  * 2. should it proceed once it has gathered all problems
+ * 3. Should problems be reported at all ?
  *
  * The intent is that one can supply its own policy to implement
  * some interactive error handling strategy where some UI would
@@ -25,4 +26,5 @@ package org.eclipse.jdt.internal.compiler;
 public interface IErrorHandlingPolicy {
 	boolean proceedOnErrors();
 	boolean stopOnFirstError();
+	boolean ignoreAllErrors();
 }

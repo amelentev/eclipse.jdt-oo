@@ -192,6 +192,10 @@ public void addClassFolder(IPath projectPath, IPath classFolderPath, boolean isE
 			requiredComplianceFlag = AbstractCompilerTest.F_1_7;
 			compilerVersion = CompilerOptions.VERSION_1_7;
 		}
+		else if ("1.8".equals(compliance)) {
+			requiredComplianceFlag = AbstractCompilerTest.F_1_8;
+			compilerVersion = CompilerOptions.VERSION_1_8;
+		}
 		else if (!"1.4".equals(compliance) && !"1.3".equals(compliance)) {
 			throw new UnsupportedOperationException("Test framework doesn't support compliance level: " + compliance);
 		}

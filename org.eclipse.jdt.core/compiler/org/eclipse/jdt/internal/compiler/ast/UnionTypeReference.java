@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011 IBM Corporation and others.
+ * Copyright (c) 2011, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  * 
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -30,13 +32,6 @@ public class UnionTypeReference extends TypeReference {
 	}
 
 	/* (non-Javadoc)
-	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#copyDims(int)
-	 */
-	public TypeReference copyDims(int dim) {
-		return this;
-	}
-
-	/* (non-Javadoc)
 	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#getLastToken()
 	 */
 	public char[] getLastToken() {
@@ -53,13 +48,13 @@ public class UnionTypeReference extends TypeReference {
 	/* (non-Javadoc)
 	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#getTypeBinding(org.eclipse.jdt.internal.compiler.lookup.Scope)
 	 */
-	public TypeBinding resolveType(BlockScope scope, boolean checkBounds) {
+	public TypeBinding resolveType(BlockScope scope, boolean checkBounds, int location) {
 		// return the lub (least upper bound of all type binding) 
 		int length = this.typeReferences.length;
 		TypeBinding[] allExceptionTypes = new TypeBinding[length];
 		boolean hasError = false;
 		for (int i = 0; i < length; i++) {
-			TypeBinding exceptionType = this.typeReferences[i].resolveType(scope, checkBounds);
+			TypeBinding exceptionType = this.typeReferences[i].resolveType(scope, checkBounds, location);
 			if (exceptionType == null) {
 				return null;
 			}
@@ -154,6 +149,12 @@ public class UnionTypeReference extends TypeReference {
 			}
 		}
 		return output;
+	}
+	public boolean isUnionType() {
+		return true;
+	}
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
+		return this; // arrays are not legal as union types.
 	}
 
 }

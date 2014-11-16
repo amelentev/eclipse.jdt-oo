@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -88,6 +88,7 @@ private static Class[] getAllTestClasses() {
 		ResolveTests.class,
 		ResolveTests2.class,
 		ResolveTests_1_5.class,
+		ResolveTests18.class,
 		SelectionJavadocModelTests.class,
 
 		// Support for completion tests
@@ -188,9 +189,12 @@ private static Class[] getAllTestClasses() {
 		UtilTests.class,
 		
 		JavaCoreOptionsTests.class,
+		JavaCorePreferenceModifyListenerTest.class,
 		
 		// Tests regarding null-annotations:
 		NullAnnotationModelTests.class,
+		// Java model changes related to Java 8
+		JavaElement8Tests.class,
 	};
 
 	Class[] deprecatedClasses = getDeprecatedJDOMTestClasses();

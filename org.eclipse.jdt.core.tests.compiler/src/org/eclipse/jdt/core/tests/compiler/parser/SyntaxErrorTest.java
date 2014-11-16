@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -162,27 +162,27 @@ public void test03() {
 		"}										\n";
 
 	String expectedSyntaxErrorDiagnosis =
-		"----------\n" +
-		"1. ERROR in <parenthesis mismatch> (at line 3)\n" +
-		"	[ arg1, 						\n" +
-		"	^\n" +
-		"Syntax error on token \"[\", invalid Type\n" +
-		"----------\n" +
-		"2. ERROR in <parenthesis mismatch> (at line 4)\n" +
-		"	{ arg2, ]						\n" +
-		"	^\n" +
-		"Syntax error on token \"{\", invalid Type\n" +
-		"----------\n" +
-		"3. ERROR in <parenthesis mismatch> (at line 4)\n" +
-		"	{ arg2, ]						\n" +
-		"	        ^\n" +
-		"Syntax error on token \"]\", invalid Type\n" +
-		"----------\n" +
-		"4. ERROR in <parenthesis mismatch> (at line 5)\n" +
-		"	arg3, 						\n" +
-		"	    ^\n" +
-		"Syntax error on token \",\", FormalParameter expected after this token\n" +
-		"----------\n";
+			"----------\n" +
+			"1. ERROR in <parenthesis mismatch> (at line 3)\n" +
+			"	[ arg1, 						\n" +
+			"	^\n" +
+			"Syntax error on token \"[\", byte expected\n" +
+			"----------\n" +
+			"2. ERROR in <parenthesis mismatch> (at line 4)\n" +
+			"	{ arg2, ]						\n" +
+			"	^\n" +
+			"Syntax error on token \"{\", byte expected\n" +
+			"----------\n" +
+			"3. ERROR in <parenthesis mismatch> (at line 4)\n" +
+			"	{ arg2, ]						\n" +
+			"	        ^\n" +
+			"Syntax error on token \"]\", byte expected\n" +
+			"----------\n" +
+			"4. ERROR in <parenthesis mismatch> (at line 5)\n" +
+			"	arg3, 						\n" +
+			"	    ^\n" +
+			"Syntax error on token \",\", FormalParameter expected after this token\n" +
+			"----------\n";
 
 	String testName = "<parenthesis mismatch>";
 	checkParse(
@@ -269,12 +269,12 @@ public void test06() {
 		"}											\n";
 
 	String expectedSyntaxErrorDiagnosis =
-		"----------\n"+
-		"1. ERROR in <test> (at line 3)\n"+
-		"	i; 									\n"+
-		"	^\n"+
-		"Syntax error, insert \"AssignmentOperator Expression\" to complete Expression\n"+
-		"----------\n";
+			"----------\n" +
+			"1. ERROR in <test> (at line 3)\n" +
+			"	i; 									\n" +
+			"	^\n" +
+			"Syntax error, insert \"VariableDeclarators\" to complete LocalVariableDeclaration\n" +
+			"----------\n";
 
 	String testName = "<test>";
 	checkParse(

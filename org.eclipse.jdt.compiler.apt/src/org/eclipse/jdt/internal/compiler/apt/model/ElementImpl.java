@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,20 +11,20 @@
 package org.eclipse.jdt.internal.compiler.apt.model;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Proxy;
+import java.lang.annotation.Inherited;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 
-import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.apt.dispatch.BaseProcessingEnvImpl;
 import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
@@ -50,47 +50,42 @@ public abstract class ElementImpl
 		return _env.getFactory().newTypeMirror(_binding);
 	}
 
-	@SuppressWarnings("unchecked") // for cast of newProxyInstance() to A
-	@Override
-	public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
-		AnnotationBinding[] annoInstances = getAnnotationBindings();
-		if( annoInstances == null || annoInstances.length == 0 || annotationClass == null ) 
-			return null;
-
-		String annoTypeName = annotationClass.getName();
-		if( annoTypeName == null ) return null;
-		annoTypeName = annoTypeName.replace('$', '.');
-		for( AnnotationBinding annoInstance : annoInstances) {
-			if (annoInstance == null)
-				continue;
-			ReferenceBinding binding = annoInstance.getAnnotationType();
-			if ( binding != null && binding.isAnnotationType() ) {
-				char[] qName;
-				if (binding.isMemberType()) {
-					qName = CharOperation.concatWith(binding.enclosingType().compoundName, binding.sourceName, '.');
-					CharOperation.replace(qName, '$', '.');
-				} else {
-					qName = CharOperation.concatWith(binding.compoundName, '.');
-				}
-				if( annoTypeName.equals(new String(qName)) ){
-					AnnotationMirrorImpl annoMirror =
-						(AnnotationMirrorImpl)_env.getFactory().newAnnotationMirror(annoInstance);
-					return (A)Proxy.newProxyInstance(annotationClass.getClassLoader(),
-							new Class[]{ annotationClass }, annoMirror );
-				}
-			}
-		}
-		return null; 
-	}
-	
 	/**
 	 * @return the set of compiler annotation bindings on this element
 	 */
 	protected abstract AnnotationBinding[] getAnnotationBindings();
 
+	/* Package any repeating annotations into containers, return others as is.
+	   In the compiler bindings repeating annotations are left in as is, hence
+	   this step. The return value would match what one would expect to see in
+	   a class file.
+	*/
+	public final AnnotationBinding [] getPackedAnnotationBindings() {
+		return Factory.getPackedAnnotationBindings(getAnnotationBindings());
+	}
+	
+	@Override
+	public <A extends Annotation> A getAnnotation(Class<A> annotationClass) {
+		A annotation = _env.getFactory().getAnnotation(getPackedAnnotationBindings(), annotationClass);
+		if (annotation != null || this.getKind() != ElementKind.CLASS || annotationClass.getAnnotation(Inherited.class) == null)
+			return annotation;
+		
+		ElementImpl superClass = (ElementImpl) _env.getFactory().newElement(((ReferenceBinding) this._binding).superclass());
+		return superClass == null ? null : superClass.getAnnotation(annotationClass);
+	}
+	
 	@Override
 	public List<? extends AnnotationMirror> getAnnotationMirrors() {
-		return _env.getFactory().getAnnotationMirrors(getAnnotationBindings());
+		return _env.getFactory().getAnnotationMirrors(getPackedAnnotationBindings());
+	}
+
+	public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
+		A [] annotations = _env.getFactory().getAnnotationsByType(Factory.getUnpackedAnnotationBindings(getPackedAnnotationBindings()), annotationType);
+		if (annotations.length != 0 || this.getKind() != ElementKind.CLASS || annotationType.getAnnotation(Inherited.class) == null)
+			return annotations;
+		
+		ElementImpl superClass =  (ElementImpl) _env.getFactory().newElement(((ReferenceBinding) this._binding).superclass());
+		return superClass == null ? annotations : superClass.getAnnotationsByType(annotationType);
 	}
 
 	@Override

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,8 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.List;
 
 import junit.framework.Test;
@@ -27,53 +29,149 @@ import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.TextEdit;
 
 /**
-  */
+ * Tests for ASTRewrite. Subclasses must have 2 constructors that forward to
+ * constructors with the same signature as this class's constructors.
+ * 
+ * Test methods can end with:
+ * <ul>
+ * <li>"_since_<i>n</i>", where <i>n</i> is an AST.JLS* constant value:
+ *   test will run for all AST levels >= <i>n</i>
+ * </li>
+ * <li>"_only_<i>a</i>_<i>b</i>...", where <i>a</i>, <i>b</i>, ... are AST.JLS* constant values:
+ *   test will run for all specified AST levels
+ * </li>
+ * </ul>
+ */
 public class ASTRewritingTest extends AbstractJavaModelTests {
+
+
 	/** @deprecated using deprecated code */
-	private static final int AST_INTERNAL_JLS2 = AST.JLS2;
+	private final static int JLS2_INTERNAL = AST.JLS2;
 
 	/**
-	 * Internal synonynm for deprecated constant AST.JSL3
+	 * Internal synonym for deprecated constant AST.JSL3
 	 * to alleviate deprecation warnings.
 	 * @deprecated
 	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
-	
+	private static final int JLS3_INTERNAL = AST.JLS3;
+
+	/** @deprecated using deprecated code */
+	private final static int JLS4_INTERNAL = AST.JLS4;
+
+	private final static int[] JLS_LEVELS = { JLS2_INTERNAL, JLS3_INTERNAL, JLS4_INTERNAL, AST.JLS8 };
+
+	private static final String ONLY_AST_STRING = "_only";
+	private static final String SINCE_AST_STRING = "_since";
+	private static final String STRING_ = "_";
+
+	protected int apiLevel;
+
 	protected IJavaProject project1;
 	protected IPackageFragmentRoot sourceFolder;
 
+	/** @deprecated using deprecated code */
+	public String getName() {
+		String name = super.getName() + " - JLS" + this.apiLevel;
+		return name;
+	}
+
+	public ASTRewritingTest(String name) {
+		super(name.substring(0, name.indexOf(" - JLS")));
+		name.indexOf(" - JLS");
+		this.apiLevel = Integer.parseInt(name.substring(name.indexOf(" - JLS") + 6));
+	}
+
+	/**
+	 * Creates an instance of a test at a particular AST level. All sub tests of ASTRewritingTest must have a constructor 
+	 * with the specified parameters.
+	 *
+	 * @param name name of the test method
+	 * @param apiLevel The JLS level
+	 */
+	public ASTRewritingTest(String name, int apiLevel) {
+		super(name);
+		this.apiLevel = apiLevel;
+	}
+
 	public static Test suite() {
 		TestSuite suite= new TestSuite(ASTRewritingTest.class.getName());
-		suite.addTest(ASTRewritingExpressionsTest.allTests());
-		suite.addTest(ASTRewritingInsertBoundTest.allTests());
-		suite.addTest(ASTRewritingMethodDeclTest.allTests());
-		suite.addTest(ASTRewritingMoveCodeTest.allTests());
-		suite.addTest(ASTRewritingStatementsTest.allTests());
-		suite.addTest(ASTRewritingTrackingTest.allTests());
-		suite.addTest(ASTRewritingJavadocTest.allTests());
-		suite.addTest(ASTRewritingTypeDeclTest.allTests());
-		suite.addTest(ASTRewritingGroupNodeTest.allTests());
-		suite.addTest(ASTRewritingRevertTest.allTests());
-		suite.addTest(SourceModifierTest.allTests());
-		suite.addTest(ImportRewriteTest.allTests());
-		suite.addTest(LineCommentOffsetsTest.allTests());
-		suite.addTest(ASTRewritingWithStatementsRecoveryTest.allTests());
-		suite.addTest(ASTRewritePropertyTest.allTests());
-		suite.addTest(ASTRewritingPackageDeclTest.allTests());
+		suite.addTest(ASTRewritingExpressionsTest.suite());
+		suite.addTest(ASTRewritingInsertBoundTest.suite());
+		suite.addTest(ASTRewritingMethodDeclTest.suite());
+		suite.addTest(ASTRewritingMoveCodeTest.suite());
+		suite.addTest(ASTRewritingStatementsTest.suite());
+		suite.addTest(ASTRewritingTrackingTest.suite());
+		suite.addTest(ASTRewritingJavadocTest.suite());
+		suite.addTest(ASTRewritingTypeAnnotationsTest.suite());
+		suite.addTest(ASTRewritingTypeDeclTest.suite());
+		suite.addTest(ASTRewritingGroupNodeTest.suite());
+		suite.addTest(ASTRewritingRevertTest.suite());
+		suite.addTest(LineCommentOffsetsTest.suite());
+		suite.addTest(ASTRewritingWithStatementsRecoveryTest.suite());
+		suite.addTest(ASTRewritePropertyTest.suite());
+		suite.addTest(ASTRewritingPackageDeclTest.suite());
+		suite.addTest(ASTRewritingLambdaExpressionTest.suite());		
+		suite.addTest(ASTRewritingReferenceExpressionTest.suite());		
+		suite.addTest(SourceModifierTest.suite());
+		suite.addTest(ImportRewriteTest.suite());
+		suite.addTest(ImportRewrite18Test.suite());
 		return suite;
 	}
 
-
-	public ASTRewritingTest(String name) {
-		super(name);
+	/**
+	 * Creates a test suite according to the rules in {@link ASTRewritingTest}.
+	 * 
+	 * @param testClass subclass of ASTRewritingTest
+	 * @return test suite that runs all tests with all supported AST levels
+	 */
+	protected static TestSuite createSuite(Class testClass) {
+		return createSuite(testClass, -1);
 	}
 
-	public void setUpSuite() throws Exception {
-		super.setUpSuite();
-	}
-
-	public void tearDownSuite() throws Exception {
-		super.tearDownSuite();
+	/**
+	 * Creates a test suite according to the rules in {@link ASTRewritingTest}.
+	 * 
+	 * @param testClass subclass of ASTRewritingTest
+	 * @param classSince smallest supported AST level for this test class, or -1 to support all levels
+	 * @return test suite that runs all tests with all supported AST levels
+	 */
+	protected static TestSuite createSuite(Class testClass, int classSince) {
+		TestSuite suite = new TestSuite(testClass.getName());
+		try {
+			Method[] methods = testClass.getMethods();
+			Constructor cons = testClass.getConstructor(new Class[]{String.class, int.class});
+			for (int i = 0, max = methods.length; i < max; i++) {
+				String name = methods[i].getName();
+				if (name.startsWith("test")) { //$NON-NLS-1$
+					
+					int index = name.indexOf(ONLY_AST_STRING);
+					if (index != -1) {
+						String suffix = name.substring(index + ONLY_AST_STRING.length() + 1);
+						String[] levels = suffix.split(STRING_);
+						for (int l= 0; l < levels.length; l++) {
+							suite.addTest((Test) cons.newInstance(new Object[]{name,  Integer.valueOf(levels[l])}));
+						}
+					
+					} else {
+						int since = -1;
+						index = name.indexOf(SINCE_AST_STRING);
+						if (index != -1) {
+							String suffix = name.substring(index + SINCE_AST_STRING.length() + 1);
+							since = Integer.parseInt(suffix);
+						}
+						for (int j= 0; j < JLS_LEVELS.length; j++) {
+							int level = JLS_LEVELS[j];
+							if (level >= since && level >= classSince) {
+								suite.addTest((Test) cons.newInstance(new Object[]{name, new Integer(level)}));
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace(); // In the unlikely case, can't do much
+		}
+		return suite;
 	}
 
 	protected void setUp() throws Exception {
@@ -83,8 +181,6 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 
 		this.project1 = proj;
 		this.sourceFolder = getPackageFragmentRoot("P", "src");
-
-		waitUntilIndexesReady();
 	}
 
 	protected IJavaProject createProject(String projectName, String complianceVersion) throws CoreException {
@@ -105,18 +201,13 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	}
 
 	protected CompilationUnit createAST(ICompilationUnit cu) {
-		return createAST(AST_INTERNAL_JLS2, cu, false);
+		return createAST(this.apiLevel, cu, false, false);
 	}
-
-	protected CompilationUnit createAST3(ICompilationUnit cu) {
-		return createAST(JLS3_INTERNAL, cu, false);
+	protected CompilationUnit createAST(ICompilationUnit cu, boolean statementsRecovery) {
+		return createAST(this.apiLevel, cu, false, statementsRecovery);
 	}
-	
-	protected CompilationUnit createAST3(ICompilationUnit cu, boolean statementsRecovery) {
-		return createAST(JLS3_INTERNAL, cu, statementsRecovery);
-	}
-	protected CompilationUnit createAST(int JLSLevel, ICompilationUnit cu, boolean statementsRecovery) {
-		return createAST(JLSLevel, cu, false, statementsRecovery);
+	protected CompilationUnit createAST(ICompilationUnit cu, boolean resolveBindings, boolean statementsRecovery) {
+		return createAST(this.apiLevel, cu, resolveBindings, statementsRecovery);
 	}
 
 	protected CompilationUnit createAST(int JLSLevel, ICompilationUnit cu, boolean resolveBindings, boolean statementsRecovery) {
@@ -173,7 +264,7 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		return null;
 	}
 
-	public static SingleVariableDeclaration createNewParam(AST ast, String name) {
+	protected static SingleVariableDeclaration createNewParam(AST ast, String name) {
 		SingleVariableDeclaration newParam= ast.newSingleVariableDeclaration();
 		newParam.setType(ast.newPrimitiveType(PrimitiveType.FLOAT));
 		newParam.setName(ast.newSimpleName(name));
@@ -181,20 +272,20 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 	}
 
 	/** @deprecated using deprecated code */
-	private void setModifiers(BodyDeclaration bodyDeclaration, int modifiers) {
+	private static void setModifiers(BodyDeclaration bodyDeclaration, int modifiers) {
 		bodyDeclaration.setModifiers(modifiers);
 	}
 
 	/** @deprecated using deprecated code */
-	private void setReturnType(MethodDeclaration methodDeclaration, Type type) {
+	private static void setReturnType(MethodDeclaration methodDeclaration, Type type) {
 		methodDeclaration.setReturnType(type);
 	}
 
-	protected FieldDeclaration createNewField(AST ast, String name) {
+	protected static FieldDeclaration createNewField(AST ast, String name) {
 		VariableDeclarationFragment frag= ast.newVariableDeclarationFragment();
 		frag.setName(ast.newSimpleName(name));
 		FieldDeclaration newFieldDecl= ast.newFieldDeclaration(frag);
-		if (ast.apiLevel() == AST_INTERNAL_JLS2) {
+		if (ast.apiLevel() == JLS2_INTERNAL) {
 			setModifiers(newFieldDecl, Modifier.PRIVATE);
 		} else {
 			newFieldDecl.modifiers().add(ast.newModifier(Modifier.ModifierKeyword.PRIVATE_KEYWORD));
@@ -203,10 +294,10 @@ public class ASTRewritingTest extends AbstractJavaModelTests {
 		return newFieldDecl;
 	}
 
-	protected MethodDeclaration createNewMethod(AST ast, String name, boolean isAbstract) {
+	protected static MethodDeclaration createNewMethod(AST ast, String name, boolean isAbstract) {
 		MethodDeclaration decl= ast.newMethodDeclaration();
 		decl.setName(ast.newSimpleName(name));
-		if (ast.apiLevel() == AST_INTERNAL_JLS2) {
+		if (ast.apiLevel() == JLS2_INTERNAL) {
 			setModifiers(decl, isAbstract ? (Modifier.ABSTRACT | Modifier.PRIVATE) : Modifier.PRIVATE);
 			setReturnType(decl, ast.newPrimitiveType(PrimitiveType.VOID));
 		} else {

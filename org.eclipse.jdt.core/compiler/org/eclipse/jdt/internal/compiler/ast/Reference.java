@@ -9,8 +9,12 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann <stephan@cs.tu-berlin.de> - Contributions for
  *								bug 185682 - Increment/decrement operators mark local variables as read
+ *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis 
+ *								Bug 411964 - [1.8][null] leverage null type annotation in foreach statement
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -50,6 +54,11 @@ public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flow
 }
 
 protected boolean checkNullableFieldDereference(Scope scope, FieldBinding field, long sourcePosition) {
+	// preference to type annotations if we have any
+	if ((field.type.tagBits & TagBits.AnnotationNullable) != 0) {
+		scope.problemReporter().dereferencingNullableExpression(sourcePosition, scope.environment());
+		return true;
+	}
 	if ((field.tagBits & TagBits.AnnotationNullable) != 0) {
 		scope.problemReporter().nullableFieldDereference(field, sourcePosition);
 		return true;
@@ -134,9 +143,11 @@ public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 		} else if (fieldBinding.isNullable()) {
 			return FlowInfo.POTENTIALLY_NULL;
 		}
-		return FlowInfo.UNKNOWN;
 	}
-	return super.nullStatus(flowInfo, flowContext);
+	if (this.resolvedType != null) {
+		return FlowInfo.tagBitsToNullStatus(this.resolvedType.tagBits);
+	}
+	return FlowInfo.UNKNOWN;
 }
 
 /* report if a private field is only read from a 'special operator',
@@ -185,7 +196,7 @@ static void reportOnlyUselesslyReadLocal(BlockScope currentScope, LocalVariableB
 	if (localBinding.declaration instanceof Argument) {
 		// check compiler options to report against unused arguments
 		MethodScope methodScope = currentScope.methodScope();
-		if (methodScope != null) {
+		if (methodScope != null && !methodScope.isLambdaScope()) { // lambda must be congruent with the descriptor.
 			MethodBinding method = ((AbstractMethodDeclaration)methodScope.referenceContext()).binding;
 			
 			boolean shouldReport = !method.isMain();

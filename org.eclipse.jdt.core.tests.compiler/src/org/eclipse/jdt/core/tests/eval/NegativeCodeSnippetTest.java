@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -151,7 +151,7 @@ public void testInvalidImport() {
 		evaluateWithExpectedImportProblem(buildCharArray(new String[] {
 			"new File(\"c:\\temp\")"}),
 			"{".toCharArray(),
-			newProblem(IProblem.ParsingError, Error, 0, 0, 1)); // Syntax error on token "{", "Identifier" expected
+			newProblem(IProblem.ParsingErrorInvalidToken, Error, 0, 0, 1)); // Syntax error on token "{", "Identifier" expected
 	} finally {
 		// Clean up
 		this.context.setImports(new char[0][]);

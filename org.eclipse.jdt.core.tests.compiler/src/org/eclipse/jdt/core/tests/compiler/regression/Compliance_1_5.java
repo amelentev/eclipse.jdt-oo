@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -2702,46 +2702,47 @@ public void test079() {
 			"	}\n" +
 			"}\n"
 		},
-		"----------\n" +
-		"1. ERROR in Hello.java (at line 1)\n" +
-		"	void ___eval() {\n" +
-		"	^^^^\n" +
-		"Syntax error on token \"void\", @ expected\n" +
-		"----------\n" +
-		"2. ERROR in Hello.java (at line 1)\n" +
-		"	void ___eval() {\n" +
-		"	             ^\n" +
-		"Syntax error on token \")\", delete this token\n" +
-		"----------\n" +
-		"3. ERROR in Hello.java (at line 9)\n" +
-		"	};\n" +
-		"	^\n" +
-		"Syntax error on token \"}\", { expected\n" +
-		"----------\n" +
-		"4. ERROR in Hello.java (at line 23)\n" +
-		"	}\n" +
-		"	^\n" +
-		"Syntax error, insert \"}\" to complete ClassBody\n" +
-		"----------\n" +
-		"5. ERROR in Hello.java (at line 23)\n" +
-		"	}\n" +
-		"	^\n" +
-		"Syntax error, insert \"}\" to complete MemberValue\n" +
-		"----------\n" +
-		"6. ERROR in Hello.java (at line 23)\n" +
-		"	}\n" +
-		"	^\n" +
-		"Syntax error, insert \")\" to complete Modifiers\n" +
-		"----------\n" +
-		"7. ERROR in Hello.java (at line 23)\n" +
-		"	}\n" +
-		"	^\n" +
-		"Syntax error, insert \"enum Identifier\" to complete EnumHeader\n" +
-		"----------\n" +
-		"8. ERROR in Hello.java (at line 23)\n" +
-		"	}\n" +
-		"	^\n" +
-		"Syntax error, insert \"EnumBody\" to complete CompilationUnit\n" +
+		"----------\n" + 
+		"1. ERROR in Hello.java (at line 1)\n" + 
+		"	void ___eval() {\n" + 
+		"	^^^^\n" + 
+		"Syntax error on token \"void\", @ expected\n" + 
+		"----------\n" + 
+		"2. ERROR in Hello.java (at line 1)\n" + 
+		"	void ___eval() {\n" + 
+		"	             ^\n" + 
+		"Syntax error on token \")\", delete this token\n" + 
+		"----------\n" + 
+		"3. ERROR in Hello.java (at line 9)\n" + 
+		"	};\n" + 
+		"}\n" + 
+		"	^^^^\n" + 
+		"Syntax error on tokens, delete these tokens\n" + 
+		"----------\n" + 
+		"4. ERROR in Hello.java (at line 23)\n" + 
+		"	}\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"}\" to complete ClassBody\n" + 
+		"----------\n" + 
+		"5. ERROR in Hello.java (at line 23)\n" + 
+		"	}\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"}\" to complete MemberValue\n" + 
+		"----------\n" + 
+		"6. ERROR in Hello.java (at line 23)\n" + 
+		"	}\n" + 
+		"	^\n" + 
+		"Syntax error, insert \")\" to complete Modifiers\n" + 
+		"----------\n" + 
+		"7. ERROR in Hello.java (at line 23)\n" + 
+		"	}\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"enum Identifier\" to complete EnumHeader\n" + 
+		"----------\n" + 
+		"8. ERROR in Hello.java (at line 23)\n" + 
+		"	}\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"EnumBody\" to complete CompilationUnit\n" + 
 		"----------\n"
 	);
 }
@@ -2963,10 +2964,10 @@ public void test088() {
 		"3. WARNING in p\\X.java (at line 39)\n" +
 		"	Method _getMethod = c.getMethod(\"d\",null);\n" +
 		"	                    ^^^^^^^^^^^^^^^^^^^^^\n" +
-		"The argument of type null should explicitly be cast to Class[] for the invocation of the varargs method getMethod(String, Class...) from type Class. It could alternatively be cast to Class for a varargs invocation\n" +
+		"Type null of the last argument to method getMethod(String, Class...) doesn't exactly match the vararg parameter type. Cast to Class[] to confirm the non-varargs invocation, or pass individual arguments of type Class for a varargs invocation.\n" +
 		"----------\n";
 	String javaVersion = System.getProperty("java.version");
-	if (isJRELevel(AbstractCompilerTest.F_1_6|AbstractCompilerTest.F_1_7)
+	if (isJRELevel(AbstractCompilerTest.F_1_6|AbstractCompilerTest.F_1_7|AbstractCompilerTest.F_1_8)
 			|| (AbstractCompilerTest.getPossibleComplianceLevels() == AbstractCompilerTest.F_1_5
 				&& javaVersion.indexOf("1.5") == -1)) {
 		errorMessage =
@@ -2984,7 +2985,7 @@ public void test088() {
 			"3. WARNING in p\\X.java (at line 39)\n" +
 			"	Method _getMethod = c.getMethod(\"d\",null);\n" +
 			"	                    ^^^^^^^^^^^^^^^^^^^^^\n" +
-			"The argument of type null should explicitly be cast to Class[] for the invocation of the varargs method getMethod(String, Class...) from type Class. It could alternatively be cast to Class for a varargs invocation\n" +
+			"Type null of the last argument to method getMethod(String, Class...) doesn't exactly match the vararg parameter type. Cast to Class[] to confirm the non-varargs invocation, or pass individual arguments of type Class for a varargs invocation.\n" +
 			"----------\n" +
 			"4. WARNING in p\\X.java (at line 39)\n" +
 			"	Method _getMethod = c.getMethod(\"d\",null);\n" +

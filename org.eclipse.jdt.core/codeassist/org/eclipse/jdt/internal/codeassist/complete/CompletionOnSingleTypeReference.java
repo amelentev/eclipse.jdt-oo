@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -52,7 +52,7 @@ public void aboutToResolve(Scope scope) {
 /*
  * No expansion of the completion reference into an array one
  */
-public TypeReference copyDims(int dim){
+public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
 	return this;
 }
 protected TypeBinding getTypeBinding(Scope scope) {

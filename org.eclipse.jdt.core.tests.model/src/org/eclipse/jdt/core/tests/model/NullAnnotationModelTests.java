@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 GK Software AG and others.
+ * Copyright (c) 2011, 2013 GK Software AG and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -40,6 +40,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.osgi.framework.Bundle;
 
 public class NullAnnotationModelTests extends ReconcilerTests {
 
@@ -57,9 +58,13 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 //		TESTS_NAMES = new String[] { "testConvertedSourceType1" };
 	}
 
+	/**
+	 * @deprecated indirectly uses deprecated class PackageAdmin
+	 */
 	public void setUp() throws Exception {
 		super.setUp();
-		File bundleFile = FileLocator.getBundleFile(Platform.getBundle("org.eclipse.jdt.annotation"));
+		Bundle[] bundles = org.eclipse.jdt.core.tests.Activator.getPackageAdmin().getBundles("org.eclipse.jdt.annotation", "[2.0.0,3.0.0)");
+		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		this.ANNOTATION_LIB = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 	}
 
@@ -113,7 +118,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 					"1. WARNING in /P/p2/C2.java (at line 8)\n" +
 					"	return arg == null ? null : arg.toString();\n" +
 					"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-					"Null type safety: The expression of type String needs unchecked conversion to conform to \'@NonNull String\'\n" +
+					"Null type safety: The expression of type 'String' needs unchecked conversion to conform to \'@NonNull String\'\n" +
 					"----------\n");
     	} finally {
     		deleteProject("P");
@@ -155,7 +160,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 					"1. WARNING in /P/p2/C2.java (at line 8)\n" +
 					"	return arg == null ? null : arg.toString();\n" +
 					"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
-					"Null type safety: The expression of type String needs unchecked conversion to conform to \'@NonNull String\'\n" +
+					"Null type safety: The expression of type 'String' needs unchecked conversion to conform to \'@NonNull String\'\n" +
 					"----------\n");
     	} finally {
     		deleteProject("P");
@@ -276,7 +281,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 					"Buildpath problem: the type invalid, which is configured as a null annotation type, cannot be resolved\n" +
 					"----------\n");
 
-			ASTParser parser = ASTParser.newParser(AST.JLS4);
+			ASTParser parser = ASTParser.newParser(AST.JLS8);
 			parser.setProject(p);
 			parser.setResolveBindings(true);
 			parser.setSource(unit);
@@ -339,7 +344,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 			assertEquals("Should have no markers", 0, markers.length);
 
 			// Challenge CompilationUnitResolver:
-			ASTParser parser = ASTParser.newParser(AST.JLS4);
+			ASTParser parser = ASTParser.newParser(AST.JLS8);
 			parser.setProject(p);
 			parser.setResolveBindings(true);
 			parser.setSource(unit);
@@ -410,7 +415,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 			assertEquals("Unexpected marker path", "/P/p1/C1.java", markers[0].getResource().getFullPath().toString());
 
 			// Challenge CompilationUnitResolver:
-			ASTParser parser = ASTParser.newParser(AST.JLS4);
+			ASTParser parser = ASTParser.newParser(AST.JLS8);
 			parser.setProject(p);
 			parser.setResolveBindings(true);
 			parser.setSource(unit);
@@ -463,7 +468,7 @@ public class NullAnnotationModelTests extends ReconcilerTests {
 			final ICompilationUnit unit = getCompilationUnit("/P/p1/C1.java").getWorkingCopy(this.wcOwner, null);
 			assertNoProblem(c1SourceString.toCharArray(), unit);
 
-			ASTParser parser = ASTParser.newParser(AST.JLS4);
+			ASTParser parser = ASTParser.newParser(AST.JLS8);
 			parser.setProject(p);
 			parser.setResolveBindings(true);
 			parser.setSource(unit);
@@ -509,5 +514,136 @@ public class NullAnnotationModelTests extends ReconcilerTests {
     	} finally {
     		deleteProject("P");
     	}
+	}
+	
+	// see https://bugs.eclipse.org/418233
+	public void testNonNullDefaultInInner()  throws CoreException, IOException, InterruptedException  {
+		IJavaProject project15 = null;
+		try {
+			project15 = createJavaProject("TestAnnot", new String[] {"src"}, new String[] {"JCL15_LIB", this.ANNOTATION_LIB}, "bin", "1.5");
+			createFolder("/TestAnnot/src/p1");
+			createFile(
+					"/TestAnnot/src/p1/Interfaces.java",
+					"package p1;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" + 
+					"\n" + 
+					"@NonNullByDefault\n" + 
+					"public interface Interfaces {\n" + 
+					"  public interface InnerInterface {\n" + 
+					"    Object doSomethingElse(Object o);\n" + 
+					"  }\n" + 
+					"}"
+				);
+			String source =
+					"package p1;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" + 
+					"\n" + 
+					"@NonNullByDefault\n" + 
+					"public class Implementations implements Interfaces.InnerInterface {\n" + 
+					"	public Object doSomethingElse(Object o) {\n" + 
+					"		return o; \n" + 
+					"	}\n" + 
+					"}";
+			createFile(
+					"/TestAnnot/src/p1/Implementations.java",
+					source
+				);
+			project15.setOption(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_1_5);
+			project15.setOption(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_1_5);
+			project15.setOption(JavaCore.COMPILER_PB_NULL_REFERENCE, JavaCore.ERROR);
+			project15.setOption(JavaCore.COMPILER_PB_POTENTIAL_NULL_REFERENCE, JavaCore.ERROR);
+			project15.setOption(JavaCore.COMPILER_PB_REDUNDANT_NULL_CHECK, JavaCore.ERROR);
+			project15.setOption(JavaCore.COMPILER_PB_INCLUDE_ASSERTS_IN_NULL_ANALYSIS, JavaCore.ENABLED);
+			project15.setOption(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
+	
+			this.workingCopies = new ICompilationUnit[1];
+			char[] sourceChars = source.toCharArray();
+			this.problemRequestor.initialize(sourceChars);
+			this.workingCopies[0] = getCompilationUnit("/TestAnnot/src/p1/Implementations.java").getWorkingCopy(this.wcOwner, null);
+			this.workingCopies[0].makeConsistent(null);
+			this.workingCopies[0].reconcile(ICompilationUnit.NO_AST, false, null, null);
+	
+			assertNoProblem(sourceChars, this.workingCopies[0]);
+		} finally {
+			if (project15 != null)
+				deleteProject(project15);
+		}
+	}
+	/*
+	 * Bug 405843 - [1.8] Support type annotations in Java Model(https://bugs.eclipse.org/bugs/show_bug.cgi?id=405843)
+	 */
+	public void testBug405843() throws CoreException, IOException, InterruptedException {
+		IJavaProject project = null;
+		try {
+			project = createJavaProject("Bug405843", new String[] {"src"}, new String[] {"JCL18_LIB", this.ANNOTATION_LIB}, "bin", "1.8");
+			createFolder("/Bug405843/src/p1");
+			createFile("/Bug405843/src/p1/Function.java",
+					"package p1;\n" +
+					"public interface Function <I, O> {\n" +
+					"}\n;");
+
+			createFile("/Bug405843/src/p1/FunctionImpl.java",
+					"package p1;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class FunctionImpl implements Function<@NonNull String, @Nullable Object> {\n" +
+					"}\n");
+
+			project.setOption(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
+
+			setUpWorkingCopy("/Bug405843/src/p1/X.java",
+					"package p1;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class X {\n" +
+					"	public Object foo() {\n" +
+					"		Function<@NonNull String, @Nullable Object> impl = new FunctionImpl();\n" +
+					"		return impl;\n" +
+					"	}\n" +
+					"}\n");
+			assertProblems(
+					"Unexpected problems",
+					"----------\n" +
+					"----------\n"
+					);
+
+		} finally {
+			if (project != null)
+				deleteProject(project);
+		}
+	}
+	public void testBug405843a() throws CoreException, IOException, InterruptedException {
+		IJavaProject project = null;
+		try {
+			project = createJavaProject("Bug405843", new String[] {"src"}, new String[] {"JCL18_LIB", this.ANNOTATION_LIB}, "bin", "1.8");
+			createFolder("/Bug405843/src/p1");
+			createFile("/Bug405843/src/p1/Y.java",
+					"package p1;\n" +
+					"import org.eclipse.jdt.annotation.*;\n" +
+					"public class Y {\n" +
+					"    void foo(@NonNull String @NonNull [] array) {}\n" +
+					"}\n;");
+
+			project.setOption(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
+
+			setUpWorkingCopy("/Bug405843/src/p1/X.java",
+					"package p1;\n" +
+					"public class X {\n" +
+					"	public void foo(Y y) {\n" +
+					"		y.foo(null);\n" +
+					"	}\n" +
+					"}\n");
+			assertProblems(
+					"Unexpected problems",
+					"----------\n" + 
+					"1. ERROR in /Bug405843/src/p1/X.java (at line 4)\n" + 
+					"	y.foo(null);\n" + 
+					"	      ^^^^\n" + 
+					"Null type mismatch: required \'@NonNull String @NonNull[]\' but the provided value is null\n" + 
+					"----------\n"
+					);
+
+		} finally {
+			if (project != null)
+				deleteProject(project);
+		}
 	}
 }

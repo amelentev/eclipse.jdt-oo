@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,17 +11,19 @@
 
 package org.eclipse.jdt.core.tests.dom;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-
 import java.util.Map;
 
+import junit.framework.AssertionFailedError;
 import junit.framework.Test;
+
 import org.eclipse.jdt.core.dom.*;
 
 // testing
@@ -29,7 +31,7 @@ import org.eclipse.jdt.core.dom.*;
 public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase {
 
 	/**
-	 * Internal synonynm for deprecated constant AST.JSL3
+	 * Internal synonym for deprecated constant AST.JSL3
 	 * to alleviate deprecation warnings.
 	 * @deprecated
 	 */
@@ -745,6 +747,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 				suite.addTest(new ASTTest(methods[i].getName(), AST.JLS2));
 				suite.addTest(new ASTTest(methods[i].getName(), JLS3_INTERNAL));
 				suite.addTest(new ASTTest(methods[i].getName(), AST.JLS4));
+				suite.addTest(new ASTTest(methods[i].getName(), AST.JLS8));
 			}
 		}
 		return suite;
@@ -753,6 +756,11 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 	AST ast;
 	int API_LEVEL;
 
+	public ASTTest(String name) {
+		super(name.substring(0, name.indexOf(" - JLS")));
+		name.indexOf(" - JLS");
+		this.API_LEVEL = Integer.parseInt(name.substring(name.indexOf(" - JLS") + 6));
+	}
 
 	public ASTTest(String name, int apiLevel) {
 		super(name);
@@ -769,20 +777,20 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		super.tearDown();
 	}
 
-	/** @deprecated using deprecated code */
 	public String getName() {
-		String name = super.getName();
-		switch (this.API_LEVEL) {
-			case AST.JLS2:
-				name = "JLS2 - " + name;
-				break;
-			case JLS3_INTERNAL:
-				name = "JLS3 - " + name;
-				break;
-		}
+		String name = super.getName() + " - JLS" + this.API_LEVEL;
 		return name;
 	}
 
+	/**
+	 * Internal access method to VariableDeclarationFragment#setExtraDimensions for avoiding deprecated warnings.
+	 *
+	 * @param node
+	 * @deprecated
+	 */
+	private void setExtraDimensions(VariableDeclarationFragment node, int dimensions) {
+		node.setExtraDimensions(dimensions);
+	}
 	/**
 	 * Snippets that show how to...
 	 * @deprecated using deprecated code
@@ -2045,6 +2053,18 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(PrimitiveType.toCode("not-a-type") == null); //$NON-NLS-1$
 	}
 
+	/**
+	 * @deprecated
+	 */
+	Type getArrayComponentType(ArrayType array) {
+		return array.getComponentType();
+	}
+	/**
+	 * @deprecated
+	 */
+	void setArrayComponentType(ArrayType array, Type type) {
+		array.setComponentType(type);
+	}
 	public void testArrayType() {
 		SimpleName x1 = this.ast.newSimpleName("String"); //$NON-NLS-1$
 		SimpleType x2 = this.ast.newSimpleType(x1);
@@ -2054,7 +2074,11 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		previousCount = this.ast.modificationCount();
 		assertTrue(x.getAST() == this.ast);
 		assertTrue(x.getParent() == null);
-		assertTrue(x.getComponentType().getParent() == x);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			assertTrue(getArrayComponentType(x).getParent() == x);
+		} else {
+			assertTrue(x.getElementType().getParent() == x);
+		}
 		// make sure that reading did not change modification count
 		assertTrue(this.ast.modificationCount() == previousCount);
 		assertTrue(!x.isSimpleType());
@@ -2069,39 +2093,69 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(x.getDimensions() == 1);
 		assertTrue(x.getElementType() == x2);
 
-		genericPropertyTest(x, new Property("ComponentType", true, Type.class) { //$NON-NLS-1$
-			public ASTNode sample(AST targetAst, boolean parented) {
-				SimpleType result = targetAst.newSimpleType(
-					targetAst.newSimpleName("a")); //$NON-NLS-1$
-				if (parented) {
-					targetAst.newArrayType(result);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			genericPropertyTest(x, new Property("ComponentType", true, Type.class) { //$NON-NLS-1$
+				public ASTNode sample(AST targetAst, boolean parented) {
+					SimpleType result = targetAst.newSimpleType(
+						targetAst.newSimpleName("a")); //$NON-NLS-1$
+					if (parented) {
+						targetAst.newArrayType(result);
+					}
+					return result;
 				}
-				return result;
-			}
-			public ASTNode wrap() {
-				ArrayType result = ASTTest.this.ast.newArrayType(x);
-				return result;
-			}
-			public void unwrap() {
-				ArrayType a = (ArrayType) x.getParent();
-				a.setComponentType(ASTTest.this.ast.newPrimitiveType(PrimitiveType.INT));
-			}
-			public ASTNode get() {
-				return x.getComponentType();
-			}
-			public void set(ASTNode value) {
-				x.setComponentType((Type) value);
-			}
-		});
+				public ASTNode wrap() {
+					ArrayType result = ASTTest.this.ast.newArrayType(x);
+					return result;
+				}
+				public void unwrap() {
+					ArrayType a = (ArrayType) x.getParent();
+					setArrayComponentType(a, ASTTest.this.ast.newPrimitiveType(PrimitiveType.INT));
+				}
+				public ASTNode get() {
+					return getArrayComponentType(x);
+				}
+				public void set(ASTNode value) {
+					setArrayComponentType(x, (Type) value);
+				}
+			});
 
-		x.setComponentType(
-			this.ast.newArrayType(this.ast.newPrimitiveType(PrimitiveType.INT), 4));
+			setArrayComponentType(x,
+				this.ast.newArrayType(this.ast.newPrimitiveType(PrimitiveType.INT), 4));
+			assertTrue(x.getDimensions() == 5);
+			assertTrue(x.getElementType().isPrimitiveType());
+			final ArrayType x3 = this.ast.newArrayType(x, 2);
+			assertTrue(x3.getDimensions() == 7);
+		} else {
+			genericPropertyTest(x, new Property("ElementType", true, Type.class) { //$NON-NLS-1$
+				public ASTNode sample(AST targetAst, boolean parented) {
+					SimpleType result = targetAst.newSimpleType(
+						targetAst.newSimpleName("a")); //$NON-NLS-1$
+					if (parented) {
+						targetAst.newArrayType(result);
+					}
+					return result;
+				}
+				public ASTNode wrap() {
+					ArrayType result = ASTTest.this.ast.newArrayType(x, 5);
+					return result;
+				}
+				public void unwrap() {
+					ArrayType a = (ArrayType) x.getParent();
+					a.setElementType(ASTTest.this.ast.newPrimitiveType(PrimitiveType.INT));
+				}
+				public ASTNode get() {
+					return x.getElementType();
+				}
+				public void set(ASTNode value) {
+					x.setElementType((Type) value);
+				}
+			});
 
-		assertTrue(x.getDimensions() == 5);
-		assertTrue(x.getElementType().isPrimitiveType());
-		final ArrayType x3 = this.ast.newArrayType(x, 2);
-		assertTrue(x3.getDimensions() == 7);
-		
+			x.setElementType(this.ast.newPrimitiveType(PrimitiveType.INT));
+			assertTrue(x.getDimensions() == 1);
+			assertTrue(x.getElementType().isPrimitiveType());
+		}
+
 		try {
 			this.ast.newArrayType(null, 2);
 		} catch(IllegalArgumentException e) {
@@ -3154,12 +3208,20 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		}
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(1);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			x.setExtraDimensions(1);
+		} else {
+			x.extraDimensions().add(this.ast.newDimension());
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 1);
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(0);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			x.setExtraDimensions(0);
+		} else {
+			x.extraDimensions().remove(0);
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 0);
 
@@ -3258,6 +3320,19 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			}
 		});
 
+		if (this.ast.apiLevel() >= AST.JLS8) {
+			genericPropertyListTest(x, x.extraDimensions(),
+					new Property("ExtraDimensions", true, Dimension.class) { //$NON-NLS-1$
+						public ASTNode sample(AST targetAst, boolean parented) {
+							Dimension result = targetAst.newDimension();
+							if (parented) {
+								targetAst.newMethodDeclaration().extraDimensions().add(result);
+							}
+							return result;
+						}
+					});
+		}
+		
 		genericPropertyTest(x, new Property("Initializer", false, Expression.class) { //$NON-NLS-1$
 			public ASTNode sample(AST targetAst, boolean parented) {
 				SimpleName result = targetAst.newSimpleName("foo"); //$NON-NLS-1$
@@ -3303,21 +3378,31 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(this.ast.modificationCount() == previousCount);
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(1);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			setExtraDimensions(x, 1);
+		} else {
+			x.extraDimensions().add(this.ast.newDimension());
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 1);
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(0);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			setExtraDimensions(x, 0);
+		} else {
+			x.extraDimensions().remove(0);
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 0);
 
 		// check that property cannot be set negative
-		try {
-			x.setExtraDimensions(-1);
-			assertTrue(false);
-		} catch (RuntimeException e) {
-			// pass
+		if (this.ast.apiLevel() < AST.JLS8) {
+			try {
+				setExtraDimensions(x, -1);
+				fail();
+			} catch (IllegalArgumentException e) {
+				// pass
+			}
 		}
 
 		genericPropertyTest(x, new Property("Name", true, SimpleName.class) { //$NON-NLS-1$
@@ -3336,6 +3421,19 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			}
 		});
 
+		if (this.ast.apiLevel() >= AST.JLS8) {
+			genericPropertyListTest(x, x.extraDimensions(),
+					new Property("ExtraDimensions", true, Dimension.class) { //$NON-NLS-1$
+						public ASTNode sample(AST targetAst, boolean parented) {
+							Dimension result = targetAst.newDimension();
+							if (parented) {
+								targetAst.newMethodDeclaration().extraDimensions().add(result);
+							}
+							return result;
+						}
+					});
+		}
+		
 		genericPropertyTest(x, new Property("Initializer", false, Expression.class) { //$NON-NLS-1$
 			public ASTNode sample(AST targetAst, boolean parented) {
 				SimpleName result = targetAst.newSimpleName("foo"); //$NON-NLS-1$
@@ -3402,7 +3500,11 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(x.getExtraDimensions() == 0);
 		assertTrue(x.getJavadoc() == null);
 		assertTrue(x.parameters().size() == 0);
-		assertTrue(x.thrownExceptions().size() == 0);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			assertTrue(x.thrownExceptions().size() == 0);			
+		} else {
+			assertTrue(x.thrownExceptionTypes().size() == 0);			
+		}
 		assertTrue(x.getBody() == null);
 		assertTrue(x.getNodeType() == ASTNode.METHOD_DECLARATION);
 		assertTrue(x.structuralPropertiesForType() ==
@@ -3438,12 +3540,20 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		}
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(1);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			x.setExtraDimensions(1);
+		} else {
+			x.extraDimensions().add(this.ast.newDimension());
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 1);
 
 		previousCount = this.ast.modificationCount();
-		x.setExtraDimensions(0);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			x.setExtraDimensions(0);
+		} else {
+			x.extraDimensions().remove(0);
+		}
 		assertTrue(this.ast.modificationCount() > previousCount);
 		assertTrue(x.getExtraDimensions() == 0);
 
@@ -3517,6 +3627,19 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			});
 		}
 
+		if (this.ast.apiLevel() >= AST.JLS8) {
+			genericPropertyListTest(x, x.extraDimensions(),
+					new Property("ExtraDimensions", true, Dimension.class) { //$NON-NLS-1$
+						public ASTNode sample(AST targetAst, boolean parented) {
+							Dimension result = targetAst.newDimension();
+							if (parented) {
+								targetAst.newMethodDeclaration().extraDimensions().add(result);
+							}
+							return result;
+						}
+					});
+		}
+		
 		genericPropertyListTest(x, x.parameters(),
 		  new Property("Parameters", true, SingleVariableDeclaration.class) { //$NON-NLS-1$
 			public ASTNode sample(AST targetAst, boolean parented) {
@@ -3542,16 +3665,29 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			}
 		});
 
-		genericPropertyListTest(x, x.thrownExceptions(),
-		  new Property("ThrownExceptions", true, Name.class) { //$NON-NLS-1$
-			public ASTNode sample(AST targetAst, boolean parented) {
-				SimpleName result = targetAst.newSimpleName("foo"); //$NON-NLS-1$
-				if (parented) {
-					targetAst.newExpressionStatement(result);
-				}
-				return result;
-			}
-		});
+		if (this.ast.apiLevel() < AST.JLS8) {
+			genericPropertyListTest(x, x.thrownExceptions(),
+					  new Property("ThrownExceptions", true, Name.class) { //$NON-NLS-1$
+						public ASTNode sample(AST targetAst, boolean parented) {
+							SimpleName result = targetAst.newSimpleName("foo"); //$NON-NLS-1$
+							if (parented) {
+								targetAst.newExpressionStatement(result);
+							}
+							return result;
+						}
+					});			
+		} else {
+			genericPropertyListTest(x, x.thrownExceptionTypes(),
+					  new Property("ThrownExceptionTypes", true, Type.class) { //$NON-NLS-1$
+						public ASTNode sample(AST targetAst, boolean parented) {
+							Type result = targetAst.newSimpleType(targetAst.newSimpleName("foo")); //$NON-NLS-1$
+							if (parented) {
+								targetAst.newArrayType(result);
+							}
+							return result;
+						}
+					});			
+		}
 
 		genericPropertyTest(x, new Property("Body", false, Block.class) { //$NON-NLS-1$
 			public ASTNode sample(AST targetAst, boolean parented) {
@@ -3596,11 +3732,13 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			x.parameters().add(this.ast.newSingleVariableDeclaration());
 			assertTrue(!x.isVarargs()); // only last param counts
 		}
-		try {
-			x.setExtraDimensions(-1);
-			assertTrue("Should fail", false);
-		} catch(IllegalArgumentException e) {
-			// pass
+		if (this.ast.apiLevel() < AST.JLS8) {
+			try {
+				x.setExtraDimensions(-1);
+				fail("Should fail");
+			} catch(IllegalArgumentException e) {
+				// pass
+			}
 		}
 	}
 
@@ -5570,7 +5708,8 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 				this.ast.newModifier(Modifier.ModifierKeyword.SYNCHRONIZED_KEYWORD),
 				this.ast.newModifier(Modifier.ModifierKeyword.TRANSIENT_KEYWORD),
 				this.ast.newModifier(Modifier.ModifierKeyword.VOLATILE_KEYWORD),
-				this.ast.newModifier(Modifier.ModifierKeyword.STRICTFP_KEYWORD)
+				this.ast.newModifier(Modifier.ModifierKeyword.STRICTFP_KEYWORD),
+				this.ast.newModifier(Modifier.ModifierKeyword.DEFAULT_KEYWORD)
 		};
 		return allMods;
 	}
@@ -8375,7 +8514,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 	 * @param x the annotation to test
      * @since 3.0
 	 */
-	public void tAnnotationName(final Annotation x) {
+	void tAnnotationName(final Annotation x) {
 		genericPropertyTest(x, new Property("TypeName", true, Name.class) { //$NON-NLS-1$
 			public ASTNode sample(AST targetAst, boolean parented) {
 				SimpleName result = targetAst.newSimpleName("a"); //$NON-NLS-1$
@@ -8486,6 +8625,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(Modifier.ModifierKeyword.TRANSIENT_KEYWORD.toString().equals("transient")); //$NON-NLS-1$
 		assertTrue(Modifier.ModifierKeyword.VOLATILE_KEYWORD.toString().equals("volatile")); //$NON-NLS-1$
 		assertTrue(Modifier.ModifierKeyword.STRICTFP_KEYWORD.toString().equals("strictfp")); //$NON-NLS-1$
+		assertTrue(Modifier.ModifierKeyword.DEFAULT_KEYWORD.toString().equals("default")); //$NON-NLS-1$
 
 		final Modifier.ModifierKeyword[] known = {
 			Modifier.ModifierKeyword.PUBLIC_KEYWORD,
@@ -8499,6 +8639,7 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 			Modifier.ModifierKeyword.TRANSIENT_KEYWORD,
 			Modifier.ModifierKeyword.VOLATILE_KEYWORD,
 			Modifier.ModifierKeyword.STRICTFP_KEYWORD,
+			Modifier.ModifierKeyword.DEFAULT_KEYWORD
 		};
 
 		// check all modifiers are distinct
@@ -8594,190 +8735,149 @@ public class ASTTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase
 		assertTrue(subtreeBytes > 0);
 	}
 
-	public void testNodeTypeConstants() {
+	public void testNodeTypeConstants() throws Exception {
 		// it would be a breaking API change to change the numeric values of
 		// public static final ints
-		assertSame(ASTNode.ANONYMOUS_CLASS_DECLARATION, 1);
-		assertSame(ASTNode.ARRAY_ACCESS, 2);
-		assertSame(ASTNode.ARRAY_CREATION, 3);
-		assertSame(ASTNode.ARRAY_INITIALIZER, 4);
-		assertSame(ASTNode.ARRAY_TYPE, 5);
-		assertSame(ASTNode.ASSERT_STATEMENT, 6);
-		assertSame(ASTNode.ASSIGNMENT, 7);
-		assertSame(ASTNode.BLOCK, 8);
-		assertSame(ASTNode.BOOLEAN_LITERAL, 9);
-		assertSame(ASTNode.BREAK_STATEMENT, 10);
-		assertSame(ASTNode.CAST_EXPRESSION, 11);
-		assertSame(ASTNode.CATCH_CLAUSE, 12);
-		assertSame(ASTNode.CHARACTER_LITERAL, 13);
-		assertSame(ASTNode.CLASS_INSTANCE_CREATION, 14);
-		assertSame(ASTNode.COMPILATION_UNIT, 15);
-		assertSame(ASTNode.CONDITIONAL_EXPRESSION, 16);
-		assertSame(ASTNode.CONSTRUCTOR_INVOCATION, 17);
-		assertSame(ASTNode.CONTINUE_STATEMENT, 18);
-		assertSame(ASTNode.DO_STATEMENT, 19);
-		assertSame(ASTNode.EMPTY_STATEMENT, 20);
-		assertSame(ASTNode.EXPRESSION_STATEMENT, 21);
-		assertSame(ASTNode.FIELD_ACCESS, 22);
-		assertSame(ASTNode.FIELD_DECLARATION, 23);
-		assertSame(ASTNode.FOR_STATEMENT, 24);
-		assertSame(ASTNode.IF_STATEMENT, 25);
-		assertSame(ASTNode.IMPORT_DECLARATION, 26);
-		assertSame(ASTNode.INFIX_EXPRESSION, 27);
-		assertSame(ASTNode.INITIALIZER, 28);
-		assertSame(ASTNode.JAVADOC, 29);
-		assertSame(ASTNode.LABELED_STATEMENT, 30);
-		assertSame(ASTNode.METHOD_DECLARATION, 31);
-		assertSame(ASTNode.METHOD_INVOCATION, 32);
-		assertSame(ASTNode.NULL_LITERAL, 33);
-		assertSame(ASTNode.NUMBER_LITERAL, 34);
-		assertSame(ASTNode.PACKAGE_DECLARATION, 35);
-		assertSame(ASTNode.PARENTHESIZED_EXPRESSION, 36);
-		assertSame(ASTNode.POSTFIX_EXPRESSION, 37);
-		assertSame(ASTNode.PREFIX_EXPRESSION, 38);
-		assertSame(ASTNode.PRIMITIVE_TYPE, 39);
-		assertSame(ASTNode.QUALIFIED_NAME, 40);
-		assertSame(ASTNode.RETURN_STATEMENT, 41);
-		assertSame(ASTNode.SIMPLE_NAME, 42);
-		assertSame(ASTNode.SIMPLE_TYPE, 43);
-		assertSame(ASTNode.SINGLE_VARIABLE_DECLARATION, 44);
-		assertSame(ASTNode.STRING_LITERAL, 45);
-		assertSame(ASTNode.SUPER_CONSTRUCTOR_INVOCATION, 46);
-		assertSame(ASTNode.SUPER_FIELD_ACCESS, 47);
-		assertSame(ASTNode.SUPER_METHOD_INVOCATION, 48);
-		assertSame(ASTNode.SWITCH_CASE, 49);
-		assertSame(ASTNode.SWITCH_STATEMENT, 50);
-		assertSame(ASTNode.SYNCHRONIZED_STATEMENT, 51);
-		assertSame(ASTNode.THIS_EXPRESSION, 52);
-		assertSame(ASTNode.THROW_STATEMENT, 53);
-		assertSame(ASTNode.TRY_STATEMENT, 54);
-		assertSame(ASTNode.TYPE_DECLARATION, 55);
-		assertSame(ASTNode.TYPE_DECLARATION_STATEMENT, 56);
-		assertSame(ASTNode.TYPE_LITERAL, 57);
-		assertSame(ASTNode.VARIABLE_DECLARATION_EXPRESSION, 58);
-		assertSame(ASTNode.VARIABLE_DECLARATION_FRAGMENT, 59);
-		assertSame(ASTNode.VARIABLE_DECLARATION_STATEMENT, 60);
-		assertSame(ASTNode.WHILE_STATEMENT, 61);
-		assertSame(ASTNode.INSTANCEOF_EXPRESSION, 62);
-		assertSame(ASTNode.LINE_COMMENT, 63);
-		assertSame(ASTNode.BLOCK_COMMENT, 64);
-		assertSame(ASTNode.TAG_ELEMENT, 65);
-		assertSame(ASTNode.TEXT_ELEMENT, 66);
-		assertSame(ASTNode.MEMBER_REF, 67);
-		assertSame(ASTNode.METHOD_REF, 68);
-		assertSame(ASTNode.METHOD_REF_PARAMETER, 69);
-		assertSame(ASTNode.ENHANCED_FOR_STATEMENT, 70);
-		assertSame(ASTNode.ENUM_DECLARATION, 71);
-		assertSame(ASTNode.ENUM_CONSTANT_DECLARATION, 72);
-		assertSame(ASTNode.TYPE_PARAMETER, 73);
-		assertSame(ASTNode.PARAMETERIZED_TYPE, 74);
-		assertSame(ASTNode.QUALIFIED_TYPE, 75);
-		assertSame(ASTNode.WILDCARD_TYPE, 76);
-		assertSame(ASTNode.NORMAL_ANNOTATION, 77);
-		assertSame(ASTNode.MARKER_ANNOTATION, 78);
-		assertSame(ASTNode.SINGLE_MEMBER_ANNOTATION, 79);
-		assertSame(ASTNode.MEMBER_VALUE_PAIR, 80);
-		assertSame(ASTNode.ANNOTATION_TYPE_DECLARATION, 81);
-		assertSame(ASTNode.ANNOTATION_TYPE_MEMBER_DECLARATION, 82);
-		assertSame(ASTNode.MODIFIER, 83);
-
-		// ensure that all constants are distinct, positive, and small
-		// (this may seem paranoid, but this test did uncover a stupid bug!)
-		int[] all= {
-	      	  ASTNode.ANNOTATION_TYPE_DECLARATION,
-			  ASTNode.ANNOTATION_TYPE_MEMBER_DECLARATION,
-              ASTNode.ANONYMOUS_CLASS_DECLARATION,
-              ASTNode.ARRAY_ACCESS,
-              ASTNode.ARRAY_CREATION,
-              ASTNode.ARRAY_INITIALIZER,
-              ASTNode.ARRAY_TYPE,
-              ASTNode.ASSERT_STATEMENT,
-              ASTNode.ASSIGNMENT,
-              ASTNode.BLOCK,
-        	  ASTNode.BLOCK_COMMENT,
-              ASTNode.BOOLEAN_LITERAL,
-              ASTNode.BREAK_STATEMENT,
-              ASTNode.CAST_EXPRESSION,
-              ASTNode.CATCH_CLAUSE,
-              ASTNode.CHARACTER_LITERAL,
-              ASTNode.CLASS_INSTANCE_CREATION,
-              ASTNode.COMPILATION_UNIT,
-              ASTNode.CONDITIONAL_EXPRESSION,
-              ASTNode.CONSTRUCTOR_INVOCATION,
-              ASTNode.CONTINUE_STATEMENT,
-              ASTNode.DO_STATEMENT,
-              ASTNode.EMPTY_STATEMENT,
-              ASTNode.ENHANCED_FOR_STATEMENT,
-              ASTNode.ENUM_CONSTANT_DECLARATION,
-              ASTNode.ENUM_DECLARATION,
-              ASTNode.EXPRESSION_STATEMENT,
-              ASTNode.FIELD_ACCESS,
-              ASTNode.FIELD_DECLARATION,
-              ASTNode.FOR_STATEMENT,
-              ASTNode.IF_STATEMENT,
-              ASTNode.IMPORT_DECLARATION,
-              ASTNode.INFIX_EXPRESSION,
-              ASTNode.INSTANCEOF_EXPRESSION,
-              ASTNode.INITIALIZER,
-              ASTNode.JAVADOC,
-              ASTNode.LABELED_STATEMENT,
-        	  ASTNode.LINE_COMMENT,
-      		  ASTNode.MARKER_ANNOTATION,
-        	  ASTNode.MEMBER_REF,
-      		  ASTNode.MEMBER_VALUE_PAIR,
-              ASTNode.METHOD_DECLARATION,
-              ASTNode.METHOD_INVOCATION,
-        	  ASTNode.METHOD_REF,
-        	  ASTNode.METHOD_REF_PARAMETER,
-      		  ASTNode.MODIFIER,
-			  ASTNode.NORMAL_ANNOTATION,
-              ASTNode.NULL_LITERAL,
-              ASTNode.NUMBER_LITERAL,
-              ASTNode.PACKAGE_DECLARATION,
-              ASTNode.PARAMETERIZED_TYPE,
-              ASTNode.PARENTHESIZED_EXPRESSION,
-              ASTNode.POSTFIX_EXPRESSION,
-              ASTNode.PREFIX_EXPRESSION,
-              ASTNode.PRIMITIVE_TYPE,
-              ASTNode.QUALIFIED_NAME,
-              ASTNode.QUALIFIED_TYPE,
-              ASTNode.RETURN_STATEMENT,
-              ASTNode.SIMPLE_NAME,
-              ASTNode.SIMPLE_TYPE,
-      		  ASTNode.SINGLE_MEMBER_ANNOTATION,
-              ASTNode.SINGLE_VARIABLE_DECLARATION,
-              ASTNode.STRING_LITERAL,
-              ASTNode.SUPER_CONSTRUCTOR_INVOCATION,
-              ASTNode.SUPER_FIELD_ACCESS,
-              ASTNode.SUPER_METHOD_INVOCATION,
-              ASTNode.SWITCH_CASE,
-              ASTNode.SWITCH_STATEMENT,
-              ASTNode.SYNCHRONIZED_STATEMENT,
-        	  ASTNode.TAG_ELEMENT,
-        	  ASTNode.TEXT_ELEMENT,
-              ASTNode.THIS_EXPRESSION,
-              ASTNode.THROW_STATEMENT,
-              ASTNode.TRY_STATEMENT,
-              ASTNode.TYPE_DECLARATION,
-              ASTNode.TYPE_DECLARATION_STATEMENT,
-              ASTNode.TYPE_LITERAL,
-              ASTNode.TYPE_PARAMETER,
-              ASTNode.VARIABLE_DECLARATION_EXPRESSION,
-              ASTNode.VARIABLE_DECLARATION_FRAGMENT,
-              ASTNode.VARIABLE_DECLARATION_STATEMENT,
-              ASTNode.WHILE_STATEMENT,
-              ASTNode.WILDCARD_TYPE,
+		int[] nodeTypes = {
+			ASTNode.ANONYMOUS_CLASS_DECLARATION,
+			ASTNode.ARRAY_ACCESS,
+			ASTNode.ARRAY_CREATION,
+			ASTNode.ARRAY_INITIALIZER,
+			ASTNode.ARRAY_TYPE,
+			ASTNode.ASSERT_STATEMENT,
+			ASTNode.ASSIGNMENT,
+			ASTNode.BLOCK,
+			ASTNode.BOOLEAN_LITERAL,
+			ASTNode.BREAK_STATEMENT,
+			ASTNode.CAST_EXPRESSION,
+			ASTNode.CATCH_CLAUSE,
+			ASTNode.CHARACTER_LITERAL,
+			ASTNode.CLASS_INSTANCE_CREATION,
+			ASTNode.COMPILATION_UNIT,
+			ASTNode.CONDITIONAL_EXPRESSION,
+			ASTNode.CONSTRUCTOR_INVOCATION,
+			ASTNode.CONTINUE_STATEMENT,
+			ASTNode.DO_STATEMENT,
+			ASTNode.EMPTY_STATEMENT,
+			ASTNode.EXPRESSION_STATEMENT,
+			ASTNode.FIELD_ACCESS,
+			ASTNode.FIELD_DECLARATION,
+			ASTNode.FOR_STATEMENT,
+			ASTNode.IF_STATEMENT,
+			ASTNode.IMPORT_DECLARATION,
+			ASTNode.INFIX_EXPRESSION,
+			ASTNode.INITIALIZER,
+			ASTNode.JAVADOC,
+			ASTNode.LABELED_STATEMENT,
+			ASTNode.METHOD_DECLARATION,
+			ASTNode.METHOD_INVOCATION,
+			ASTNode.NULL_LITERAL,
+			ASTNode.NUMBER_LITERAL,
+			ASTNode.PACKAGE_DECLARATION,
+			ASTNode.PARENTHESIZED_EXPRESSION,
+			ASTNode.POSTFIX_EXPRESSION,
+			ASTNode.PREFIX_EXPRESSION,
+			ASTNode.PRIMITIVE_TYPE,
+			ASTNode.QUALIFIED_NAME,
+			ASTNode.RETURN_STATEMENT,
+			ASTNode.SIMPLE_NAME,
+			ASTNode.SIMPLE_TYPE,
+			ASTNode.SINGLE_VARIABLE_DECLARATION,
+			ASTNode.STRING_LITERAL,
+			ASTNode.SUPER_CONSTRUCTOR_INVOCATION,
+			ASTNode.SUPER_FIELD_ACCESS,
+			ASTNode.SUPER_METHOD_INVOCATION,
+			ASTNode.SWITCH_CASE,
+			ASTNode.SWITCH_STATEMENT,
+			ASTNode.SYNCHRONIZED_STATEMENT,
+			ASTNode.THIS_EXPRESSION,
+			ASTNode.THROW_STATEMENT,
+			ASTNode.TRY_STATEMENT,
+			ASTNode.TYPE_DECLARATION,
+			ASTNode.TYPE_DECLARATION_STATEMENT,
+			ASTNode.TYPE_LITERAL,
+			ASTNode.VARIABLE_DECLARATION_EXPRESSION,
+			ASTNode.VARIABLE_DECLARATION_FRAGMENT,
+			ASTNode.VARIABLE_DECLARATION_STATEMENT,
+			ASTNode.WHILE_STATEMENT,
+			ASTNode.INSTANCEOF_EXPRESSION,
+			ASTNode.LINE_COMMENT,
+			ASTNode.BLOCK_COMMENT,
+			ASTNode.TAG_ELEMENT,
+			ASTNode.TEXT_ELEMENT,
+			ASTNode.MEMBER_REF,
+			ASTNode.METHOD_REF,
+			ASTNode.METHOD_REF_PARAMETER,
+			ASTNode.ENHANCED_FOR_STATEMENT,
+			ASTNode.ENUM_DECLARATION,
+			ASTNode.ENUM_CONSTANT_DECLARATION,
+			ASTNode.TYPE_PARAMETER,
+			ASTNode.PARAMETERIZED_TYPE,
+			ASTNode.QUALIFIED_TYPE,
+			ASTNode.WILDCARD_TYPE,
+			ASTNode.NORMAL_ANNOTATION,
+			ASTNode.MARKER_ANNOTATION,
+			ASTNode.SINGLE_MEMBER_ANNOTATION,
+			ASTNode.MEMBER_VALUE_PAIR,
+			ASTNode.ANNOTATION_TYPE_DECLARATION,
+			ASTNode.ANNOTATION_TYPE_MEMBER_DECLARATION,
+			ASTNode.MODIFIER,
+			ASTNode.UNION_TYPE,
+			ASTNode.DIMENSION,
+			ASTNode.LAMBDA_EXPRESSION,
+			ASTNode.INTERSECTION_TYPE,
+			ASTNode.NAME_QUALIFIED_TYPE,
+			ASTNode.CREATION_REFERENCE,
+			ASTNode.EXPRESSION_METHOD_REFERENCE,
+			ASTNode.SUPER_METHOD_REFERENCE,
+			ASTNode.TYPE_METHOD_REFERENCE
 		};
-		int MIN = 1;
-		int MAX = 100;
-		Set s = new HashSet();
-		for (int i=0; i<all.length; i++) {
-			assertTrue(MIN <= all[i] && all[i] <= MAX);
-			s.add(new Integer(all[i]));
+		
+		// assert that nodeType values are correct:
+		for (int i= 0; i < nodeTypes.length; i++) {
+			assertSame(i + 1, nodeTypes[i]);
 		}
-		assertTrue(s.size() == all.length);
-		// ensure that Integers really do compare properly with equals
-		assertTrue(new Integer(1).equals(new Integer(1)));
+		
+		// test nodeClassForType:
+		for (int i= 0; i < nodeTypes.length; i++) {
+			int nodeType = nodeTypes[i];
+			ASTNode node;
+			try {
+				node = this.ast.createInstance(nodeType);
+			} catch (IllegalArgumentException e) {
+				if (this.API_LEVEL < AST.JLS8 && e.getCause() instanceof UnsupportedOperationException) {
+					continue;
+				} else {
+					throw new AssertionFailedError("missing node type: " + nodeType);
+				}
+			}
+			assertEquals(nodeType, node.getNodeType());
+		}
+		
+		// assert that test covers all nodeTypes:
+		Field[] fields = ASTNode.class.getDeclaredFields();
+		HashSet declaredNodeTypes = new HashSet();
+		for (int i= 0; i < fields.length; i++) {
+			Field field= fields[i];
+			if (field.getType() != int.class)
+				continue;
+			if (field.getModifiers() != (java.lang.reflect.Modifier.PUBLIC | java.lang.reflect.Modifier.STATIC | java.lang.reflect.Modifier.FINAL))
+				continue;
+			String name = field.getName();
+			if ("MALFORMED".equals(name) || "ORIGINAL".equals(name) || "PROTECT".equals(name) || "RECOVERED".equals(name))
+				continue;
+			declaredNodeTypes.add(new Integer(field.getInt(null)));
+		}
+		for (int i= 0; i < nodeTypes.length; i++) {
+			int nodeType= nodeTypes[i];
+			assertTrue("node type " + nodeType + " from test is missing in ASTNode", declaredNodeTypes.remove(new Integer(nodeType)));
+			nodeTypes[i] = -1;
+		}
+		for (int i= 0; i < nodeTypes.length; i++) {
+			int nodeType= nodeTypes[i];
+			assertEquals("node type " + nodeType + " missing in ASTNode", -1, nodeType);
+		}
+		assertEquals("node types missing in test", Collections.EMPTY_SET, declaredNodeTypes);
 	}
 }
 

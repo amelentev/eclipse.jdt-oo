@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -45,8 +45,9 @@ public class ThisReference extends Reference {
 		return flowInfo; // this cannot be assigned
 	}
 
-	public boolean checkAccess(MethodScope methodScope) {
+	public boolean checkAccess(BlockScope scope, ReferenceBinding receiverType) {
 
+		MethodScope methodScope = scope.methodScope();
 		// this/super cannot be used in constructor call
 		if (methodScope.isConstructorCall) {
 			methodScope.problemReporter().fieldsOrThisBeforeConstructorInvocation(this);
@@ -57,8 +58,15 @@ public class ThisReference extends Reference {
 		if (methodScope.isStatic) {
 			methodScope.problemReporter().errorThisSuperInStatic(this);
 			return false;
+		} else if (this.isUnqualifiedSuper()) {
+			TypeDeclaration type = methodScope.referenceType();
+			if (type != null && TypeDeclaration.kind(type.modifiers) == TypeDeclaration.INTERFACE_DECL) {
+				methodScope.problemReporter().errorNoSuperInInterface(this);
+				return false;
+			}
 		}
-		methodScope.resetEnclosingMethodStaticFlag();
+		if (receiverType != null)
+			scope.tagAsAccessingEnclosingInstanceStateOf(receiverType, false /* type variable access */);
 		return true;
 	}
 
@@ -108,6 +116,10 @@ public class ThisReference extends Reference {
 		return true ;
 	}
 
+	public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
+		return FlowInfo.NON_NULL;
+	}
+
 	public StringBuffer printExpression(int indent, StringBuffer output){
 
 		if (isImplicitThis()) return output;
@@ -117,10 +129,19 @@ public class ThisReference extends Reference {
 	public TypeBinding resolveType(BlockScope scope) {
 
 		this.constant = Constant.NotAConstant;
-		if (!isImplicitThis() &&!checkAccess(scope.methodScope())) {
+		
+		ReferenceBinding enclosingReceiverType = scope.enclosingReceiverType();
+		if (!isImplicitThis() &&!checkAccess(scope, enclosingReceiverType)) {
 			return null;
 		}
-		return this.resolvedType = scope.enclosingReceiverType();
+		this.resolvedType = enclosingReceiverType;
+		MethodScope methodScope = scope.namedMethodScope();
+		if (methodScope != null) {
+			MethodBinding method = methodScope.referenceMethodBinding();
+			if (method != null && method.receiver != null && TypeBinding.equalsEquals(method.receiver, this.resolvedType))
+				this.resolvedType = method.receiver;
+		}
+		return this.resolvedType;
 	}
 
 	public void traverse(ASTVisitor visitor, BlockScope blockScope) {

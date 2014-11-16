@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007 BEA Systems, Inc. 
+ * Copyright (c) 2007, 2013 BEA Systems, Inc. and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,7 +7,7 @@
  *
  * Contributors:
  *    wharley@bea.com - initial API and implementation
- *    
+ *    IBM Corporation - Java 8 support
  *******************************************************************************/
 
 package org.eclipse.jdt.internal.compiler.apt.model;
@@ -16,6 +16,7 @@ import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVisitor;
 
+import org.eclipse.jdt.internal.compiler.apt.dispatch.BaseProcessingEnvImpl;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
@@ -42,6 +43,11 @@ public class PrimitiveTypeImpl extends TypeMirrorImpl implements PrimitiveType {
 	private PrimitiveTypeImpl(BaseTypeBinding binding) {
 		// Primitive types do not need an environment!
 		super(null, binding);
+	}
+	
+	PrimitiveTypeImpl(BaseProcessingEnvImpl env, BaseTypeBinding binding) {
+		// From Java 8, base type bindings can hold annotations and hence need the environment.
+		super(env, binding);
 	}
 	
 	@Override

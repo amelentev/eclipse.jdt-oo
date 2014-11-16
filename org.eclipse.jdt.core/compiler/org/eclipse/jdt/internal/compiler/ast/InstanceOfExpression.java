@@ -9,6 +9,13 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 417295 - [1.8[[null] Massage type annotated null analysis to gel well with deep encoded type bindings.
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -64,7 +71,7 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean valueRequired) {
 	int pc = codeStream.position;
 	this.expression.generateCode(currentScope, codeStream, true);
-	codeStream.instance_of(this.type.resolvedType);
+	codeStream.instance_of(this.type, this.type.resolvedType);
 	if (valueRequired) {
 		codeStream.generateImplicitConversion(this.implicitConversion);
 	} else {
@@ -82,6 +89,11 @@ public TypeBinding resolveType(BlockScope scope) {
 	this.constant = Constant.NotAConstant;
 	TypeBinding expressionType = this.expression.resolveType(scope);
 	TypeBinding checkedType = this.type.resolveType(scope, true /* check bounds*/);
+	if (expressionType != null && checkedType != null && checkedType.hasNullTypeAnnotations()) {
+		// don't complain if the entire operation is redundant anyway
+		if (!expressionType.isCompatibleWith(checkedType) || NullAnnotationMatching.analyse(checkedType, expressionType, -1).isAnyMismatch())
+			scope.problemReporter().nullAnnotationUnsupportedLocation(this.type);
+	}
 	if (expressionType == null || checkedType == null)
 		return null;
 

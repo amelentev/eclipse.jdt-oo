@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper S Moller - Bug 392671
+ *          NPE with a method with explicit this and a following incomplete parameter
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.parser;
 
@@ -38,6 +40,7 @@ import org.eclipse.jdt.internal.compiler.util.Util;
  * Internal method structure for parsing recovery
  */
 
+@SuppressWarnings("rawtypes")
 public class RecoveredMethod extends RecoveredElement implements TerminalTokens {
 
 	public AbstractMethodDeclaration methodDeclaration;
@@ -508,7 +511,11 @@ public void updateFromParserState(){
 						parser.consumeMethodHeaderRightParen();
 						/* fix-up positions, given they were updated against rParenPos, which did not get set */
 						if (parser.currentElement == this){ // parameter addition might have added an awaiting (no return type) method - see 1FVXQZ4 */
-							this.methodDeclaration.sourceEnd = this.methodDeclaration.arguments[this.methodDeclaration.arguments.length-1].sourceEnd;
+							if (this.methodDeclaration.arguments != null) {
+								this.methodDeclaration.sourceEnd = this.methodDeclaration.arguments[this.methodDeclaration.arguments.length-1].sourceEnd;
+							} else {
+								this.methodDeclaration.sourceEnd = this.methodDeclaration.receiver.sourceEnd;
+							}
 							this.methodDeclaration.bodyStart = this.methodDeclaration.sourceEnd+1;
 							parser.lastCheckPoint = this.methodDeclaration.bodyStart;
 						}

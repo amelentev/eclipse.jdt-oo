@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,9 @@
  *     Stephan Herrmann - Contributions for
  *								Bug 360328 - [compiler][null] detect null problems in nested code (local class inside a loop)
  *								Bug 388630 - @NonNull diagnostics at line 0
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 424727 - [compiler][null] NullPointerException in nullAnnotationUnsupportedLocation(ProblemReporter.java:5708)
  *     Keigo Imai - Contribution for  bug 388903 - Cannot extend inner class as an anonymous class when it extends the outer class
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
@@ -419,6 +422,7 @@ public MethodBinding createDefaultConstructorWithBinding(MethodBinding inherited
 		System.arraycopy(inheritedConstructorBinding.parameterNonNullness, 0, 
 				constructor.binding.parameterNonNullness = new Boolean[len], 0, len);
 	}
+	// TODO(stephan): do argument types already carry sufficient info about type annotations?
 
 	constructor.scope = new MethodScope(this.scope, constructor, true);
 	constructor.bindArguments();
@@ -457,7 +461,7 @@ public TypeDeclaration declarationOf(MemberTypeBinding memberTypeBinding) {
 	if (memberTypeBinding != null && this.memberTypes != null) {
 		for (int i = 0, max = this.memberTypes.length; i < max; i++) {
 			TypeDeclaration memberTypeDecl;
-			if ((memberTypeDecl = this.memberTypes[i]).binding == memberTypeBinding)
+			if (TypeBinding.equalsEquals((memberTypeDecl = this.memberTypes[i]).binding, memberTypeBinding))
 				return memberTypeDecl;
 		}
 	}
@@ -929,7 +933,10 @@ public StringBuffer printBody(int indent, StringBuffer output) {
 
 public StringBuffer printHeader(int indent, StringBuffer output) {
 	printModifiers(this.modifiers, output);
-	if (this.annotations != null) printAnnotations(this.annotations, output);
+	if (this.annotations != null) {
+		printAnnotations(this.annotations, output);
+		output.append(' ');
+	}
 
 	switch (kind(this.modifiers)) {
 		case TypeDeclaration.CLASS_DECL :
@@ -998,11 +1005,31 @@ public void resolve() {
 			this.staticInitializerScope.insideTypeAnnotation = old;
 		}
 		// check @Deprecated annotation
-		if ((sourceType.getAnnotationTagBits() & TagBits.AnnotationDeprecated) == 0
+		long annotationTagBits = sourceType.getAnnotationTagBits();
+		if ((annotationTagBits & TagBits.AnnotationDeprecated) == 0
 				&& (sourceType.modifiers & ClassFileConstants.AccDeprecated) != 0
 				&& this.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) {
 			this.scope.problemReporter().missingDeprecatedAnnotationForType(this);
 		}
+		if ((annotationTagBits & TagBits.AnnotationFunctionalInterface) != 0) {
+			if(!this.binding.isFunctionalInterface(this.scope)) {
+				this.scope.problemReporter().notAFunctionalInterface(this);
+			}
+		}
+		if (this.scope.compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8) {
+			if ((annotationTagBits & TagBits.AnnotationNullMASK) != 0) {
+				for (int i = 0; i < this.annotations.length; i++) {
+					ReferenceBinding annotationType = this.annotations[i].getCompilerAnnotation().getAnnotationType();
+					if (annotationType != null) {
+						if (annotationType.id == TypeIds.T_ConfiguredAnnotationNonNull
+								|| annotationType.id == TypeIds.T_ConfiguredAnnotationNullable)
+						this.scope.problemReporter().nullAnnotationUnsupportedLocation(this.annotations[i]);
+						sourceType.tagBits &= ~TagBits.AnnotationNullMASK;
+					}
+				}
+			}
+		}
+
 		if ((this.bits & ASTNode.UndocumentedEmptyBlock) != 0) {
 			this.scope.problemReporter().undocumentedEmptyBlock(this.bodyStart-1, this.bodyEnd);
 		}
@@ -1074,11 +1101,6 @@ public void resolve() {
 		boolean hasEnumConstants = false;
 		FieldDeclaration[] enumConstantsWithoutBody = null;
 
-		if (this.typeParameters != null) {
-			for (int i = 0, count = this.typeParameters.length; i < count; i++) {
-				this.typeParameters[i].resolve(this.scope);
-			}
-		}
 		if (this.memberTypes != null) {
 			for (int i = 0, count = this.memberTypes.length; i < count; i++) {
 				this.memberTypes[i].resolve(this.scope);
@@ -1107,7 +1129,7 @@ public void resolve() {
 						if (needSerialVersion
 								&& ((fieldBinding.modifiers & (ClassFileConstants.AccStatic | ClassFileConstants.AccFinal)) == (ClassFileConstants.AccStatic | ClassFileConstants.AccFinal))
 								&& CharOperation.equals(TypeConstants.SERIALVERSIONUID, fieldBinding.name)
-								&& TypeBinding.LONG == fieldBinding.type) {
+								&& TypeBinding.equalsEquals(TypeBinding.LONG, fieldBinding.type)) {
 							needSerialVersion = false;
 						}
 						localMaxFieldCount++;
@@ -1130,7 +1152,7 @@ public void resolve() {
 			if (javaxRmiCorbaStub.isValidBinding()) {
 				ReferenceBinding superclassBinding = this.binding.superclass;
 				loop: while (superclassBinding != null) {
-					if (superclassBinding == javaxRmiCorbaStub) {
+					if (TypeBinding.equalsEquals(superclassBinding, javaxRmiCorbaStub)) {
 						needSerialVersion = false;
 						break loop;
 					}
@@ -1251,6 +1273,9 @@ checkOuterScope:while (outerScope != null) {
 						&& ((LocalTypeBinding) existingType).scope.methodScope() == blockScope.methodScope()) {
 					// dup in same method
 					blockScope.problemReporter().duplicateNestedType(this);
+			} else if (existingType instanceof LocalTypeBinding && blockScope.isLambdaSubscope()
+					&& blockScope.enclosingLambdaScope().enclosingMethodScope() == ((LocalTypeBinding) existingType).scope.methodScope()) {
+				blockScope.problemReporter().duplicateNestedType(this);
 			} else if (blockScope.isDefinedInType(existingType)) {
 				//	collision with enclosing type
 				blockScope.problemReporter().typeCollidesWithEnclosingType(this);
@@ -1298,6 +1323,10 @@ public void resolve(CompilationUnitScope upperScope) {
 
 public void tagAsHavingErrors() {
 	this.ignoreFurtherInvestigation = true;
+}
+
+public void tagAsHavingIgnoredMandatoryErrors(int problemId) {
+	// Nothing to do for this context;
 }
 
 /**
@@ -1488,6 +1517,9 @@ void updateMaxFieldCount() {
 	}
 }
 
+public boolean isPackageInfo() {
+	return CharOperation.equals(this.name,  TypeConstants.PACKAGE_INFO_NAME);
+}
 /**
  * Returns whether the type is a secondary one or not.
  */

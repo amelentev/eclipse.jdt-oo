@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2012 BEA Systems, Inc. and others
+ * Copyright (c) 2006, 2013 BEA Systems, Inc. and others
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,6 +9,7 @@
  *    wharley@bea.com - initial API and implementation
  *    IBM Corporation - Fix for bug 341494
  *    IBM Corporation - Fix for bug 328575
+ *    IBM Corporation - Java 8 support
  *******************************************************************************/
 
 package org.eclipse.jdt.internal.compiler.apt.model;
@@ -89,19 +90,23 @@ public class ElementsImpl implements Elements {
 			// A class can only have one annotation of a particular annotation type.
 			Set<ReferenceBinding> annotationTypes = new HashSet<ReferenceBinding>();
 			ReferenceBinding binding = (ReferenceBinding)((TypeElementImpl)e)._binding;
+			boolean checkIfInherited = false;
 			while (null != binding) {
 				if (binding instanceof ParameterizedTypeBinding) {
 					binding = ((ParameterizedTypeBinding) binding).genericType();
 				}
-				for (AnnotationBinding annotation : binding.getAnnotations()) {
+				for (AnnotationBinding annotation : Factory.getPackedAnnotationBindings(binding.getAnnotations())) {
 					if (annotation == null) continue;
 					ReferenceBinding annotationType = annotation.getAnnotationType();
+					if (checkIfInherited && (annotationType.getAnnotationTagBits() & TagBits.AnnotationInherited) == 0)
+						continue;
 					if (!annotationTypes.contains(annotationType)) {
 						annotationTypes.add(annotationType);
 						annotations.add(annotation);
 					}
 				}
 				binding = binding.superclass();
+				checkIfInherited = true;
 			}
 			List<AnnotationMirror> list = new ArrayList<AnnotationMirror>(annotations.size());
 			for (AnnotationBinding annotation : annotations) {
@@ -447,17 +452,6 @@ public class ElementsImpl implements Elements {
 			for (int i = 0, max = chars.length; i < max; i++) {
 				char c = chars[i];
 				switch(c) {
-					case '\t' :
-						if (starsIndex == -1) {
-							if (recordLeadingWhitespaces) {
-								leadingWhitespaces += 8;
-							} else {
-								sb.append(c);
-							}
-						} else if (i >= starsIndex) {
-							sb.append(c);
-						}
-						break;
 					case ' ' :
 						if (starsIndex == -1) {
 							if (recordLeadingWhitespaces) {
@@ -489,6 +483,10 @@ public class ElementsImpl implements Elements {
 							}
 							leadingWhitespaces = 0;
 							sb.append(c);
+						} else if (c == '\t') {
+							if (i >= starsIndex) {
+								sb.append(c);
+							}
 						} else if (c != '*' || i > starsIndex) {
 							sb.append(c);
 						}
@@ -700,6 +698,16 @@ public class ElementsImpl implements Elements {
 		} catch (IOException e) {
 			// ignore
 		}
+	}
+
+	public boolean isFunctionalInterface(TypeElement type) {
+		if (type != null && type.getKind() == ElementKind.INTERFACE) {
+			ReferenceBinding binding = (ReferenceBinding)((TypeElementImpl) type)._binding;
+			if (binding instanceof SourceTypeBinding) {
+				return binding.isFunctionalInterface(((SourceTypeBinding) binding).scope);
+			}
+		}
+		return false;
 	}
 
 }

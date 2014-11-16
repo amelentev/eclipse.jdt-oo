@@ -149,6 +149,17 @@
  *									UninitializedLocalVariableHintMissingDefault
  *									UninitializedBlankFinalFieldHintMissingDefault
  *									ShouldReturnValueHintMissingDefault
+ *									IllegalModifierForInterfaceDefaultMethod
+ *									InheritedDefaultMethodConflictsWithOtherInherited
+ *									ConflictingNullAnnotations
+ *									ConflictingInheritedNullAnnotations
+ *									UnsafeElementTypeConversion
+ *									ArrayReferencePotentialNullReference
+ *									DereferencingNullableExpression
+ *									NullityMismatchingTypeAnnotation
+ *									NullityMismatchingTypeAnnotationSuperHint
+ *									NullityUncheckedTypeAnnotationDetail
+ *									NullityUncheckedTypeAnnotationDetailSuperHint
  *									NullableFieldReference
  *									UninitializedNonNullField
  *									UninitializedNonNullFieldHintMissingDefault
@@ -157,6 +168,13 @@
  *									NonNullSpecdFieldComparisonYieldsFalse
  *									NonNullExpressionComparisonYieldsFalse
  *									RedundantNullCheckOnNonNullExpression
+ *									ReferenceExpressionParameterNullityMismatch
+ *									ReferenceExpressionParameterNullityUnchecked
+ *									ReferenceExpressionReturnNullRedef
+ *									ReferenceExpressionReturnNullRedefUnchecked
+ *									DuplicateInheritedDefaultMethods
+ *									SuperAccessCannotBypassDirectSuper
+ *									SuperCallCannotBypassOverride
  *									ConflictingNullAnnotations
  *									ConflictingInheritedNullAnnotations
  *									UnsafeElementTypeConversion
@@ -164,7 +182,33 @@
  *									NullUnboxing
  *									NullExpressionReference
  *									PotentialNullExpressionReference
- *******************************************************************************/
+ *									RedundantNullCheckAgainstNonNullType
+ *									NullAnnotationUnsupportedLocation
+ *									NullAnnotationUnsupportedLocationAtType
+ *									NullityMismatchTypeArgument
+ *									ContradictoryNullAnnotationsOnBound
+ *									UnsafeNullnessCast
+ *									ContradictoryNullAnnotationsInferred
+ *									NonNullDefaultDetailIsNotEvaluated
+ *									NullNotCompatibleToFreeTypeVariable
+ *									NullityMismatchAgainstFreeTypeVariable
+ *      Jesper S Moller  - added the following constants
+ *									TargetTypeNotAFunctionalInterface
+ *									OuterLocalMustBeEffectivelyFinal
+ *									IllegalModifiersForPackage
+ *									DuplicateAnnotationNotMarkedRepeatable
+ *									DisallowedTargetForContainerAnnotation
+ *									RepeatedAnnotationWithContainerAnnotation
+ *									ContainingAnnotationMustHaveValue
+ *									ContainingAnnotationHasNonDefaultMembers
+ *									ContainingAnnotationHasWrongValueType
+ *								 	ContainingAnnotationHasShorterRetention
+ *									RepeatableAnnotationHasTargets
+ *									RepeatableAnnotationTargetMismatch
+ *									RepeatableAnnotationIsDocumented
+ *									RepeatableAnnotationIsInherited
+ *									RepeatableAnnotationWithRepeatingContainerAnnotation
+*******************************************************************************/
 package org.eclipse.jdt.core.compiler;
 
 import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
@@ -332,6 +376,9 @@ void setSourceStart(int sourceStart);
 	int TypeMismatch = TypeRelated + 17;
 	/** @since 3.0 */
 	int IndirectAccessToStaticType = Internal + TypeRelated + 18;
+	
+	/** @since 3.10 */
+	int ReturnTypeMismatch = TypeRelated + 19;
 
 	/**
 	 * Inner types related problems
@@ -406,7 +453,8 @@ void setSourceStart(int sourceStart);
 	int DuplicateBlankFinalFieldInitialization = FieldRelated + 82;
 	/** @since 3.6 */
 	int UnresolvedVariable = FieldRelated + 83;
-
+	/** @since 3.10 */
+	int NonStaticOrAlienTypeReceiver = MethodRelated + 84;
 	// variable hiding
 	/** @since 3.0 */
 	int LocalVariableHidingLocalVariable = Internal + 90;
@@ -422,6 +470,12 @@ void setSourceStart(int sourceStart);
 	int ArgumentHidingField = Internal + 95;
 	/** @since 3.1 */
 	int MissingSerialVersion = Internal + 96;
+	/** @since 3.10 */
+	int LambdaRedeclaresArgument = Internal + 97;
+	/** @since 3.10 */
+	int LambdaRedeclaresLocal = Internal + 98;
+	/** @since 3.10 */
+	int LambdaDescriptorMentionsUnmentionable = 99;
 
 	// methods
 	int UndefinedMethod = MethodRelated + 100;
@@ -452,6 +506,18 @@ void setSourceStart(int sourceStart);
 	int MethodCanBeStatic = Internal + MethodRelated + 121;
 	/** @since 3.7 */
 	int MethodCanBePotentiallyStatic = Internal + MethodRelated + 122;
+	/** @since 3.10 */
+	int MethodReferenceSwingsBothWays = Internal + MethodRelated + 123;
+	/** @since 3.10 */
+	int StaticMethodShouldBeAccessedStatically = Internal + MethodRelated + 124;
+	/** @since 3.10 */
+	int InvalidArrayConstructorReference = Internal + MethodRelated + 125;
+	/** @since 3.10 */
+	int ConstructedArrayIncompatible = Internal + MethodRelated + 126;
+	/** @since 3.10 */
+	int DanglingReference = Internal + MethodRelated + 127;
+	/** @since 3.10 */
+	int IncompatibleMethodReference = Internal + MethodRelated + 128;
 
 	// constructors
 	/** @since 3.4 */
@@ -598,6 +664,9 @@ void setSourceStart(int sourceStart);
 	/** @since 2.1 */
 	int InvalidParenthesizedExpression = Syntax + Internal + 225;
 
+	/** @since 3.10 */
+	int NoSuperInInterfaceContext = Syntax + Internal + 226;
+
 	/** @since 3.0 */
 	int ParsingErrorInsertTokenBefore = Syntax + Internal + 230;
 	/** @since 3.0 */
@@ -656,6 +725,9 @@ void setSourceStart(int sourceStart);
 	int UnderscoresInLiteralsNotBelow17 = Syntax + Internal + 269;
 	/** @since 3.7.1 */
 	int IllegalHexaLiteral = Syntax + Internal + 270;
+
+	/** @since 3.10 */
+	int MissingTypeInLambda = MethodRelated + 271;
 
 	// type related problems
 	/** @since 3.1 */
@@ -882,6 +954,11 @@ void setSourceStart(int sourceStart);
 	int UseEnumAsAnIdentifier = Internal + 441;
 	/** @since 3.2 */
 	int EnumConstantsCannotBeSurroundedByParenthesis = Syntax + Internal + 442;
+
+	/** @since 3.10 */
+	int IllegalUseOfUnderscoreAsAnIdentifier = Syntax + Internal + 443;
+	 /** @since 3.10 */
+	int UninternedIdentityComparison = Syntax + Internal + 444;
 
 	// detected task
 	/** @since 2.1 */
@@ -1309,8 +1386,53 @@ void setSourceStart(int sourceStart);
 	int UnusedWarningToken = Internal + 635;
 	/** @since 3.6 */
 	int MissingOverrideAnnotationForInterfaceMethodImplementation = MethodRelated + 636;
-
-	/**
+	/** @since 3.10 */
+    int InvalidUsageOfTypeAnnotations = Syntax + Internal + 637;
+    /** @since 3.10 */
+    int DisallowedExplicitThisParameter = Syntax + Internal + 638;
+    /** @since 3.10 */
+    int MisplacedTypeAnnotations = Syntax + Internal + 639;
+    /** @since 3.10 */
+    int IllegalTypeAnnotationsInStaticMemberAccess = Internal + Syntax + 640;
+    /** @since 3.10 */
+    int IllegalUsageOfTypeAnnotations = Internal + Syntax + 641;
+    /** @since 3.10 */
+    int IllegalDeclarationOfThisParameter = Internal + Syntax + 642;
+    /** @since 3.10 */
+    int ExplicitThisParameterNotBelow18 = Internal + Syntax + 643;
+    /** @since 3.10 */
+    int DefaultMethodNotBelow18 = Internal + Syntax + 644;
+    /** @since 3.10 */
+    int LambdaExpressionNotBelow18 = Internal + Syntax + 645;
+    /** @since 3.10 */
+    int MethodReferenceNotBelow18 = Internal + Syntax + 646;
+    /** @since 3.10 */
+    int ConstructorReferenceNotBelow18 = Internal + Syntax + 647;
+    /** @since 3.10 */
+    int ExplicitThisParameterNotInLambda = Internal + Syntax + 648;
+    /** @since 3.10 */
+    int ExplicitAnnotationTargetRequired = TypeRelated + 649;
+    /** @since 3.10 */
+    int IllegalTypeForExplicitThis = Internal + Syntax + 650;
+    /** @since 3.10 */
+    int IllegalQualifierForExplicitThis = Internal + Syntax + 651;
+    /** @since 3.10 */
+    int IllegalQualifierForExplicitThis2 = Internal + Syntax + 652;
+    /** @since 3.10 */
+    int TargetTypeNotAFunctionalInterface = Internal + TypeRelated + 653;
+    /** @since 3.10 */
+    int IllegalVarargInLambda = Internal + TypeRelated + 654;
+    /** @since 3.10 */
+    int illFormedParameterizationOfFunctionalInterface = Internal + TypeRelated + 655;
+    /** @since 3.10 */
+    int lambdaSignatureMismatched = Internal + TypeRelated + 656;
+    /** @since 3.10 */
+    int lambdaParameterTypeMismatched = Internal + TypeRelated + 657;
+    /** @since 3.10 */
+    int IncompatibleLambdaParameterType = Internal + TypeRelated + 658;
+    /** @since 3.10 */
+    int NoGenericLambda = Internal + TypeRelated + 659;
+    /**
 	 * More problems in generics
 	 */
     /** @since 3.4 */
@@ -1319,6 +1441,15 @@ void setSourceStart(int sourceStart);
 	int UnusedTypeParameter = TypeRelated + 661;
 	/** @since 3.9 */
 	int IllegalArrayOfUnionType = TypeRelated + 662;
+	/** @since 3.10 */
+	int OuterLocalMustBeEffectivelyFinal = Internal + 663;
+	/** @since 3.10 */
+	int InterfaceNotFunctionalInterface = Internal + TypeRelated + 664;
+	/** @since 3.10 */
+	int ConstructionTypeMismatch = Internal + TypeRelated + 665;
+    /** @since 3.10 */
+    int ToleratedMisplacedTypeAnnotations = Syntax + Internal + 666;
+
 
 	/**
 	 * Null analysis for other kinds of expressions, syntactically nonnull
@@ -1423,6 +1554,9 @@ void setSourceStart(int sourceStart);
 	int VarargsElementTypeNotVisible = MethodRelated + 807;
 	/** @since 3.8 */
 	int VarargsElementTypeNotVisibleForConstructor = ConstructorRelated + 808;
+	/** @since 3.10 */
+	int ApplicableMethodOverriddenByInapplicable = MethodRelated + 809;
+
 	/**
 	 * Javadoc Generic
 	 */
@@ -1492,6 +1626,54 @@ void setSourceStart(int sourceStart);
 	int ExplicitlyClosedAutoCloseable = Internal + 889;
 	/** @since 3.8 */
 	int SwitchOnEnumNotBelow15 = TypeRelated + 890;	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=360317
+	/** @since 3.10 */
+	int IntersectionCastNotBelow18 = TypeRelated + 891;
+	/** @since 3.10 */
+	int IllegalBasetypeInIntersectionCast = TypeRelated + 892;
+	/** @since 3.10 */
+	int IllegalArrayTypeInIntersectionCast = TypeRelated + 893;
+	/** @since 3.10 */
+	int DuplicateBoundInIntersectionCast = TypeRelated + 894;
+	/** @since 3.10 */
+	int MultipleFunctionalInterfaces = TypeRelated + 895;
+	/** @since 3.10 */
+	int StaticInterfaceMethodNotBelow18 = Internal + Syntax + 896;
+	/** @since 3.10 */
+	int DuplicateAnnotationNotMarkedRepeatable = TypeRelated + 897;
+	/** @since 3.10 */
+	int DisallowedTargetForContainerAnnotationType = TypeRelated + 898;
+	/** @since 3.10 */
+	int RepeatedAnnotationWithContainerAnnotation = TypeRelated + 899;
+	
+	/**
+	 * External problems -- These are problems defined by other plugins
+	 */
+
+	/** @since 3.2 */
+	int ExternalProblemNotFixable = 900;
+
+	// indicates an externally defined problem that has a quick-assist processor
+	// associated with it
+	/** @since 3.2 */
+	int ExternalProblemFixable = 901;
+	
+	/** @since 3.10 */
+	int ContainerAnnotationTypeHasWrongValueType = TypeRelated + 902;
+	/** @since 3.10 */
+	int ContainerAnnotationTypeMustHaveValue = TypeRelated + 903;
+	/** @since 3.10 */
+	int ContainerAnnotationTypeHasNonDefaultMembers = TypeRelated + 904;
+	/** @since 3.10 */
+	int ContainerAnnotationTypeHasShorterRetention = TypeRelated + 905;
+	/** @since 3.10 */
+	int RepeatableAnnotationTypeTargetMismatch = TypeRelated + 906;
+	/** @since 3.10 */
+	int RepeatableAnnotationTypeIsDocumented = TypeRelated + 907;
+	/** @since 3.10 */
+	int RepeatableAnnotationTypeIsInherited = TypeRelated + 908;
+	/** @since 3.10 */
+	int RepeatableAnnotationWithRepeatingContainerAnnotation = TypeRelated + 909;
+	
 	/**
 	 * Errors/warnings from annotation based null analysis
 	 */
@@ -1557,16 +1739,89 @@ void setSourceStart(int sourceStart);
 	int ConflictingNullAnnotations = MethodRelated + 939;
 	/** @since 3.9 */
 	int ConflictingInheritedNullAnnotations = MethodRelated + 940;
+	/** @since 3.10 */
+	int RedundantNullCheckOnField = Internal + 941;
+	/** @since 3.10 */
+	int FieldComparisonYieldsFalse = Internal + 942;
+	
+	/** @since 3.10 */
+	int ArrayReferencePotentialNullReference = Internal + 951;
+	/** @since 3.10 */
+	int DereferencingNullableExpression = Internal + 952;
+	/** @since 3.10 */
+	int NullityMismatchingTypeAnnotation = Internal + 953;
+	/** @since 3.10 */
+	int NullityMismatchingTypeAnnotationSuperHint = Internal + 954;
+	/** @since 3.10 */
+	int NullityUncheckedTypeAnnotationDetail = Internal + 955;
+	/** @since 3.10 */
+	int NullityUncheckedTypeAnnotationDetailSuperHint = Internal + 956;
+	/** @since 3.10 */
+	int ReferenceExpressionParameterNullityMismatch = MethodRelated + 957;
+	/** @since 3.10 */
+	int ReferenceExpressionParameterNullityUnchecked = MethodRelated + 958;
+	/** @since 3.10 */
+	int ReferenceExpressionReturnNullRedef = MethodRelated + 959;
+	/** @since 3.10 */
+	int ReferenceExpressionReturnNullRedefUnchecked = MethodRelated + 960;
+	/** @since 3.10 */
+	int RedundantNullCheckAgainstNonNullType = Internal + 961;
+	/** @since 3.10 */
+	int NullAnnotationUnsupportedLocation = Internal + 962;
+	/** @since 3.10 */
+	int NullAnnotationUnsupportedLocationAtType = Internal + 963;
+	/** @since 3.10 */
+	int NullityMismatchTypeArgument = Internal + 964;
+	/** @since 3.10 */
+	int ContradictoryNullAnnotationsOnBound = Internal + 965;
+	/** @since 3.10 */
+	int ContradictoryNullAnnotationsInferred = Internal + 966;
+	/** @since 3.10 */
+	int UnsafeNullnessCast = Internal + 967;
+	/** @since 3.10 */
+	int NonNullDefaultDetailIsNotEvaluated = 968; // no longer reported
+	/** @since 3.10 */
+	int NullNotCompatibleToFreeTypeVariable = 969;
+	/** @since 3.10 */
+	int NullityMismatchAgainstFreeTypeVariable = 970;
 
-	/**
-	 * External problems -- These are problems defined by other plugins
-	 */
+	// Java 8 work
+	/** @since 3.10 */
+	int IllegalModifiersForElidedType = Internal + 1001;
+	/** @since 3.10 */
+	int IllegalModifiers = Internal + 1002;
 
-	/** @since 3.2 */
-	int ExternalProblemNotFixable = 900;
+	/** @since 3.10 */
+	int IllegalTypeArgumentsInRawConstructorReference = TypeRelated + 1003;
 
-	// indicates an externally defined problem that has a quick-assist processor
-	// associated with it
-	/** @since 3.2 */
-	int ExternalProblemFixable = 901;
+	// default methods:
+	/** @since 3.10 */
+	int IllegalModifierForInterfaceMethod18 = MethodRelated + 1050;
+
+	/** @since 3.10 */
+	int DefaultMethodOverridesObjectMethod = MethodRelated + 1051;
+	
+	/** @since 3.10 */
+	int InheritedDefaultMethodConflictsWithOtherInherited = MethodRelated + 1052;
+	
+	/** @since 3.10 */
+	int DuplicateInheritedDefaultMethods = MethodRelated + 1053;
+
+	/** @since 3.10 */
+	int SuperAccessCannotBypassDirectSuper = TypeRelated + 1054;
+	/** @since 3.10 */
+	int SuperCallCannotBypassOverride = MethodRelated + 1055;
+	/** @since 3.10 */
+	int IllegalModifierCombinationForInterfaceMethod = MethodRelated + 1056;
+	/** @since 3.10 */
+	int IllegalStrictfpForAbstractInterfaceMethod = MethodRelated + 1057;
+	/** @since 3.10 */
+	int IllegalDefaultModifierSpecification = MethodRelated + 1058;
+
+	/** @since 3.10 */
+	int GenericInferenceError = 1100; 	// FIXME: This is just a stop-gap measure, be more specific via https://bugs.eclipse.org/404675
+	
+	/** @deprecated - problem is no longer generated (implementation issue has been resolved)
+	 * @since 3.10 */
+	int LambdaShapeComputationError = 1101;
 }

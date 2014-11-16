@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2012 BEA Systems, Inc. and others 
+ * Copyright (c) 2007, 2014 BEA Systems, Inc. and others
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,11 +8,15 @@
  * Contributors:
  *    wharley@bea.com - initial API and implementation
  *    IBM Corporation - fix for 342598
+ *    IBM Corporation - Java 8 support
+ *    het@google.com - Bug 427943 - The method org.eclipse.jdt.internal.compiler.apt.model.Factory.getPrimitiveType does not throw IllegalArgumentException
  *******************************************************************************/
 
 package org.eclipse.jdt.internal.compiler.apt.model;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -31,17 +35,21 @@ import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.apt.dispatch.BaseProcessingEnvImpl;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BaseTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
+import org.eclipse.jdt.internal.compiler.lookup.ElementValuePair;
+import org.eclipse.jdt.internal.compiler.lookup.ExtraCompilerModifiers;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.PackageBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
+import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 import org.eclipse.jdt.internal.compiler.lookup.TypeVariableBinding;
@@ -64,6 +72,7 @@ public class Factory {
 	public static final Short DUMMY_SHORT = 0;
 
 	private final BaseProcessingEnvImpl _env;
+	public static List<? extends AnnotationMirror> EMPTY_ANNOTATION_MIRRORS = Collections.emptyList();
 	
 	/**
 	 * This object should only be constructed by the BaseProcessingEnvImpl.
@@ -88,6 +97,59 @@ public class Factory {
 		return Collections.unmodifiableList(list);
 	}
 	
+	@SuppressWarnings("unchecked") // for the cast to A
+	public <A extends Annotation> A[] getAnnotationsByType(AnnotationBinding[] annoInstances, Class<A> annotationClass) {
+		A[] result = getAnnotations(annoInstances, annotationClass, false);
+		return result == null ? (A[]) Array.newInstance(annotationClass, 0) : result;
+	}
+	
+	
+	public <A extends Annotation> A getAnnotation(AnnotationBinding[] annoInstances, Class<A> annotationClass) {
+		A[] result = getAnnotations(annoInstances, annotationClass, true);
+		return result == null ? null : result[0];
+	}
+
+	@SuppressWarnings("unchecked") // for cast of newProxyInstance() to A
+	private <A extends Annotation> A[] getAnnotations(AnnotationBinding[] annoInstances, Class<A> annotationClass, boolean justTheFirst) {
+		if(annoInstances == null || annoInstances.length == 0 || annotationClass == null ) 
+			return null;
+
+		String annoTypeName = annotationClass.getName();
+		if(annoTypeName == null ) return null;
+
+		List<A> list = new ArrayList<A>(annoInstances.length);
+		for(AnnotationBinding annoInstance : annoInstances) {
+			if (annoInstance == null)
+				continue;
+			
+			AnnotationMirrorImpl annoMirror = createAnnotationMirror(annoTypeName, annoInstance);
+			if (annoMirror != null) {
+				list.add((A)Proxy.newProxyInstance(annotationClass.getClassLoader(), new Class[]{ annotationClass }, annoMirror));
+				if (justTheFirst) break;
+			}
+		}
+		A [] result = (A[]) Array.newInstance(annotationClass, list.size());
+		return list.size() > 0 ? (A[]) list.toArray(result) :  null;
+	}
+
+	private AnnotationMirrorImpl createAnnotationMirror(String annoTypeName, AnnotationBinding annoInstance) {
+		ReferenceBinding binding = annoInstance.getAnnotationType();
+		if (binding != null && binding.isAnnotationType() ) {
+			char[] qName;
+			if (binding.isMemberType()) {
+				annoTypeName = annoTypeName.replace('$', '.');
+				qName = CharOperation.concatWith(binding.enclosingType().compoundName, binding.sourceName, '.');
+				CharOperation.replace(qName, '$', '.');
+			} else {
+				qName = CharOperation.concatWith(binding.compoundName, '.');
+			}
+			if(annoTypeName.equals(new String(qName)) ){
+				return (AnnotationMirrorImpl)_env.getFactory().newAnnotationMirror(annoInstance);
+			}
+		}
+		return null;
+	}
+
 	private static void appendModifier(Set<Modifier> result, int modifiers, int modifierConstant, Modifier modifier) {
 		if ((modifiers & modifierConstant) != 0) {
 			result.add(modifier);
@@ -109,6 +171,13 @@ public class Factory {
 					break;
 				case ClassFileConstants.AccAbstract :
 					appendModifier(result, modifiers, checkBits[i], Modifier.ABSTRACT);
+					break;
+				case ExtraCompilerModifiers.AccDefaultMethod :
+					try {
+						appendModifier(result, modifiers, checkBits[i], Modifier.valueOf("DEFAULT")); //$NON-NLS-1$
+					} catch(IllegalArgumentException iae) {
+						// Don't have JDK 1.8, just ignore and proceed.
+					}
 					break;
 				case ClassFileConstants.AccStatic :
 					appendModifier(result, modifiers, checkBits[i], Modifier.STATIC);
@@ -160,6 +229,20 @@ public class Factory {
     		return null;
     }
     
+	public TypeMirror getReceiverType(MethodBinding binding) {
+		if (binding != null) {
+			if (binding.receiver != null) {
+				return _env.getFactory().newTypeMirror(binding.receiver);
+			}
+			if (binding.declaringClass != null) {
+				if (!binding.isStatic() && (!binding.isConstructor() || binding.declaringClass.isMemberType())) {
+					return _env.getFactory().newTypeMirror(binding.declaringClass);	
+				}
+			}
+		}
+		return NoTypeImpl.NO_TYPE_NONE;
+	}
+    
 	public static Set<Modifier> getModifiers(int modifiers, ElementKind kind) {
 		return getModifiers(modifiers, kind, false);
 	}
@@ -182,7 +265,8 @@ public class Factory {
 					ClassFileConstants.AccFinal,
 					ClassFileConstants.AccSynchronized,
 					ClassFileConstants.AccNative,
-					ClassFileConstants.AccStrictfp
+					ClassFileConstants.AccStrictfp,
+					ExtraCompilerModifiers.AccDefaultMethod
 				});
 				break;
 			case FIELD :
@@ -250,6 +334,8 @@ public class Factory {
 	 * Create a new element that knows what kind it is even if the binding is unresolved.
 	 */
 	public Element newElement(Binding binding, ElementKind kindHint) {
+		if (binding == null)
+			return null;
 		switch (binding.kind()) {
 		case Binding.FIELD:
 		case Binding.LOCAL:
@@ -261,7 +347,7 @@ public class Factory {
 			if ((referenceBinding.tagBits & TagBits.HasMissingType) != 0) {
 				return new ErrorTypeElement(this._env, referenceBinding);
 			}
-			if (referenceBinding.sourceName == TypeConstants.PACKAGE_INFO_NAME) {
+			if (CharOperation.equals(referenceBinding.sourceName, TypeConstants.PACKAGE_INFO_NAME)) {
 				return new PackageElementImpl(_env, referenceBinding.fPackage);
 			}
 			return new TypeElementImpl(_env, referenceBinding, kindHint);
@@ -339,8 +425,16 @@ public class Factory {
 		case SHORT:
 			return PrimitiveTypeImpl.SHORT;
 		default:
-			throw new IllegalStateException();
+			throw new IllegalArgumentException();
 		}
+	}
+	
+	public PrimitiveTypeImpl getPrimitiveType(BaseTypeBinding binding) {
+		AnnotationBinding[] annotations = binding.getTypeAnnotations();
+		if (annotations == null || annotations.length == 0) {
+			return getPrimitiveType(PrimitiveTypeImpl.getKind(binding));
+		}
+		return new PrimitiveTypeImpl(_env, binding);
 	}
 
 	/**
@@ -379,12 +473,12 @@ public class Factory {
 		case Binding.BASE_TYPE:
 			BaseTypeBinding btb = (BaseTypeBinding)binding;
 			switch (btb.id) {
-			case TypeIds.T_void:
-				return getNoType(TypeKind.VOID);
-			case TypeIds.T_null:
-				return getNullType();
-			default:
-				return getPrimitiveType(PrimitiveTypeImpl.getKind((BaseTypeBinding)binding));
+				case TypeIds.T_void:
+					return getNoType(TypeKind.VOID);
+				case TypeIds.T_null:
+					return getNullType();
+				default:
+					return getPrimitiveType(btb);
 			}
 
 		case Binding.WILDCARD_TYPE:
@@ -673,5 +767,112 @@ public class Factory {
 			Array.set(array, i, null);
 		}
 	}
-    
+
+	/* Wrap repeating annotations into their container, return an array of bindings.
+	   Incoming array is not modified.
+	*/
+	public static AnnotationBinding [] getPackedAnnotationBindings(AnnotationBinding [] annotations) {
+		
+		int length = annotations == null ? 0 : annotations.length;
+		if (length == 0)
+			return annotations;
+		
+		AnnotationBinding[] repackagedBindings = annotations; // only replicate if repackaging.
+		for (int i = 0; i < length; i++) {
+			AnnotationBinding annotation = repackagedBindings[i];
+			if (annotation == null) continue;
+			ReferenceBinding annotationType = annotation.getAnnotationType();
+			if (!annotationType.isRepeatableAnnotationType())
+				continue;
+			ReferenceBinding containerType = annotationType.containerAnnotationType();
+			if (containerType == null)
+				continue; // FUBAR.
+			MethodBinding [] values = containerType.getMethods(TypeConstants.VALUE);
+			if (values == null || values.length != 1)
+				continue; // FUBAR.
+			MethodBinding value = values[0];
+			if (value.returnType == null || value.returnType.dimensions() != 1 || TypeBinding.notEquals(value.returnType.leafComponentType(), annotationType))
+				continue; // FUBAR
+			
+			// We have a kosher repeatable annotation with a kosher containing type. See if actually repeats.
+			List<AnnotationBinding> containees = null;
+			for (int j = i + 1; j < length; j++) {
+				AnnotationBinding otherAnnotation = repackagedBindings[j];
+				if (otherAnnotation == null) continue;
+				if (otherAnnotation.getAnnotationType() == annotationType) { //$IDENTITY-COMPARISON$
+					if (repackagedBindings == annotations)
+						System.arraycopy(repackagedBindings, 0, repackagedBindings = new AnnotationBinding[length], 0, length);
+					repackagedBindings[j] = null; // so it is not double packed.
+					if (containees == null) {
+						containees = new ArrayList<AnnotationBinding>();
+						containees.add(annotation);
+					}
+					containees.add(otherAnnotation);
+				}
+			}
+			if (containees != null) {
+				ElementValuePair [] elementValuePairs = new ElementValuePair [] { new ElementValuePair(TypeConstants.VALUE, containees.toArray(), value) };
+				repackagedBindings[i] = new AnnotationBinding(containerType, elementValuePairs);
+			}
+		}
+		if (repackagedBindings == annotations)
+			return annotations;
+		
+		int finalTally = 0;
+		for (int i = 0; i < length; i++) {
+			if (repackagedBindings[i] != null)
+				finalTally++;
+		}
+		annotations = new AnnotationBinding [finalTally];
+		for (int i = 0, j = 0; i < length; i++) {
+			if (repackagedBindings[i] != null)
+				annotations[j++] = repackagedBindings[i];
+		}
+		return annotations;
+	}
+	
+	/* Unwrap container annotations into the repeated annotations, return an array of bindings that includes the container and the containees.
+	*/
+	public static AnnotationBinding [] getUnpackedAnnotationBindings(AnnotationBinding [] annotations) {
+		
+		int length = annotations == null ? 0 : annotations.length;
+		if (length == 0)
+			return annotations;
+		
+		List<AnnotationBinding> unpackedAnnotations = new ArrayList<AnnotationBinding>();
+		for (int i = 0; i < length; i++) {
+			AnnotationBinding annotation = annotations[i];
+			if (annotation == null) continue;
+			unpackedAnnotations.add(annotation);
+			ReferenceBinding annotationType = annotation.getAnnotationType();
+			
+			MethodBinding [] values = annotationType.getMethods(TypeConstants.VALUE);
+			if (values == null || values.length != 1)
+				continue;
+			MethodBinding value = values[0];
+			
+			if (value.returnType.dimensions() != 1)
+				continue;
+			
+			TypeBinding containeeType = value.returnType.leafComponentType();
+			if (containeeType == null || !containeeType.isAnnotationType() || !containeeType.isRepeatableAnnotationType())
+				continue;
+			
+			if (containeeType.containerAnnotationType() != annotationType) //$IDENTITY-COMPARISON$
+				continue;
+			
+			// We have a kosher container: unwrap the contained annotations.
+			ElementValuePair [] elementValuePairs = annotation.getElementValuePairs();
+			for (ElementValuePair elementValuePair : elementValuePairs) {
+				if (CharOperation.equals(elementValuePair.getName(), TypeConstants.VALUE)) {
+					Object [] containees = (Object []) elementValuePair.getValue();
+					for (Object object : containees) {
+						unpackedAnnotations.add((AnnotationBinding) object);
+					}
+					break;
+				}
+			}
+		}
+		return (AnnotationBinding[]) unpackedAnnotations.toArray(new AnnotationBinding [unpackedAnnotations.size()]);
+	}	
 }

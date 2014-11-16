@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -27,6 +27,7 @@ import org.eclipse.jdt.core.search.*;
 import org.eclipse.jdt.internal.compiler.ExtraFlags;
 import org.eclipse.jdt.internal.compiler.env.AccessRestriction;
 import org.eclipse.jdt.internal.compiler.problem.AbortCompilationUnit;
+import org.eclipse.jdt.internal.core.LambdaExpression;
 import org.eclipse.jdt.internal.core.Member;
 import org.eclipse.jdt.internal.core.PackageFragment;
 import org.eclipse.jdt.internal.core.SourceRefElement;
@@ -524,15 +525,22 @@ public class AbstractJavaSearchTests extends ModifyingResourceTests implements I
 				this.line.append(":");
 			}
 			String typeName = type.getElementName();
-			if (typeName.length() == 0) {
+			boolean anonymous = false;
+			try {
+				anonymous = type.isAnonymous();
+			} catch(JavaModelException jme) {
+			}
+			if (anonymous) {
 				this.line.append("<anonymous>");
+			} else if (type.isLambda()) {
+				((LambdaExpression) type).toStringName(this.line);
 			} else {
 				this.line.append(typeName);
 			}
-			if (isLocal) {
+			if (isLocal && !(type instanceof LambdaExpression)) { // don't want occurrence counts for lambdas. it can be confusing at best, as not all are built.
 				this.line.append("#");
 				this.line.append(((SourceRefElement)type).occurrenceCount);
-			}
+			} 
 		}
 		protected IJavaElement getElement(SearchMatch searchMatch) {
 			return (IJavaElement) searchMatch.getElement();

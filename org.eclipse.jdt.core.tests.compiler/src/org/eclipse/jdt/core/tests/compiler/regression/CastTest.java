@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2011 IBM Corporation and others.
+ * Copyright (c) 2003, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contributions for 
+ *								Bug 428274 - [1.8] [compiler] Cannot cast from Number to double
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -36,6 +38,9 @@ public static Test suite() {
 	return buildAllCompliancesTestSuite(testClass());
 }
 
+static {
+//	TESTS_NAMES = new String[] { "test428388d" };
+}
 /*
  * check extra checkcast (interface->same interface)
  */
@@ -2422,6 +2427,672 @@ public void test061b() throws Exception {
 		assertEquals("Wrong contents", expectedOutput, result);
 	}
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=420283, [1.8] Wrong error "Type is not visible" for cast to intersection type
+public void test420283() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return;
+	if (this.complianceLevel < ClassFileConstants.JDK1_8) {
+		this.runNegativeTest(
+				new String[] {
+					"X.java",
+					"import java.io.Serializable;\n" +
+					"import java.util.List;\n" +
+					"public class X {\n" +
+					"    void foo(List<Integer> l) {\n" +
+					"        Integer i = (Integer & Serializable) l.get(0);\n" +
+					"    }\n" +
+					"    public static void main(String [] args) {\n" +
+					"        System.out.println(\"SUCCESS\");\n" +
+					"    }\n" +
+					"}\n"
+				},
+				"----------\n" + 
+				"1. WARNING in X.java (at line 5)\n" + 
+				"	Integer i = (Integer & Serializable) l.get(0);\n" + 
+				"	            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+				"Unnecessary cast from Integer to Integer & Serializable\n" + 
+				"----------\n" + 
+				"2. ERROR in X.java (at line 5)\n" + 
+				"	Integer i = (Integer & Serializable) l.get(0);\n" + 
+				"	             ^^^^^^^^^^^^^^^^^^^^^^\n" + 
+				"Additional bounds are not allowed in cast operator at source levels below 1.8\n" + 
+				"----------\n");
+		return;
+	}
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"import java.io.Serializable;\n" +
+				"import java.util.List;\n" +
+				"public class X {\n" +
+				"    void foo(List<Integer> l) {\n" +
+				"        Integer i = (Integer & Serializable) l.get(0);\n" +
+				"    }\n" +
+				"    public static void main(String [] args) {\n" +
+				"        System.out.println(\"SUCCESS\");\n" +
+				"    }\n" +
+				"}\n"
+			},
+			"SUCCESS"
+		);
+}
+
+public void testBug428274() {
+	String source = 
+			"public class Junk4 {\n" + 
+			"    static void setValue(Number n) {\n" + 
+			"        int rounded = (int) Math.round((double) n);\n" +
+			"		System.out.println(rounded);\n" + 
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		setValue(Double.valueOf(3.3));\n" +
+			"		setValue(Double.valueOf(3.7));\n" +
+			"	}\n" + 
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) {
+		runNegativeTest(
+			new String[] {
+				"Junk4.java",
+				source
+			},
+			"----------\n" + 
+			"1. ERROR in Junk4.java (at line 3)\n" + 
+			"	int rounded = (int) Math.round((double) n);\n" + 
+			"	                               ^^^^^^^^^^\n" + 
+			"Cannot cast from Number to double\n" + 
+			"----------\n");
+	} else {
+		runConformTest(
+			new String[] {
+				"Junk4.java",
+				source
+			},
+			"3\n4");
+	}
+}
+public void testBug428274b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5)
+		return; // uses generics
+	String source = 
+			"public class Junk4<T> {\n" + 
+			"    void setValue(T n) {\n" + 
+			"        int rounded = (int) Math.round((double) n);\n" +
+			"		System.out.println(rounded);\n" + 
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		Junk4<Number> j = new Junk4<Number>();\n" +
+			"		j.setValue(Double.valueOf(3.3));\n" +
+			"		j.setValue(Double.valueOf(3.7));\n" +
+			"	}\n" + 
+			"}\n";
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) {
+		runNegativeTest(
+			new String[] {
+				"Junk4.java",
+				source
+			},
+			"----------\n" + 
+			"1. ERROR in Junk4.java (at line 3)\n" + 
+			"	int rounded = (int) Math.round((double) n);\n" + 
+			"	                               ^^^^^^^^^^\n" + 
+			"Cannot cast from T to double\n" + 
+			"----------\n");
+	} else {
+		runConformTest(
+			new String[] {
+				"Junk4.java",
+				source
+			},
+			"3\n4");
+	}
+}
+// note: spec allows all reference types, but neither javac nor common sense accept arrays :)
+public void testBug428274c() {
+	String source = 
+			"public class Junk4 {\n" + 
+			"    static void setValue(Object[] n) {\n" + 
+			"        int rounded = (int) Math.round((double) n);\n" +
+			"		System.out.println(rounded);\n" + 
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		setValue(new Double[] { Double.valueOf(3.3) });\n" +
+			"	}\n" + 
+			"}\n";
+	runNegativeTest(
+		new String[] {
+			"Junk4.java",
+			source
+		},
+		"----------\n" + 
+		"1. ERROR in Junk4.java (at line 3)\n" + 
+		"	int rounded = (int) Math.round((double) n);\n" + 
+		"	                               ^^^^^^^^^^\n" + 
+		"Cannot cast from Object[] to double\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    public static void main(String[] args) {\n" +
+			"	int x = (int) \"Hello\";\n" +
+			"    }\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	int x = (int) \"Hello\";\n" + 
+		"	        ^^^^^^^^^^^^^\n" + 
+		"Cannot cast from String to int\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388a() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" + 
+			"    static void setValue(Number n) {\n" + 
+			"       int rounded = (int) Math.round((double) n);\n" +
+			"		System.out.println(rounded);\n" + 
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		setValue(Double.valueOf(3.3));\n" +
+			"		setValue(Double.valueOf(3.7));\n" +
+			"	}\n" + 
+			"}\n",
+		},
+		"3\n4");
+
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+	String actualOutput =
+		disassembler.disassemble(
+			classFileBytes,
+			"\n",
+			ClassFileBytesDisassembler.DETAILED);
+
+	String expectedOutput =
+			"  // Method descriptor #15 (Ljava/lang/Number;)V\n" + 
+			"  // Stack: 2, Locals: 2\n" + 
+			"  static void setValue(java.lang.Number n);\n" + 
+			"     0  aload_0 [n]\n" + 
+			"     1  checkcast java.lang.Double [16]\n" + 
+			"     4  invokevirtual java.lang.Double.doubleValue() : double [18]\n" + 
+			"     7  invokestatic java.lang.Math.round(double) : long [22]\n" + 
+			"    10  l2i\n" + 
+			"    11  istore_1 [rounded]\n" + 
+			"    12  getstatic java.lang.System.out : java.io.PrintStream [28]\n" + 
+			"    15  iload_1 [rounded]\n" + 
+			"    16  invokevirtual java.io.PrintStream.println(int) : void [34]\n" + 
+			"    19  return\n" + 
+			"      Line numbers:\n" + 
+			"        [pc: 0, line: 3]\n" + 
+			"        [pc: 12, line: 4]\n" + 
+			"        [pc: 19, line: 5]\n" + 
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 20] local: n index: 0 type: java.lang.Number\n" + 
+			"        [pc: 12, pc: 20] local: rounded index: 1 type: int\n" + 
+			"  \n";
+	int index = actualOutput.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(actualOutput, 2));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, actualOutput);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388b() throws Exception {
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" + 
+			"    static void setValue(Number n) {\n" + 
+			"       char rounded = (char) n;\n" +
+			"		System.out.println(rounded);\n" + 
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		setValue(Double.valueOf(3.3));\n" +
+			"		setValue(Double.valueOf(3.7));\n" +
+			"	}\n" + 
+			"}\n",
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 3)\n" + 
+		"	char rounded = (char) n;\n" + 
+		"	               ^^^^^^^^\n" + 
+		"Cannot cast from Number to char\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388c() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" + 
+			"    static void setValue(Number n) {\n" + 
+			"       try {\n" +		
+			"           byte rounded = (byte) n;\n" +
+			"		    System.out.println(rounded);\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"           System.out.println(\"CCE\");\n" +
+			"       }\n" +
+			"    }\n" +
+			"	public static void main(String[] args) {\n" +
+			"		setValue(Double.valueOf(3.3));\n" +
+			"		setValue(Double.valueOf(3.7));\n" +
+			"	}\n" + 
+			"}\n",
+		},
+		"CCE\nCCE");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388d() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"	static int test(Serializable v) {\n" +
+			"       try {\n" +
+			"		    return (int)v;\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"           System.out.println(\"CCE\");\n" +
+			"       }\n" +
+			"       return -1;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		int i = test(new X());\n" +
+			"		System.out.println(i);\n" +
+			"	}\n" +
+			"}\n",
+		},
+		"CCE\n-1");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388e() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"	static int test(Serializable v) {\n" +
+			"       try {\n" +
+			"		    return (int)v;\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"           System.out.println(\"CCE\");\n" +
+			"       }\n" +
+			"       return -1;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		int i = test(new Long(1234));\n" +
+			"		System.out.println(i);\n" +
+			"	}\n" +
+			"}\n",
+		},
+		"CCE\n-1");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388f() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"	static int test(Serializable v) {\n" +
+			"       try {\n" +
+			"		    return (int)v;\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"           System.out.println(\"CCE\");\n" +
+			"       }\n" +
+			"       return -1;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		int i = test(new Integer(1234));\n" +
+			"		System.out.println(i);\n" +
+			"	}\n" +
+			"}\n",
+		},
+		"1234");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388g() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"  static <S extends Boolean & Serializable>int test(S b) {\n" +
+			"    return (int) b;\n" +
+			"  }\n" +
+			"\n" +
+			"  public static void main(String[] args) {\n" +
+			"    int i = test(Boolean.TRUE);\n" +
+			"    System.out.println(i);\n" +
+			"  }\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	public class X implements Serializable {\n" + 
+		"	             ^\n" + 
+		"The serializable class X does not declare a static final serialVersionUID field of type long\n" + 
+		"----------\n" + 
+		"2. WARNING in X.java (at line 3)\n" + 
+		"	static <S extends Boolean & Serializable>int test(S b) {\n" + 
+		"	                  ^^^^^^^\n" + 
+		"The type parameter S should not be bounded by the final type Boolean. Final types cannot be further extended\n" + 
+		"----------\n" + 
+		"3. ERROR in X.java (at line 4)\n" + 
+		"	return (int) b;\n" + 
+		"	       ^^^^^^^\n" + 
+		"Cannot cast from S to int\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388h() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses intersection cast
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"  static int test(Serializable b) {\n" +
+			"    return (int) (Boolean & Serializable) b;\n" +
+			"  }\n" +
+			"  public static void main(String[] args) {\n" +
+			"    int i = test(Boolean.TRUE);\n" +
+			"    System.out.println(i);\n" +
+			"  }\n" +
+			"}\n",
+		},
+		"----------\n" + 
+		"1. WARNING in X.java (at line 2)\n" + 
+		"	public class X implements Serializable {\n" + 
+		"	             ^\n" + 
+		"The serializable class X does not declare a static final serialVersionUID field of type long\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 4)\n" + 
+		"	return (int) (Boolean & Serializable) b;\n" + 
+		"	       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Cannot cast from Boolean & Serializable to int\n" + 
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388i() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"	static int test(Serializable v) {\n" +
+			"       try {\n" +
+			"		    return (int)v;\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"           System.out.println(\"CCE\");\n" +
+			"       }\n" +
+			"       return -1;\n" +
+			"	}\n" +
+			"	public static void main(String[] args) {\n" +
+			"		int i = test(new Integer(1234));\n" +
+			"		System.out.println(i);\n" +
+			"	}\n" +
+			"}\n",
+		},
+		"1234");
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+	String actualOutput =
+		disassembler.disassemble(
+			classFileBytes,
+			"\n",
+			ClassFileBytesDisassembler.DETAILED);
+
+	String expectedOutput =
+			"  // Method descriptor #17 (Ljava/io/Serializable;)I\n" + 
+			"  // Stack: 2, Locals: 2\n" + 
+			"  static int test(java.io.Serializable v);\n" + 
+			"     0  aload_0 [v]\n" + 
+			"     1  checkcast java.lang.Integer [18]\n" + 
+			"     4  invokevirtual java.lang.Integer.intValue() : int [20]\n" + 
+			"     7  ireturn\n" + 
+			"     8  astore_1 [c]\n" + 
+			"     9  getstatic java.lang.System.out : java.io.PrintStream [24]\n" + 
+			"    12  ldc <String \"CCE\"> [30]\n" + 
+			"    14  invokevirtual java.io.PrintStream.println(java.lang.String) : void [32]\n" + 
+			"    17  iconst_m1\n" + 
+			"    18  ireturn\n";
+	
+	int index = actualOutput.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(actualOutput, 2));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, actualOutput);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428388, [1.8][compiler] Casting to primitives is over tolerant - probable regression since bug 428274
+public void test428388j() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses intersection cast
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"import java.io.Serializable;\n" +
+			"public class X implements Serializable {\n" +
+			"  static int test(Serializable b) {\n" +
+			"    return (int) (Integer & Serializable) b;\n" +
+			"  }\n" +
+			"  public static void main(String[] args) {\n" +
+			"    int i = test(10101010);\n" +
+			"    System.out.println(i);\n" +
+			"  }\n" +
+			"}\n",
+		},
+		"10101010");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428522,  [1.8] VerifyError when a non primitive type cast to primitive type 
+public void test428522() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.OPTIMIZE_OUT);
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    public static void main(String args[]) {\n" +
+			"    	long l = (long) ((Object) 100L);\n" +
+			"    	System.out.println(\"OK\");\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"OK", customOptions);
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+	String actualOutput =
+		disassembler.disassemble(
+			classFileBytes,
+			"\n",
+			ClassFileBytesDisassembler.DETAILED);
+
+	String expectedOutput =
+			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" + 
+			"  // Stack: 2, Locals: 1\n" + 
+			"  public static void main(java.lang.String[] args);\n" + 
+			"     0  ldc2_w <Long 100> [16]\n" + 
+			"     3  invokestatic java.lang.Long.valueOf(long) : java.lang.Long [18]\n" + 
+			"     6  checkcast java.lang.Long [19]\n" + 
+			"     9  invokevirtual java.lang.Long.longValue() : long [24]\n" + 
+			"    12  pop2\n" + 
+			"    13  getstatic java.lang.System.out : java.io.PrintStream [28]\n" + 
+			"    16  ldc <String \"OK\"> [34]\n" + 
+			"    18  invokevirtual java.io.PrintStream.println(java.lang.String) : void [36]\n" + 
+			"    21  return\n" + 
+			"      Line numbers:\n" + 
+			"        [pc: 0, line: 3]\n" + 
+			"        [pc: 13, line: 4]\n" + 
+			"        [pc: 21, line: 5]\n" + 
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 22] local: args index: 0 type: java.lang.String[]\n" + 
+			"}";
+	int index = actualOutput.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(actualOutput, 2));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, actualOutput);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428522,  [1.8] VerifyError when a non primitive type cast to primitive type 
+public void test428522a() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.PRESERVE);
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    public static void main(String args[]) {\n" +
+			"    	long l = (long) ((Object) 100L);\n" +
+			"    	System.out.println(\"OK\");\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"OK", customOptions);
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+	String actualOutput =
+		disassembler.disassemble(
+			classFileBytes,
+			"\n",
+			ClassFileBytesDisassembler.DETAILED);
+
+	String expectedOutput =
+			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" + 
+			"  // Stack: 2, Locals: 3\n" + 
+			"  public static void main(java.lang.String[] args);\n" + 
+			"     0  ldc2_w <Long 100> [16]\n" + 
+			"     3  invokestatic java.lang.Long.valueOf(long) : java.lang.Long [18]\n" + 
+			"     6  checkcast java.lang.Long [19]\n" + 
+			"     9  invokevirtual java.lang.Long.longValue() : long [24]\n" + 
+			"    12  lstore_1 [l]\n" + 
+			"    13  getstatic java.lang.System.out : java.io.PrintStream [28]\n" + 
+			"    16  ldc <String \"OK\"> [34]\n" + 
+			"    18  invokevirtual java.io.PrintStream.println(java.lang.String) : void [36]\n" + 
+			"    21  return\n" + 
+			"      Line numbers:\n" + 
+			"        [pc: 0, line: 3]\n" + 
+			"        [pc: 13, line: 4]\n" + 
+			"        [pc: 21, line: 5]\n" + 
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 22] local: args index: 0 type: java.lang.String[]\n" + 
+			"        [pc: 13, pc: 22] local: l index: 1 type: long\n" + 
+			"}";
+	int index = actualOutput.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(actualOutput, 2));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, actualOutput);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428522,  [1.8] VerifyError when a non primitive type cast to primitive type 
+public void test428522b() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.OPTIMIZE_OUT);
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    public static void main(String args[]) {\n" +
+			"       try {\n" +
+			"    	    int l = (int) ((Object) 100L);\n" +
+			"       } catch (ClassCastException c) {\n" +
+			"    	    System.out.println(\"CCE:OK\");\n" +
+			"       }\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"CCE:OK", customOptions);
+
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=428522,  [1.8] VerifyError when a non primitive type cast to primitive type 
+public void test428522c() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7)
+		return;
+	Map customOptions = getCompilerOptions();
+	customOptions.put(CompilerOptions.OPTION_PreserveUnusedLocal, CompilerOptions.OPTIMIZE_OUT);
+	this.runConformTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"    public static void main(String args[]) {\n" +
+			"    	int l = (int) ((Object) 100);\n" +
+			"    	System.out.println(\"OK\");\n" +
+			"    }\n" +
+			"}\n",
+		},
+		"OK", customOptions);
+	ClassFileBytesDisassembler disassembler = ToolFactory.createDefaultClassFileBytesDisassembler();
+	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(new File(OUTPUT_DIR + File.separator  +"X.class"));
+	String actualOutput =
+		disassembler.disassemble(
+			classFileBytes,
+			"\n",
+			ClassFileBytesDisassembler.DETAILED);
+
+	String expectedOutput =
+			"  // Method descriptor #15 ([Ljava/lang/String;)V\n" + 
+			"  // Stack: 2, Locals: 1\n" + 
+			"  public static void main(java.lang.String[] args);\n" + 
+			"     0  bipush 100\n" + 
+			"     2  invokestatic java.lang.Integer.valueOf(int) : java.lang.Integer [16]\n" + 
+			"     5  checkcast java.lang.Integer [17]\n" + 
+			"     8  invokevirtual java.lang.Integer.intValue() : int [22]\n" + 
+			"    11  pop\n" + 
+			"    12  getstatic java.lang.System.out : java.io.PrintStream [26]\n" + 
+			"    15  ldc <String \"OK\"> [32]\n" + 
+			"    17  invokevirtual java.io.PrintStream.println(java.lang.String) : void [34]\n" + 
+			"    20  return\n" + 
+			"      Line numbers:\n" + 
+			"        [pc: 0, line: 3]\n" + 
+			"        [pc: 12, line: 4]\n" + 
+			"        [pc: 20, line: 5]\n" + 
+			"      Local variable table:\n" + 
+			"        [pc: 0, pc: 21] local: args index: 0 type: java.lang.String[]\n" + 
+			"}";
+	int index = actualOutput.indexOf(expectedOutput);
+	if (index == -1 || expectedOutput.length() == 0) {
+		System.out.println(Util.displayString(actualOutput, 2));
+	}
+	if (index == -1) {
+		assertEquals("Wrong contents", expectedOutput, actualOutput);
+	}
+}
+
 public static Class testClass() {
 	return CastTest.class;
 }

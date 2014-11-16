@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2011 IBM Corporation and others.
+ * Copyright (c) 2007, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -146,6 +146,10 @@ public class EclipseCompilerImpl extends Main {
 			}
 			@Override
 			public boolean stopOnFirstError() {
+				return false;
+			}
+			@Override
+			public boolean ignoreAllErrors() {
 				return false;
 			}
 		};
@@ -301,7 +305,6 @@ public class EclipseCompilerImpl extends Main {
 	}
 
 	@Override
-	@SuppressWarnings("rawtypes")
 	protected void initialize(PrintWriter outWriter, PrintWriter errWriter, boolean systemExit, Map customDefaultOptions, CompilationProgress compilationProgress) {
 		super.initialize(outWriter, errWriter, systemExit, customDefaultOptions, compilationProgress);
 		this.javaFileObjectMap = new HashMap<CompilationUnit, JavaFileObject>();
@@ -396,7 +399,6 @@ public class EclipseCompilerImpl extends Main {
 	}
 
 	@Override
-	@SuppressWarnings({"unchecked","rawtypes"})
 	protected void setPaths(ArrayList bootclasspaths,
 			String sourcepathClasspathArg,
 			ArrayList sourcepathClasspaths,

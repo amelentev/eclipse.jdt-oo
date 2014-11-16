@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -92,6 +92,13 @@ class DefaultASTVisitor extends ASTVisitor {
 	public void endVisit(ContinueStatement node) {
 		endVisitNode(node);
 	}
+	public void endVisit(CreationReference node) {
+		endVisitNode(node);
+	}
+	public void endVisit(Dimension node) {
+		endVisitNode(node);
+	}
+
 	public void endVisit(DoStatement node) {
 		endVisitNode(node);
 	}
@@ -105,6 +112,9 @@ class DefaultASTVisitor extends ASTVisitor {
 		endVisitNode(node);
 	}
 	public void endVisit(EnumDeclaration node) {
+		endVisitNode(node);
+	}
+	public void endVisit(ExpressionMethodReference node) {
 		endVisitNode(node);
 	}
 	public void endVisit(ExpressionStatement node) {
@@ -134,10 +144,16 @@ class DefaultASTVisitor extends ASTVisitor {
 	public void endVisit(InstanceofExpression node) {
 		endVisitNode(node);
 	}
+	public void endVisit(IntersectionType node) {
+		endVisitNode(node);
+	}
 	public void endVisit(Javadoc node) {
 		endVisitNode(node);
 	}
 	public void endVisit(LabeledStatement node) {
+		endVisitNode(node);
+	}
+	public void endVisit(LambdaExpression node) {
 		endVisitNode(node);
 	}
 	public void endVisit(LineComment node) {
@@ -167,6 +183,10 @@ class DefaultASTVisitor extends ASTVisitor {
 	public void endVisit(Modifier node) {
 		endVisitNode(node);
 	}
+	public void endVisit(NameQualifiedType node) {
+		endVisitNode(node);
+	}
+
 	public void endVisit(NormalAnnotation node) {
 		endVisitNode(node);
 	}
@@ -227,7 +247,9 @@ class DefaultASTVisitor extends ASTVisitor {
 	public void endVisit(SuperMethodInvocation node) {
 		endVisitNode(node);
 	}
-
+	public void endVisit(SuperMethodReference node) {
+		endVisitNode(node);
+	}
 	public void endVisit(SwitchCase node) {
 		endVisitNode(node);
 	}
@@ -260,6 +282,9 @@ class DefaultASTVisitor extends ASTVisitor {
 		endVisitNode(node);
 	}
 	public void endVisit(TypeLiteral node) {
+		endVisitNode(node);
+	}
+	public void endVisit(TypeMethodReference node) {
 		endVisitNode(node);
 	}
 	public void endVisit(TypeParameter node) {
@@ -351,6 +376,13 @@ class DefaultASTVisitor extends ASTVisitor {
 	public boolean visit(ContinueStatement node) {
 		return visitNode(node);
 	}
+	public boolean visit(CreationReference node) {
+		return visitNode(node);
+	}
+	public boolean visit(Dimension node) {
+		return visitNode(node);
+	}
+
 	public boolean visit(DoStatement node) {
 		return visitNode(node);
 	}
@@ -364,6 +396,9 @@ class DefaultASTVisitor extends ASTVisitor {
 		return visitNode(node);
 	}
 	public boolean visit(EnumDeclaration node) {
+		return visitNode(node);
+	}
+	public boolean visit(ExpressionMethodReference node) {
 		return visitNode(node);
 	}
 	public boolean visit(ExpressionStatement node) {
@@ -393,6 +428,9 @@ class DefaultASTVisitor extends ASTVisitor {
 	public boolean visit(InstanceofExpression node) {
 		return visitNode(node);
 	}
+	public boolean visit(IntersectionType node) {
+		return visitNode(node);
+	}
 	public boolean visit(Javadoc node) {
 		//	do not visit Javadoc tags by default. Use constructor with boolean to enable.
 		if (super.visit(node)) {
@@ -401,6 +439,9 @@ class DefaultASTVisitor extends ASTVisitor {
 		return false;
 	}
 	public boolean visit(LabeledStatement node) {
+		return visitNode(node);
+	}
+	public boolean visit(LambdaExpression node) {
 		return visitNode(node);
 	}
 	public boolean visit(LineComment node) {
@@ -430,6 +471,10 @@ class DefaultASTVisitor extends ASTVisitor {
 	public boolean visit(MethodRefParameter node) {
 		return visitNode(node);
 	}
+	public boolean visit(NameQualifiedType node) {
+		return visitNode(node);
+	}
+
 	public boolean visit(NormalAnnotation node) {
 		return visitNode(node);
 	}
@@ -496,6 +541,10 @@ class DefaultASTVisitor extends ASTVisitor {
 		return visitNode(node);
 	}
 
+	public boolean visit(SuperMethodReference node) {
+		return visitNode(node);
+	}
+
 	public boolean visit(SwitchCase node) {
 		return visitNode(node);
 	}
@@ -537,6 +586,10 @@ class DefaultASTVisitor extends ASTVisitor {
 	}
 
 	public boolean visit(TypeLiteral node) {
+		return visitNode(node);
+	}
+
+	public boolean visit(TypeMethodReference node) {
 		return visitNode(node);
 	}
 

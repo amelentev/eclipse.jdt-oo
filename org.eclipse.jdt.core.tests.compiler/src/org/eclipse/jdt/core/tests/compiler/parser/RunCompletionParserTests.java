@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -109,6 +109,17 @@ public class RunCompletionParserTests extends junit.framework.TestCase {
 			TestCase.TESTS_RANGE = null;
 			TestCase.RUN_ONLY_ID = null;
 			all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_7, tests_1_7));
+		}
+		if ((possibleComplianceLevels & AbstractCompilerTest.F_1_8) != 0) {
+			ArrayList tests_1_8 = (ArrayList)testClasses.clone();
+			tests_1_8.addAll(TEST_CLASSES_1_5);
+			// Reset forgotten subsets tests
+			TestCase.TESTS_PREFIX = null;
+			TestCase.TESTS_NAMES = null;
+			TestCase.TESTS_NUMBERS= null;
+			TestCase.TESTS_RANGE = null;
+			TestCase.RUN_ONLY_ID = null;
+			all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_8, tests_1_8));
 		}
 
 		return all;

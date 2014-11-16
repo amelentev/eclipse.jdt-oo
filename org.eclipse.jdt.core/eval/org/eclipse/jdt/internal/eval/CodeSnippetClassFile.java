@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *******************************************************************************/
 package org.eclipse.jdt.internal.eval;
 
@@ -19,6 +21,7 @@ import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
 import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.codegen.StackMapFrameCodeStream;
+import org.eclipse.jdt.internal.compiler.codegen.TypeAnnotationCodeStream;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
 import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
@@ -56,6 +59,7 @@ public CodeSnippetClassFile(
 	this.header[this.headerOffset++] = (byte) (0xCAFEBABEL >> 0);
 
 	long targetVersion = this.targetJDK = this.referenceBinding.scope.compilerOptions().targetJDK;
+	//TODO: Might have to update even for CLDC_1_1
 	this.header[this.headerOffset++] = (byte) (targetVersion >> 8); // minor high
 	this.header[this.headerOffset++] = (byte) (targetVersion >> 0); // minor low
 	this.header[this.headerOffset++] = (byte) (targetVersion >> 24); // major high
@@ -115,8 +119,13 @@ public CodeSnippetClassFile(
 	this.produceAttributes = this.referenceBinding.scope.compilerOptions().produceDebugAttributes;
 	this.creatingProblemType = creatingProblemType;
 	if (this.targetJDK >= ClassFileConstants.JDK1_6) {
-		this.codeStream = new StackMapFrameCodeStream(this);
 		this.produceAttributes |= ClassFileConstants.ATTR_STACK_MAP_TABLE;
+		if (this.targetJDK >= ClassFileConstants.JDK1_8) {
+			this.produceAttributes |= ClassFileConstants.ATTR_TYPE_ANNOTATION;
+			this.codeStream = new TypeAnnotationCodeStream(this);
+		} else {
+			this.codeStream = new StackMapFrameCodeStream(this);
+		}
 	} else if (this.targetJDK == ClassFileConstants.CLDC_1_1) {
 		this.targetJDK = ClassFileConstants.JDK1_1; // put back 45.3
 		this.produceAttributes |= ClassFileConstants.ATTR_STACK_MAP;
@@ -180,30 +189,28 @@ public static void createProblemType(TypeDeclaration typeDeclaration, Compilatio
 	CategorizedProblem[] problemsCopy = new CategorizedProblem[problemsLength = problems.length];
 	System.arraycopy(problems, 0, problemsCopy, 0, problemsLength);
 	AbstractMethodDeclaration[] methodDecls = typeDeclaration.methods;
+	boolean abstractMethodsOnly = false;
 	if (methodDecls != null) {
 		if (typeBinding.isInterface()) {
-			// we cannot create problem methods for an interface. So we have to generate a clinit
-			// which should contain all the problem
+			if (typeBinding.scope.compilerOptions().sourceLevel < ClassFileConstants.JDK1_8)
+				abstractMethodsOnly = true;
+			// We generate a clinit which contains all the problems, since we may not be able to generate problem methods (< 1.8) and problem constructors (all levels).
 			classFile.addProblemClinit(problemsCopy);
-			for (int i = 0, length = methodDecls.length; i < length; i++) {
-				AbstractMethodDeclaration methodDecl = methodDecls[i];
-				MethodBinding method = methodDecl.binding;
-				if (method == null || method.isConstructor()) continue;
+		}
+		for (int i = 0, length = methodDecls.length; i < length; i++) {
+			AbstractMethodDeclaration methodDecl = methodDecls[i];
+			MethodBinding method = methodDecl.binding;
+			if (method == null) continue;
+			if (abstractMethodsOnly) {
 				method.modifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract;
-				classFile.addAbstractMethod(methodDecl, method);
 			}
-		} else {
-			for (int i = 0, length = methodDecls.length; i < length; i++) {
-				AbstractMethodDeclaration methodDecl = methodDecls[i];
-				MethodBinding method = methodDecl.binding;
-				if (method == null) continue;
-				if (method.isConstructor()) {
-					classFile.addProblemConstructor(methodDecl, method, problemsCopy);
-				} else if (method.isAbstract()) {
-					classFile.addAbstractMethod(methodDecl, method);
-				} else {
-					classFile.addProblemMethod(methodDecl, method, problemsCopy);
-				}
+			if (method.isConstructor()) {
+				if (typeBinding.isInterface()) continue;
+				classFile.addProblemConstructor(methodDecl, method, problemsCopy);
+			} else if (method.isAbstract()) {
+				classFile.addAbstractMethod(methodDecl, method);
+			} else {
+				classFile.addProblemMethod(methodDecl, method, problemsCopy);
 			}
 		}
 		// add abstract methods

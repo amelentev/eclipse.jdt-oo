@@ -9,10 +9,15 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 331649 - [compiler][null] consider null annotations for fields
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 426996 - [1.8][inference] try to avoid method Expression.unresolve()? 
+ *     Jesper S Moller - Contributions for
+ *							bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
 import org.eclipse.jdt.internal.compiler.lookup.*;
+import org.eclipse.jdt.internal.compiler.problem.AbortMethod;
 
 public abstract class NameReference extends Reference implements InvocationSite {
 
@@ -48,6 +53,10 @@ public FieldBinding lastFieldBinding() {
 	return null;
 }
 
+public InferenceContext18 freshInferenceContext(Scope scope) {
+	return null;
+}
+
 public boolean isSuperAccess() {
 	return false;
 }
@@ -78,4 +87,19 @@ public void setFieldIndex(int index){
 }
 
 public abstract String unboundReferenceErrorName();
+
+public abstract char[][] getName();
+
+/* Called during code generation to ensure that outer locals's effectively finality is guaranteed. 
+   Aborts if constraints are violated. Due to various complexities, this check is not conveniently
+   implementable in resolve/analyze phases.
+*/
+protected void checkEffectiveFinality(LocalVariableBinding localBinding, Scope scope) {
+	if ((this.bits & ASTNode.IsCapturedOuterLocal) != 0) {
+		if (!localBinding.isFinal() && !localBinding.isEffectivelyFinal()) {
+			scope.problemReporter().cannotReferToNonEffectivelyFinalOuterLocal(localBinding, this);
+			throw new AbortMethod(scope.referenceCompilationUnit().compilationResult, null);
+		}
+	}
+}
 }

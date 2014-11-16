@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2002, 2009 IBM Corporation and others.
+ * Copyright (c) 2002, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -29,6 +29,7 @@ import org.eclipse.jdt.internal.compiler.problem.ProblemReporter;
 /**
  * Utility class to parse different code snippets
  */
+@SuppressWarnings("rawtypes")
 public class CodeSnippetParsingUtil {
 
 	public RecordedParsingInformation recordedParsingInformation;
@@ -171,7 +172,7 @@ public class CodeSnippetParsingUtil {
 
 		CompilationResult compilationResult = new CompilationResult(sourceUnit, 0, 0, compilerOptions.maxProblemsPerUnit);
 		CompilationUnitDeclaration unit = new CompilationUnitDeclaration(problemReporter, compilationResult, source.length);
-		Expression result = parser.parseExpression(source, offset, length, unit);
+		Expression result = parser.parseExpression(source, offset, length, unit, true /* record line separators */);
 
 		if (recordParsingInformation) {
 			this.recordedParsingInformation = getRecordedParsingInformation(compilationResult, unit.comments);

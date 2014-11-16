@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,12 +7,21 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper S Moller - Contributions for
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335        
+ *							Bug 406982 - [1.8][compiler] Generation of MethodParameters Attribute in classfile
+ *							Bug 416885 - [1.8][compiler]IncompatibleClassChange error (edit)
+ *							Bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
+ *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
+ *                          Bug 439889 - [1.8][compiler] [lambda] Deserializing lambda fails with IllegalArgumentException: "Invalid lambda deserialization"
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.codegen;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ClassFile;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
+import org.eclipse.jdt.internal.compiler.lookup.MethodBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
@@ -79,6 +88,8 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 	public static final char[] doubleDoubleSignature = "(D)Ljava/lang/Double;".toCharArray(); //$NON-NLS-1$
 	public static final char[] DOUBLEVALUE_DOUBLE_METHOD_NAME = "doubleValue".toCharArray(); //$NON-NLS-1$
 	public static final char[] DOUBLEVALUE_DOUBLE_METHOD_SIGNATURE = "()D".toCharArray(); //$NON-NLS-1$
+	public static final char[] EnumName = "$enum$name".toCharArray();//$NON-NLS-1$
+	public static final char[] EnumOrdinal = "$enum$ordinal".toCharArray();//$NON-NLS-1$
 	public static final char[] Exit = "exit".toCharArray(); //$NON-NLS-1$
 	public static final char[] ExitIntSignature = "(I)V".toCharArray(); //$NON-NLS-1$
 	public static final char[] FloatConstrSignature = "(F)V".toCharArray(); //$NON-NLS-1$
@@ -135,6 +146,7 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 	public static final char[] INVOKE_METHOD_METHOD_SIGNATURE = "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;".toCharArray(); //$NON-NLS-1$
 	public static final char[][] JAVA_LANG_REFLECT_ACCESSIBLEOBJECT = new char[][] {TypeConstants.JAVA, TypeConstants.LANG, TypeConstants.REFLECT, "AccessibleObject".toCharArray()}; //$NON-NLS-1$
 	public static final char[][] JAVA_LANG_REFLECT_ARRAY = new char[][] {TypeConstants.JAVA, TypeConstants.LANG, TypeConstants.REFLECT, "Array".toCharArray()}; //$NON-NLS-1$
+	public static final char[] IllegalArgumentExceptionConstructorSignature = "(Ljava/lang/String;)V".toCharArray(); //$NON-NLS-1$
 	// predefined type constant names
 	public static final char[] JavaIoPrintStreamSignature = "Ljava/io/PrintStream;".toCharArray(); //$NON-NLS-1$
 	public static final char[] JavaLangAssertionErrorConstantPoolName = "java/lang/AssertionError".toCharArray(); //$NON-NLS-1$
@@ -168,12 +180,14 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 	public static final char[] JavaLangObjectSignature = "Ljava/lang/Object;".toCharArray(); //$NON-NLS-1$
 	public static final char[] JavaLangSystemConstantPoolName = "java/lang/System".toCharArray(); //$NON-NLS-1$
 	public static final char[] JavaLangThrowableConstantPoolName = "java/lang/Throwable".toCharArray(); //$NON-NLS-1$
+	public static final char[] JavaLangIllegalArgumentExceptionConstantPoolName = "java/lang/IllegalArgumentException".toCharArray(); //$NON-NLS-1$
 	public static final char[] JavaLangVoidConstantPoolName = "java/lang/Void".toCharArray(); //$NON-NLS-1$
 	public static final char[] JavaUtilIteratorConstantPoolName = "java/util/Iterator".toCharArray(); //$NON-NLS-1$
 	public static final char[] LongConstrSignature = "(J)V".toCharArray(); //$NON-NLS-1$
 	public static final char[] longLongSignature = "(J)Ljava/lang/Long;".toCharArray(); //$NON-NLS-1$
 	public static final char[] LONGVALUE_LONG_METHOD_NAME = "longValue".toCharArray(); //$NON-NLS-1$
 	public static final char[] LONGVALUE_LONG_METHOD_SIGNATURE = "()J".toCharArray(); //$NON-NLS-1$
+	public static final char[] Name = "name".toCharArray();//$NON-NLS-1$
 	public static final char[] NewInstance = "newInstance".toCharArray(); //$NON-NLS-1$
 	public static final char[] NewInstanceSignature = "(Ljava/lang/Class;[I)Ljava/lang/Object;".toCharArray(); //$NON-NLS-1$
 	public static final char[] Next = "next".toCharArray();//$NON-NLS-1$
@@ -248,6 +262,32 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 	public static final char[] JAVA_LANG_SAFEVARARGS = "Ljava/lang/SafeVarargs;".toCharArray(); //$NON-NLS-1$
 	// java 7 java.lang.invoke.MethodHandle.invokeExact(..)/invokeGeneric(..)
 	public static final char[] JAVA_LANG_INVOKE_METHODHANDLE_POLYMORPHICSIGNATURE = "Ljava/lang/invoke/MethodHandle$PolymorphicSignature;".toCharArray(); //$NON-NLS-1$
+	// Java 8 lambda support
+	public static final char[] METAFACTORY = "metafactory".toCharArray(); //$NON-NLS-1$
+	public static final char[] JAVA_LANG_INVOKE_LAMBDAMETAFACTORY_METAFACTORY_SIGNATURE = "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;".toCharArray(); //$NON-NLS-1$
+	public static final char[] ALTMETAFACTORY = "altMetafactory".toCharArray(); //$NON-NLS-1$
+	public static final char[] JAVA_LANG_INVOKE_LAMBDAMETAFACTORY_ALTMETAFACTORY_SIGNATURE = 
+			"(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;".toCharArray(); //$NON-NLS-1$
+	public static final char[] JavaLangInvokeSerializedLambda = "Ljava/lang/invoke/SerializedLambda;".toCharArray(); //$NON-NLS-1$
+	public static final char[] JavaLangInvokeSerializedLambdaConstantPoolName = "java/lang/invoke/SerializedLambda".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodName = "getImplMethodName".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodNameSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodKind = "getImplMethodKind".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodKindSignature = "()I".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceClass = "getFunctionalInterfaceClass".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceClassSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceMethodName = "getFunctionalInterfaceMethodName".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceMethodNameSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceMethodSignature = "getFunctionalInterfaceMethodSignature".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetFunctionalInterfaceMethodSignatureSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplClass = "getImplClass".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplClassSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodSignature = "getImplMethodSignature".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetImplMethodSignatureSignature = "()Ljava/lang/String;".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetCapturedArg = "getCapturedArg".toCharArray(); //$NON-NLS-1$
+	public static final char[] GetCapturedArgSignature = "(I)Ljava/lang/Object;".toCharArray(); //$NON-NLS-1$
+	// Java 8 repeatable annotation support
+	public static final char[] JAVA_LANG_ANNOTATION_REPEATABLE = "Ljava/lang/annotation/Repeatable;".toCharArray(); //$NON-NLS-1$
 
 	public static final char[] HashCode = "hashCode".toCharArray(); //$NON-NLS-1$
 	public static final char[] HashCodeSignature = "()I".toCharArray(); //$NON-NLS-1$; 
@@ -255,6 +295,9 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 	public static final char[] EqualsSignature = "(Ljava/lang/Object;)Z".toCharArray(); //$NON-NLS-1$; 
 	public static final char[] AddSuppressed = "addSuppressed".toCharArray(); //$NON-NLS-1$;
 	public static final char[] AddSuppressedSignature = "(Ljava/lang/Throwable;)V".toCharArray(); //$NON-NLS-1$
+	public static final char[] Clone = "clone".toCharArray(); //$NON-NLS-1$
+	public static final char[] CloneSignature = "()Ljava/lang/Object;".toCharArray(); //$NON-NLS-1$
+	
 	/**
 	 * ConstantPool constructor comment.
 	 */
@@ -736,6 +779,65 @@ public class ConstantPool implements ClassFileConstants, TypeIds {
 			this.poolContent[nameIndexOffset++] = (byte) (typeIndex >> 8);
 			this.poolContent[nameIndexOffset] = (byte) typeIndex;
 		}
+		return index;
+	}
+	public int literalIndexForMethodHandle(MethodBinding binding) {
+		boolean isInterface = binding.declaringClass.isInterface();
+		int referenceKind =
+			isInterface ? binding.isStatic() ? MethodHandleRefKindInvokeStatic : binding.isPrivate() ? MethodHandleRefKindInvokeSpecial : MethodHandleRefKindInvokeInterface
+			: binding.isConstructor() ? MethodHandleRefKindNewInvokeSpecial
+			: binding.isStatic() ? MethodHandleRefKindInvokeStatic
+			: binding.isPrivate() ? MethodHandleRefKindInvokeSpecial
+			: MethodHandleRefKindInvokeVirtual;
+		
+		return literalIndexForMethodHandle(referenceKind, binding.declaringClass, binding.selector, binding.signature(), isInterface);
+	}
+	
+	public int literalIndexForMethodHandle(int referenceKind, TypeBinding declaringClass, char[] selector, char[] signature, boolean isInterface) {
+		int indexForMethod = literalIndexForMethod(declaringClass, selector, signature, isInterface);
+
+		int index = this.currentIndex++;
+		int length = this.offsets.length;
+		if (length <= index) {
+			// resize
+			System.arraycopy(this.offsets, 0, (this.offsets = new int[index * 2]), 0, length);
+		}
+		
+		this.offsets[index] = this.currentOffset;
+		writeU1(MethodHandleTag);
+		writeU1(referenceKind);
+		writeU2(indexForMethod);
+
+		return index;
+	}
+	public int literalIndexForMethodType(char[] descriptor) {
+		int signatureIndex = literalIndex(descriptor);
+
+		int index = this.currentIndex++;
+		
+		int length = this.offsets.length;
+		if (length <= index) {
+			// resize
+			System.arraycopy(this.offsets, 0, (this.offsets = new int[index * 2]), 0, length);
+		}
+		this.offsets[index] = this.currentOffset;
+		writeU1(MethodTypeTag);
+		writeU2(signatureIndex);
+
+		return index;
+	}
+	public int literalIndexForInvokeDynamic(int bootStrapIndex, char[] selector, char[] descriptor) {
+		int nameAndTypeIndex = literalIndexForNameAndType(selector, descriptor);
+		int index = this.currentIndex++;
+		int length = this.offsets.length;
+		if (length <= index) {
+			// resize
+			System.arraycopy(this.offsets, 0, (this.offsets = new int[index * 2]), 0, length);
+		}
+		this.offsets[index] = this.currentOffset;
+		writeU1(InvokeDynamicTag);
+		writeU2(bootStrapIndex);
+		writeU2(nameAndTypeIndex);
 		return index;
 	}
 	public int literalIndexForField(char[] declaringClass, char[] name, char[] signature) {

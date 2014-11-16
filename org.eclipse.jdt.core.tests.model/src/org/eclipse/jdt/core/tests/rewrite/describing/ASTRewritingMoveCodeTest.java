@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,38 +13,46 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.List;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-
-import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CastExpression;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.ExpressionStatement;
+import org.eclipse.jdt.core.dom.ForStatement;
+import org.eclipse.jdt.core.dom.IfStatement;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.ParenthesizedExpression;
+import org.eclipse.jdt.core.dom.PrefixExpression;
+import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.WhileStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 public class ASTRewritingMoveCodeTest extends ASTRewritingTest {
 
-	private static final Class THIS= ASTRewritingMoveCodeTest.class;
-
 	public ASTRewritingMoveCodeTest(String name) {
 		super(name);
 	}
-
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
+	public ASTRewritingMoveCodeTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingMoveCodeTest.class);
 	}
 
-	public void testMove() throws Exception {
+	public void testMove_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -299,7 +307,7 @@ public class ASTRewritingMoveCodeTest extends ASTRewritingTest {
 	}
 
 
-	public void testMoveDeclDifferentLevelCD() throws Exception {
+	public void testMoveDeclDifferentLevelCD_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -419,7 +427,7 @@ public class ASTRewritingMoveCodeTest extends ASTRewritingTest {
 
 	}
 
-	public void testMoveDeclDifferentLevel() throws Exception {
+	public void testMoveDeclDifferentLevel_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1857,7 +1865,7 @@ public class ASTRewritingMoveCodeTest extends ASTRewritingTest {
 
 	}
 
-	public void testNestedCopies() throws Exception {
+	public void testNestedCopies_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 
 		StringBuffer buf= new StringBuffer();

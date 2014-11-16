@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -48,6 +48,21 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 	public static Test suite() {
 		return buildModelTestSuite(ASTConverterTest2.class);
 	}
+	/** 
+	 * Internal access method to MethodDeclaration#thrownExceptions() for avoiding deprecated warnings.
+	 * @deprecated
+	 */
+	private static List internalThrownExceptions(MethodDeclaration methodDeclaration) {
+		return methodDeclaration.thrownExceptions();
+	}
+
+	/**
+	 * @deprecated
+	 */
+	private Type componentType(ArrayType array) {
+		return array.getComponentType();
+	}
+
 	/**
 	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=22560
 	 * @deprecated using deprecated code
@@ -446,7 +461,7 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		assertNotNull(node);
 		assertTrue("Not a method declaration", node.getNodeType() == ASTNode.METHOD_DECLARATION); //$NON-NLS-1$
 		MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-		List throwsException = methodDeclaration.thrownExceptions();
+		List throwsException = internalThrownExceptions(methodDeclaration);
 		assertEquals("wrong size", 2, throwsException.size()); //$NON-NLS-1$
 		Name name = (Name) throwsException.get(0);
 		IBinding binding = name.resolveBinding();
@@ -2623,11 +2638,11 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2649,15 +2664,15 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2679,11 +2694,11 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 		List fragments = fieldDeclaration.fragments();
@@ -2709,19 +2724,19 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][][][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2743,7 +2758,7 @@ public class ASTConverterTest2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}

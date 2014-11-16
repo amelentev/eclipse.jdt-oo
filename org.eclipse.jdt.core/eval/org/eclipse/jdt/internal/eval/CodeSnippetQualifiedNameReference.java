@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -60,7 +60,7 @@ public TypeBinding checkFieldAccess(BlockScope scope) {
 	TypeBinding declaringClass = fieldBinding.original().declaringClass;
 	// check for forward references
 	if ((this.indexOfFirstFieldBinding == 1 || declaringClass.isEnum())
-			&& methodScope.enclosingSourceType() == declaringClass
+			&& TypeBinding.equalsEquals(methodScope.enclosingSourceType(), declaringClass)
 			&& methodScope.lastVisibleFieldID >= 0
 			&& fieldBinding.id >= methodScope.lastVisibleFieldID
 			&& (!fieldBinding.isStatic() || methodScope.isStatic)) {
@@ -96,7 +96,7 @@ public void generateCode(BlockScope currentScope, CodeStream codeStream, boolean
 			}
 		} else {
 			boolean isFirst = lastFieldBinding == this.binding
-											&& (this.indexOfFirstFieldBinding == 1 || lastFieldBinding.declaringClass == currentScope.enclosingReceiverType())
+											&& (this.indexOfFirstFieldBinding == 1 || TypeBinding.equalsEquals(lastFieldBinding.declaringClass, currentScope.enclosingReceiverType()))
 											&& this.otherBindings == null; // could be dup: next.next.next
 			TypeBinding requiredGenericCast = getGenericCast(this.otherBindings == null ? 0 : this.otherBindings.length);
 			if (valueRequired
@@ -252,7 +252,7 @@ public void generatePostIncrement(BlockScope currentScope, CodeStream codeStream
 		}		
 	}
 	codeStream.generateEmulationForField(lastFieldBinding);
-	if ((lastFieldBinding.type == TypeBinding.LONG) || (lastFieldBinding.type == TypeBinding.DOUBLE)) {
+	if ((TypeBinding.equalsEquals(lastFieldBinding.type, TypeBinding.LONG)) || (TypeBinding.equalsEquals(lastFieldBinding.type, TypeBinding.DOUBLE))) {
 		codeStream.dup_x2();
 		codeStream.pop();
 		if (lastFieldBinding.isStatic()) {
@@ -340,7 +340,8 @@ public FieldBinding generateReadSequence(BlockScope currentScope, CodeStream cod
 				// no implicit conversion
 			} else {
 				// outer local?
-				if ((this.bits & DepthMASK) != 0) {
+				if ((this.bits & IsCapturedOuterLocal) != 0) {
+					checkEffectiveFinality(localBinding, currentScope);
 					// outer local can be reached either through a synthetic arg or a synthetic field
 					VariableBinding[] path = currentScope.getEmulationPath(localBinding);
 					codeStream.generateOuterAccess(path, this, localBinding, currentScope);
@@ -400,7 +401,7 @@ public FieldBinding generateReadSequence(BlockScope currentScope, CodeStream cod
 						if (lastFieldBinding == initialFieldBinding) {
 							if (lastFieldBinding.isStatic()){
 								// if no valueRequired, still need possible side-effects of <clinit> invocation, if field belongs to different class
-								if (initialFieldBinding.declaringClass != this.actualReceiverType.erasure()) {
+								if (TypeBinding.notEquals(initialFieldBinding.declaringClass, this.actualReceiverType.erasure())) {
 									if (lastFieldBinding.canBeSeenBy(lastReceiverType, this, currentScope)) {
 										MethodBinding accessor = this.syntheticReadAccessors == null ? null : this.syntheticReadAccessors[i];
 										if (accessor == null) {

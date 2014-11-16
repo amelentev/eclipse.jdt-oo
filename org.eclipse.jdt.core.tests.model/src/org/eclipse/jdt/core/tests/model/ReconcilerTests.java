@@ -1,19 +1,23 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ *		IBM Corporation - initial API and implementation
+ *		Stephan Herrmann - Contribution for
+ *								bug 401035 - [1.8] A few tests have started failing recently
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.model;
 
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Map;
 
 import junit.framework.Test;
 
@@ -34,6 +38,7 @@ import org.eclipse.jdt.core.compiler.IProblem;
 import org.eclipse.jdt.core.compiler.ReconcileContext;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.core.CompilationUnit;
 import org.eclipse.jdt.internal.core.JavaModelManager;
 import org.eclipse.jdt.internal.core.search.indexing.IndexManager;
@@ -68,12 +73,7 @@ public class ReconcilerTests extends ModifyingResourceTests {
 		}
 	}
 	
-	/**
-	 * Internal synonynm for deprecated constant AST.JSL3
-	 * to alleviate deprecation warnings.
-	 * @deprecated
-	 */
-	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
+	/*package*/ static final int JLS_LATEST = AST.JLS8;
 
 	static class ReconcileParticipant extends CompilationParticipant {
 		IJavaElementDelta delta;
@@ -87,7 +87,7 @@ public class ReconcilerTests extends ModifyingResourceTests {
 		public void reconcile(ReconcileContext context) {
 			this.delta = context.getDelta();
 			try {
-				this.ast = context.getAST4();
+				this.ast = context.getAST8();
 			} catch (JavaModelException e) {
 				assertNull("Unexpected exception", e);
 			}
@@ -106,7 +106,7 @@ public class ReconcilerTests extends ModifyingResourceTests {
 		public void reconcile(ReconcileContext context) {
 			this.delta = context.getDelta();
 			try {
-				this.ast = context.getAST4();
+				this.ast = context.getAST8();
 				assertTrue("Context should have statement recovery enabled", (context.getReconcileFlags() & ICompilationUnit.ENABLE_STATEMENTS_RECOVERY) != 0);
 				assertTrue("Context should have ignore method body enabled", (context.getReconcileFlags() & ICompilationUnit.IGNORE_METHOD_BODIES) != 0);
 			} catch (JavaModelException e) {
@@ -127,7 +127,7 @@ public class ReconcilerTests extends ModifyingResourceTests {
 		public void reconcile(ReconcileContext context) {
 			this.delta = context.getDelta();
 			try {
-				this.ast = context.getAST4();
+				this.ast = context.getAST8();
 				assertFalse("Context should have statement recovery enabled", (context.getReconcileFlags() & ICompilationUnit.ENABLE_STATEMENTS_RECOVERY) != 0);
 				assertTrue("Context should have ignore method body enabled", (context.getReconcileFlags() & ICompilationUnit.IGNORE_METHOD_BODIES) != 0);
 			} catch (JavaModelException e) {
@@ -178,7 +178,7 @@ protected void assertNoProblem(char[] source, ICompilationUnit unit) throws Inte
 		// Reconcile again to see if error goes away
 		this.problemRequestor.initialize(source);
 		unit.getBuffer().setContents(source); // need to set contents again to be sure that following reconcile will be really done
-		unit.reconcile(JLS3_INTERNAL,
+		unit.reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -290,7 +290,7 @@ private void setUp15WorkingCopy(String path, WorkingCopyOwner owner) throws Java
 	String contents = this.workingCopy.getSource();
 	setUpWorkingCopy(path, contents, owner);
 }
-private void setUpWorkingCopy(String path, String contents) throws JavaModelException {
+protected void setUpWorkingCopy(String path, String contents) throws JavaModelException {
 	setUpWorkingCopy(path, contents, this.wcOwner);
 }
 private void setUpWorkingCopy(String path, String contents, WorkingCopyOwner owner) throws JavaModelException {
@@ -417,11 +417,11 @@ public void testAccessRestriction4() throws CoreException {
 		setUpWorkingCopy("/P3/src/Y.java", "public class Y extends p.X {}");
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /P3/src/Y.java (at line 1)\n" +
-			"	public class Y extends p.X {}\n" +
-			"	                       ^^^\n" +
-			"Access restriction: The type X is not accessible due to restriction on required project P1\n" +
+			"----------\n" + 
+			"1. ERROR in /P3/src/Y.java (at line 1)\n" + 
+			"	public class Y extends p.X {}\n" + 
+			"	                       ^^^\n" + 
+			"Access restriction: The type \'X\' is not API (restriction on required project \'P1\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -458,11 +458,11 @@ public void testAccessRestriction5() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /P2/src/Y.java (at line 1)\n" +
-			"	public class Y extends p.X {}\n" +
-			"	                       ^^^\n" +
-			"Access restriction: The type X is not accessible due to restriction on required project P1\n" +
+			"----------\n" + 
+			"1. ERROR in /P2/src/Y.java (at line 1)\n" + 
+			"	public class Y extends p.X {}\n" + 
+			"	                       ^^^\n" + 
+			"Access restriction: The type \'X\' is not API (restriction on required project \'P1\')\n" + 
 			"----------\n"
 		);
 
@@ -789,7 +789,7 @@ public void testBroadcastAST1() throws JavaModelException {
 		"import p2.*;\n" +
 		"public class X {\n" +
 		"}");
-	this.workingCopy.reconcile(JLS3_INTERNAL, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
+	this.workingCopy.reconcile(JLS_LATEST, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
 	assertASTNodeEquals(
 		"Unexpected ast",
 		"package p1;\n" +
@@ -803,7 +803,7 @@ public void testBroadcastAST1() throws JavaModelException {
  * (case of a working copy being reconciled with NO changes, creating AST and forcing problem detection)
  */
 public void testBroadcastAST2() throws JavaModelException {
-	this.workingCopy.reconcile(JLS3_INTERNAL, true/*force problem detection*/, null/*primary owner*/, null/*no progress*/);
+	this.workingCopy.reconcile(JLS_LATEST, true/*force problem detection*/, null/*primary owner*/, null/*no progress*/);
 	assertASTNodeEquals(
 		"Unexpected ast",
 		"package p1;\n" +
@@ -819,7 +819,7 @@ public void testBroadcastAST2() throws JavaModelException {
  * has NO changes and NO problem detection is requested)
  */
 public void testBroadcastAST3() throws JavaModelException {
-	this.workingCopy.reconcile(JLS3_INTERNAL, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
+	this.workingCopy.reconcile(JLS_LATEST, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
 	assertASTNodeEquals(
 		"Unexpected ast",
 		"null",
@@ -833,13 +833,13 @@ public void testBroadcastAST4() throws CoreException {
 	JavaCore.run(
 		new IWorkspaceRunnable() {
 			public void run(IProgressMonitor monitor) throws CoreException {
-				ReconcilerTests.this.workingCopy.reconcile(JLS3_INTERNAL, true/*force problem detection*/, null/*primary owner*/, monitor);
+				ReconcilerTests.this.workingCopy.reconcile(JLS_LATEST, true/*force problem detection*/, null/*primary owner*/, monitor);
 				setWorkingCopyContents(
 					"package p1;\n" +
 					"import p2.*;\n" +
 					"public class X {\n" +
 					"}");
-				ReconcilerTests.this.workingCopy.reconcile(JLS3_INTERNAL, false/*don't force problem detection*/, null/*primary owner*/, monitor);
+				ReconcilerTests.this.workingCopy.reconcile(JLS_LATEST, false/*don't force problem detection*/, null/*primary owner*/, monitor);
 			}
 		},
 		null/*no progress*/);
@@ -861,7 +861,7 @@ public void testBroadcastAST5() throws JavaModelException {
 		"import p2.*;\n" +
 		"public class X {\n" +
 		"}");
-	this.workingCopy.reconcile(JLS3_INTERNAL, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
+	this.workingCopy.reconcile(JLS_LATEST, false/*don't force problem detection*/, null/*primary owner*/, null/*no progress*/);
 	org.eclipse.jdt.core.dom.CompilationUnit compilationUnit = this.deltaListener.getCompilationUnitAST(this.workingCopy);
 	String newContents =
 		"package p1;\n" +
@@ -976,7 +976,7 @@ public void testBufferClosed2() throws CoreException {
 	);
 }
 /**
- * Ensure an OperationCanceledException is correcly thrown when progress monitor is canceled
+ * Ensure an OperationCanceledException is correctly thrown when progress monitor is canceled
  * @deprecated using deprecated code
  */
 public void testCancel() throws JavaModelException {
@@ -1676,11 +1676,11 @@ public void testExcludePartOfAnotherProject1() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" +
-			"	public class X extends p.internal.Y {\n" +
-			"	                       ^^^^^^^^^^^^\n" +
-			"Access restriction: The type Y is not accessible due to restriction on required project P\n" +
+			"----------\n" + 
+			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" + 
+			"	public class X extends p.internal.Y {\n" + 
+			"	                       ^^^^^^^^^^^^\n" + 
+			"Access restriction: The type \'Y\' is not API (restriction on required project \'P\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -1880,11 +1880,11 @@ public void testIncludePartOfAnotherProject2() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" +
-			"	public class X extends p.internal.Y {\n" +
-			"	                       ^^^^^^^^^^^^\n" +
-			"Access restriction: The type Y is not accessible due to restriction on required project P\n" +
+			"----------\n" + 
+			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" + 
+			"	public class X extends p.internal.Y {\n" + 
+			"	                       ^^^^^^^^^^^^\n" + 
+			"Access restriction: The type \'Y\' is not API (restriction on required project \'P\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -2005,11 +2005,11 @@ public void testIgnoreIfBetterNonAccessibleRule2() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. WARNING in /Reconciler/src/p1/X.java (at line 2)\n" +
-			"	public class X extends p.internal.Y {\n" +
-			"	                       ^^^^^^^^^^^^\n" +
-			"Discouraged access: The type Y is not accessible due to restriction on required project P2\n" +
+			"----------\n" + 
+			"1. WARNING in /Reconciler/src/p1/X.java (at line 2)\n" + 
+			"	public class X extends p.internal.Y {\n" + 
+			"	                       ^^^^^^^^^^^^\n" + 
+			"Discouraged access: The type \'Y\' is not API (restriction on required project \'P2\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -2050,11 +2050,11 @@ public void testIgnoreIfBetterNonAccessibleRule3() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" +
-			"	public class X extends p.internal.Y {\n" +
-			"	                       ^^^^^^^^^^^^\n" +
-			"Access restriction: The type Y is not accessible due to restriction on required project P1\n" +
+			"----------\n" + 
+			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" + 
+			"	public class X extends p.internal.Y {\n" + 
+			"	                       ^^^^^^^^^^^^\n" + 
+			"Access restriction: The type \'Y\' is not API (restriction on required project \'P1\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -2087,11 +2087,11 @@ public void testIgnoreIfBetterNonAccessibleRule4() throws CoreException {
 		this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 		assertProblems(
 			"Unexpected problems",
-			"----------\n" +
-			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" +
-			"	public class X extends p.internal.Y {\n" +
-			"	                       ^^^^^^^^^^^^\n" +
-			"Access restriction: The type Y is not accessible due to restriction on required project P1\n" +
+			"----------\n" + 
+			"1. ERROR in /Reconciler/src/p1/X.java (at line 2)\n" + 
+			"	public class X extends p.internal.Y {\n" + 
+			"	                       ^^^^^^^^^^^^\n" + 
+			"Access restriction: The type \'Y\' is not API (restriction on required project \'P1\')\n" + 
 			"----------\n"
 		);
 	} finally {
@@ -2114,8 +2114,7 @@ public void testMethodWithError01() throws CoreException {
 	this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
 	assertWorkingCopyDeltas(
 		"Unexpected delta after syntax error",
-		"X[*]: {CHILDREN | FINE GRAINED}\n" +
-		"	foo()[*]: {MODIFIERS CHANGED}"
+		"[Working copy] X.java[*]: {CONTENT | FINE GRAINED}"
 	);
 	assertProblems(
 		"Unexpected problems",
@@ -2124,6 +2123,60 @@ public void testMethodWithError01() throws CoreException {
 		"	public.void foo() {\n" +
 		"	      ^\n" +
 		"Syntax error on token \".\", delete this token\n" +
+		"----------\n"
+	);
+
+	// Fix the syntax error
+	clearDeltas();
+	String contents =
+		"package p1;\n" +
+		"import p2.*;\n" +
+		"public class X {\n" +
+		"  public void foo() {\n" +
+		"  }\n" +
+		"}";
+	setWorkingCopyContents(contents);
+	this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
+	assertWorkingCopyDeltas(
+		"Unexpected delta after fixing syntax error",
+		"[Working copy] X.java[*]: {CONTENT | FINE GRAINED}"
+	);
+	assertProblems(
+		"Unexpected problems",
+		"----------\n" +
+		"1. WARNING in /Reconciler/src/p1/X.java (at line 2)\n" +
+		"	import p2.*;\n" +
+		"	       ^^\n" +
+		"The import p2 is never used\n" +
+		"----------\n"
+	);
+}
+/**
+ * Introduces a syntax error in the modifiers of a method.
+ * Variant to force the expected modifier change.
+ */
+public void testMethodWithError01a() throws CoreException {
+	// Introduce syntax error
+	setWorkingCopyContents(
+		"package p1;\n" +
+		"import p2.*;\n" +
+		"public class X {\n" +
+		"  public_ void foo() {\n" +
+		"  }\n" +
+		"}");
+	this.workingCopy.reconcile(ICompilationUnit.NO_AST, false, null, null);
+	assertWorkingCopyDeltas(
+		"Unexpected delta after syntax error",
+		"X[*]: {CHILDREN | FINE GRAINED}\n" +
+		"	foo()[*]: {MODIFIERS CHANGED}"
+	);
+	assertProblems(
+		"Unexpected problems",
+		"----------\n" + 
+		"1. ERROR in /Reconciler/src/p1/X.java (at line 4)\n" + 
+		"	public_ void foo() {\n" + 
+		"	^^^^^^^\n" + 
+		"Syntax error on token \"public_\", public expected\n" + 
 		"----------\n"
 	);
 
@@ -2920,7 +2973,7 @@ public void testReconcileParticipant04() throws CoreException {
 		"  }\n" +
 		"}"
 	);
-	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(AST.JLS4, false, null, null);
+	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(JLS_LATEST, false, null, null);
 	assertSame(
 		"Unexpected participant ast",
 		participant.ast,
@@ -3112,7 +3165,7 @@ public void testReconcileParticipant11() throws CoreException {
 		"  }\n" +
 		"}"
 	);
-	this.workingCopy.reconcile(JLS3_INTERNAL, true/*force problem detection*/, null, null);
+	this.workingCopy.reconcile(JLS_LATEST, true/*force problem detection*/, null, null);
 	assertWorkingCopyDeltas(
 		"Unexpected delta",
 		"X[*]: {CHILDREN | FINE GRAINED}\n" +
@@ -3765,7 +3818,7 @@ public void testBug114338() throws CoreException {
 		"		return false;\n" +
 		"	}\n" +
 		"}");
-	this.workingCopy.reconcile(JLS3_INTERNAL, true, this.wcOwner, null);
+	this.workingCopy.reconcile(JLS_LATEST, true, this.wcOwner, null);
 	assertProblems(
 		"Unexpected problems",
 		"----------\n" +
@@ -3784,7 +3837,7 @@ public void testBug114338() throws CoreException {
 		"	}\n" +
 		"}";
 	setWorkingCopyContents(contents);
-	this.workingCopy.reconcile(JLS3_INTERNAL, true, this.wcOwner, null);
+	this.workingCopy.reconcile(JLS_LATEST, true, this.wcOwner, null);
 	assertProblems(
 		"Unexpected problems",
 		"----------\n" +
@@ -3820,7 +3873,7 @@ public void testBug36032a() throws CoreException, InterruptedException {
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopy = getCompilationUnit("/P/Test.java").getWorkingCopy(this.wcOwner, null);
 		this.workingCopy.getBuffer().setContents(source);
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertNoProblem(sourceChars, this.workingCopy);
 
 		// Add new secondary type
@@ -3840,7 +3893,7 @@ public void testBug36032a() throws CoreException, InterruptedException {
 		sourceChars = source.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopy.getBuffer().setContents(source);
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertNoProblem(sourceChars, this.workingCopy);
 	} finally {
 		deleteProject("P");
@@ -3875,14 +3928,14 @@ public void testBug36032b() throws CoreException, InterruptedException {
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopy = getCompilationUnit("/P/Test.java").getWorkingCopy(this.wcOwner, null);
 		this.workingCopy.getBuffer().setContents(source);
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertNoProblem(sourceChars, this.workingCopy);
 
 		// Delete secondary type => should get a problem
 		waitUntilIndexesReady();
 		deleteFile("/P/Bar.java");
 		this.problemRequestor.initialize(source.toCharArray());
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertEquals("Working copy should not find secondary type 'Bar'!", 1, this.problemRequestor.problemCount);
 		assertProblems("Working copy should have problem!",
 			"----------\n" +
@@ -3903,7 +3956,7 @@ public void testBug36032b() throws CoreException, InterruptedException {
 		sourceChars = source.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopy.getBuffer().setContents(source);
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertNoProblem(sourceChars, this.workingCopy);
 	} finally {
 		deleteProject("P");
@@ -3950,7 +4003,7 @@ public void testBug36032c() throws CoreException, InterruptedException {
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopy = getCompilationUnit("/P2/test/Test2.java").getWorkingCopy(this.wcOwner, null);
 		this.workingCopy.getBuffer().setContents(source);
-		this.workingCopy.reconcile(JLS3_INTERNAL, true, null, null);
+		this.workingCopy.reconcile(JLS_LATEST, true, null, null);
 		assertNoProblem(sourceChars, this.workingCopy);
 	} finally {
 		deleteProject("P1");
@@ -4022,7 +4075,7 @@ public void testBug118823() throws CoreException, InterruptedException, IOExcept
 		sourceChars = source1.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[0].getBuffer().setContents(source1);
-		this.workingCopies[0].reconcile(JLS3_INTERNAL,
+		this.workingCopies[0].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4032,7 +4085,7 @@ public void testBug118823() throws CoreException, InterruptedException, IOExcept
 		sourceChars = source2.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[1].getBuffer().setContents(source2);
-		this.workingCopies[1].reconcile(JLS3_INTERNAL,
+		this.workingCopies[1].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4089,7 +4142,7 @@ public void testBug118823b() throws CoreException, InterruptedException {
 		sourceChars = source1.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[0].getBuffer().setContents(source1);
-		this.workingCopies[0].reconcile(JLS3_INTERNAL,
+		this.workingCopies[0].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4100,7 +4153,7 @@ public void testBug118823b() throws CoreException, InterruptedException {
 		sourceChars = source2.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[1].getBuffer().setContents(source2);
-		this.workingCopies[1].reconcile(JLS3_INTERNAL,
+		this.workingCopies[1].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4164,7 +4217,7 @@ public void testBug118823c() throws CoreException, InterruptedException {
 		sourceChars = source1.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[0].getBuffer().setContents(source1);
-		this.workingCopies[0].reconcile(JLS3_INTERNAL,
+		this.workingCopies[0].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4175,7 +4228,7 @@ public void testBug118823c() throws CoreException, InterruptedException {
 		sourceChars = source2.toCharArray();
 		this.problemRequestor.initialize(sourceChars);
 		this.workingCopies[1].getBuffer().setContents(source2);
-		this.workingCopies[1].reconcile(JLS3_INTERNAL,
+		this.workingCopies[1].reconcile(JLS_LATEST,
 			true, // force problem detection to see errors if any
 			null,	// do not use working copy owner to not use working copies in name lookup
 			null);
@@ -4385,7 +4438,7 @@ public void testIgnoreMethodBodies1() throws CoreException {
 		"    int i = 0;\n" + 
 		"  }\n" +
 		"}");
-	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(JLS3_INTERNAL, ICompilationUnit.IGNORE_METHOD_BODIES, null, null);
+	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(JLS_LATEST, ICompilationUnit.IGNORE_METHOD_BODIES, null, null);
 	// X.foo() not returning any value should not be reported
 	assertProblems("Working copy should have problems:",
 			"----------\n" +
@@ -4421,7 +4474,7 @@ public void testIgnoreMethodBodies2() throws CoreException {
 		"    }/*end*/;" +
 		"  }\n" +
 		"}");
-	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(JLS3_INTERNAL, ICompilationUnit.IGNORE_METHOD_BODIES, null, null);
+	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(JLS_LATEST, ICompilationUnit.IGNORE_METHOD_BODIES, null, null);
 	// methods with anonymous classes should have their statements intact
 	assertASTNodeEquals(
 			"Unexpected ast",
@@ -4453,7 +4506,7 @@ public void testIgnoreMethodBodies3() throws CoreException {
 		"  }\n" +
 		"}");
 	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(
-			JLS3_INTERNAL,
+			JLS_LATEST,
 			ICompilationUnit.IGNORE_METHOD_BODIES | ICompilationUnit.ENABLE_STATEMENTS_RECOVERY,
 			null,
 			null);
@@ -4488,7 +4541,7 @@ public void testIgnoreMethodBodies4() throws CoreException {
 		"  }\n" +
 		"}");
 	org.eclipse.jdt.core.dom.CompilationUnit ast = this.workingCopy.reconcile(
-			JLS3_INTERNAL,
+			JLS_LATEST,
 			ICompilationUnit.IGNORE_METHOD_BODIES,
 			null,
 			null);
@@ -5396,6 +5449,349 @@ public void testBug374176b() throws CoreException, IOException, InterruptedExcep
 	} finally {
 		if (project15 != null)
 			deleteProject(project15);
+	}
+}
+public void testSecondaryTypeDeletion() throws CoreException, IOException {
+	
+	// Set working copy content with no error
+	setUpWorkingCopy("/Reconciler/src/X.java",
+			"interface I {\n" +
+					"	void foo();\n" +
+					"}\n" +
+					"public class X {\n" +
+					"	static void goo(I i) {\n" +
+					"	}\n" +
+					"}\n"
+			);
+	assertProblems(
+			"Unexpected problems",
+			"----------\n" +
+			"----------\n"
+			);
+
+	String contents = 
+					"public class X {\n" +
+					"	static void goo(I i) {\n" +
+					"	}\n" +
+					"}\n";
+	
+	setWorkingCopyContents(contents);
+	this.workingCopy.reconcile(ICompilationUnit.NO_AST, true, null, null);
+	assertProblems(
+			"Wrong expected problems",
+			"----------\n" + 
+			"1. ERROR in /Reconciler/src/X.java (at line 2)\n" + 
+			"	static void goo(I i) {\n" + 
+			"	                ^\n" + 
+			"I cannot be resolved to a type\n" + 
+			"----------\n"
+			);
+	}	
+/**
+ * Project's compliance: source: 1.5, compiler: 1.5
+ * Jar's compliance: source: 1.3, compiler: 1.3
+ * Jar contains a class with "enum" package and is located inside the project.
+ * The test verifies that class from the "enum" package is correctly reconciled.
+ */
+public void testBug410207a() throws Exception {
+	try {
+		IJavaProject p = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB", "/P/lib.jar"}, "bin", "1.5");
+		Util.createJar(new String[] {
+				"a/enum/b/NonCompliant.java",
+				"package a.enum.b;\n" +
+				"public class NonCompliant {\n" +
+				"}",
+				"lib/External.java",
+				"package lib;\n" +
+				"import a.enum.b.NonCompliant;\n" +
+				"public class External {\n" +
+				"   public NonCompliant setNonCompliant(NonCompliant x) {\n" +
+				"      return null;\n" +
+				"	}\n" +
+				"}"
+			},
+			p.getProject().getLocation().append("lib.jar").toOSString(),
+			"1.3");
+		refresh(p);
+		setUpWorkingCopy(
+				"/P/src/p/Main.java",
+				"package p;\n" +
+				"import lib.External;\n" +
+				"public class Main {\n" +
+				"   public void m() {\n" +
+				"      External external = new External();\n" +
+				"      external.setNonCompliant(null);\n" +
+				"   };\n" +
+				"}"
+		);
+		this.problemRequestor.reset();
+		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
+		assertProblems(
+				"Unexpected problems",
+				"----------\n" +
+				"----------\n"
+		);
+	} finally {
+		deleteProject("P");
+	}
+}
+/**
+ * Project's compliance: source: 1.5, compiler: 1.5
+ * Jar's compliance: source: 1.4, compiler: 1.6
+ * Jar contains a class with "enum" package and is located inside the project.
+ * The test verifies that class from the "enum" package is correctly reconciled.
+ */
+public void testBug410207b() throws Exception {
+	try {
+		IJavaProject p = createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB", "/P/lib.jar"}, "bin", "1.5");
+		Map options = new HashMap();
+		options.put(CompilerOptions.OPTION_Source, "1.4");
+		Util.createJar(new String[] {
+				"a/enum/b/NonCompliant.java",
+				"package a.enum.b;\n" +
+				"public class NonCompliant {\n" +
+				"}",
+				"lib/External.java",
+				"package lib;\n" +
+				"import a.enum.b.NonCompliant;\n" +
+				"public class External {\n" +
+				"   public NonCompliant setNonCompliant(NonCompliant x) {\n" +
+				"      return null;\n" +
+				"	}\n" +
+				"}"
+			},
+			null,/*extraPathsAndContents*/
+			p.getProject().getLocation().append("lib.jar").toOSString(),
+			null,/*classpath*/
+			"1.6",
+			options);
+		refresh(p);
+		setUpWorkingCopy(
+				"/P/src/p/Main.java",
+				"package p;\n" +
+				"import lib.External;\n" +
+				"public class Main {\n" +
+				"   public void m() {\n" +
+				"      External external = new External();\n" +
+				"      external.setNonCompliant(null);\n" +
+				"   };\n" +
+				"}"
+		);
+		this.problemRequestor.reset();
+		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
+		assertProblems(
+				"Unexpected problems",
+				"----------\n" +
+				"----------\n"
+		);
+	} finally {
+		deleteProject("P");
+	}
+}
+/**
+ * Two projects:
+ * 		Lib: source: 1.4, compiler: 1.4
+ * 		P: source: 1.5, compiler: 1.5
+ * Lib contains a class with "enum" package and is required by P (dependency on the bin folder).
+ * The test verifies that class from the "enum" package is correctly reconciled for P.
+ */
+public void testBug410207c() throws Exception {
+	try {
+		createJavaProject("Lib", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.4");
+		createFolder("/Lib/src/a/enum/b");
+		createFile(
+				"/Lib/src/a/enum/b/NonCompliant.java",
+				"package a.enum.b;\n" +
+				"public class NonCompliant {\n" +
+				"}"
+		);
+		createFolder("/Lib/src/lib");
+		createFile(
+				"/Lib/src/lib/External.java",
+				"package lib;\n" +
+				"import a.enum.b.NonCompliant;\n" +
+				"public class External {\n" +
+				"   public NonCompliant setNonCompliant(NonCompliant x) {\n" +
+				"      return null;\n" +
+				"	}\n" +
+				"}"
+		);
+		getProject("Lib").build(IncrementalProjectBuilder.FULL_BUILD, null);
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB", "/Lib/bin"}, "bin", "1.5");
+		setUpWorkingCopy(
+				"/P/src/p/Main.java",
+				"package p;\n" +
+				"import lib.External;\n" +
+				"public class Main {\n" +
+				"   public void m() {\n" +
+				"      External external = new External();\n" +
+				"      external.setNonCompliant(null);\n" +
+				"   };\n" +
+				"}"
+		);
+		this.problemRequestor.reset();
+		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
+		assertProblems(
+				"Unexpected problems",
+				"----------\n" +
+				"----------\n"
+		);
+	} finally {
+		deleteProjects(new String[] { "Lib", "P" });
+	}
+}
+/**
+ * Two projects:
+ * 		Lib: source: 1.4, compiler: 1.4
+ * 		P: source: 1.5, compiler: 1.5
+ * Lib contains a class with "enum" package and is required by P (dependency on the whole project).
+ * The test verifies that class from the "enum" package is correctly reconciled for P.
+ */
+public void testBug410207d() throws Exception {
+	try {
+		createJavaProject("Lib", new String[] {"src"}, new String[] {"JCL_LIB"}, "bin", "1.4");
+		createFolder("/Lib/src/a/enum/b");
+		createFile(
+				"/Lib/src/a/enum/b/NonCompliant.java",
+				"package a.enum.b;\n" +
+				"public class NonCompliant {\n" +
+				"}"
+		);
+		createFolder("/Lib/src/lib");
+		createFile(
+				"/Lib/src/lib/External.java",
+				"package lib;\n" +
+				"import a.enum.b.NonCompliant;\n" +
+				"public class External {\n" +
+				"   public NonCompliant setNonCompliant(NonCompliant x) {\n" +
+				"      return null;\n" +
+				"	}\n" +
+				"}"
+		);
+		getProject("Lib").build(IncrementalProjectBuilder.FULL_BUILD, null);
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL15_LIB"}, new String[] {"/Lib"}, "bin", "1.5");
+		setUpWorkingCopy(
+				"/P/src/p/Main.java",
+				"package p;\n" +
+				"import lib.External;\n" +
+				"public class Main {\n" +
+				"   public void m() {\n" +
+				"      External external = new External();\n" +
+				"      external.setNonCompliant(null);\n" +
+				"   };\n" +
+				"}"
+		);
+		this.problemRequestor.reset();
+		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
+		assertProblems(
+				"Unexpected problems",
+				"----------\n" +
+				"----------\n"
+		);
+	} finally {
+		deleteProjects(new String[] { "Lib", "P" });
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=440592, Cannot easily launch application in case of certain usage of lambda expressions
+public void testBug440592() throws Exception {
+	try {
+		createJavaProject("P", new String[] {"src"}, new String[] {"JCL18_FULL"}, "bin", "1.8", true);
+		createFile(
+				"/P/src/BugTest.java",
+				"public class BugTest {\n" +
+				"	public void baz(InterfaceForBugTest arg) {\n" +
+				"	}\n" +
+				"	public void bar() {\n" +
+				"		baz(InterfaceForBugTest.instance); \n" +
+				"	}\n" +
+				"	public Runnable returningLambda() { \n" +
+				"		return () -> {\n" +
+				"		};\n" +
+				"	}\n" +
+				"	public static void main(String[] args) {\n" +
+				"	}\n" +
+				"}\n"
+		);
+		createFile(
+				"/P/src/InterfaceForBugTest.java",
+				"public interface InterfaceForBugTest {\n" +
+				"	public static InterfaceForBugTest creator1(Runnable simpleInstance){\n" +
+				"		return null;\n" +
+				"	}\n" +
+				"	public static void methodWithAnonymousImplementation() {\n" +
+				"		new InterfaceForBugTest() {\n" +
+				"			@Override\n" +
+				"			public void fun1() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun2() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun3() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun4() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun5() {\n" +
+				"			}\n" +
+				"		};\n" +
+				"	} \n" +
+				"	public static void methodWithAnonymousImplementation2() {\n" +
+				"		new InterfaceForBugTest() {\n" +
+				"			@Override\n" +
+				"			public void fun1() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun2() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun3() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun4() {\n" +
+				"			}\n" +
+				"			@Override\n" +
+				"			public void fun5() {\n" +
+				"			}\n" +
+				"		};\n" +
+				"	}\n" +
+				"	public static InterfaceForBugTest instance = creator1(() -> {\n" +
+				"	});\n" +
+				"	void fun1();\n" +
+				"	void fun2();\n" +
+				"	void fun3();\n" +
+				"	void fun4();\n" +
+				"	void fun5();\n" +
+				"}\n"
+
+		);
+		getProject("P").build(IncrementalProjectBuilder.FULL_BUILD, null);
+		setUpWorkingCopy(
+				"/P/src/BugTest.java",
+				"public class BugTest {\n" +
+				"	public void baz(InterfaceForBugTest arg) {\n" +
+				"	}\n" +
+				"	public void bar() {\n" +
+				"		baz(InterfaceForBugTest.instance); \n" +
+				"	}\n" +
+				"	public Runnable returningLambda() { \n" +
+				"		return () -> {\n"  +
+				"		};\n" +
+				"	}\n" +
+				"	public static void main(String[] args) {\n" +
+				"	}\n" +
+				"}\n"
+		);
+		this.problemRequestor.reset();
+		this.workingCopy.reconcile(ICompilationUnit.NO_AST, true/*force problem detection*/, null, null);
+		assertProblems(
+				"Unexpected problems",
+				"----------\n" +
+				"----------\n"
+		);
+	} finally {
+		deleteProjects(new String[] { "P" });
 	}
 }
 }

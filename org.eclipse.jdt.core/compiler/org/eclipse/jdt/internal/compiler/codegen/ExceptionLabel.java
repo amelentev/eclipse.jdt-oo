@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,10 +7,14 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.codegen;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
+import org.eclipse.jdt.internal.compiler.ast.Annotation;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 public class ExceptionLabel extends Label {
@@ -18,6 +22,15 @@ public class ExceptionLabel extends Label {
 	public int ranges[] = {POS_NOT_SET,POS_NOT_SET};
 	private int count = 0; // incremented each time placeStart or placeEnd is called
 	public TypeBinding exceptionType;
+	public TypeReference exceptionTypeReference;
+	public Annotation [] se7Annotations;
+
+public ExceptionLabel(CodeStream codeStream, TypeBinding exceptionType, TypeReference exceptionTypeReference, Annotation [] se7Annotations) {
+	super(codeStream);
+	this.exceptionType = exceptionType;
+	this.exceptionTypeReference = exceptionTypeReference;
+	this.se7Annotations = se7Annotations;
+}
 
 public ExceptionLabel(CodeStream codeStream, TypeBinding exceptionType) {
 	super(codeStream);

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,39 +10,27 @@
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.rewrite.describing;
 
+
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
+import org.eclipse.jdt.core.tests.model.AbstractJavaModelTests;
+import org.eclipse.jdt.internal.core.dom.rewrite.SourceModifier;
+import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MultiTextEdit;
 import org.eclipse.text.edits.ReplaceEdit;
-
-import org.eclipse.jface.text.Document;
-
-import org.eclipse.jdt.internal.core.dom.rewrite.SourceModifier;
 
 /**
  *
  */
-public class SourceModifierTest extends ASTRewritingTest {
-
-	private static final Class THIS= SourceModifierTest.class;
+public class SourceModifierTest extends AbstractJavaModelTests {
 
 	public SourceModifierTest(String name) {
 		super(name);
 	}
 
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
-	}
-
 	public static Test suite() {
-		return allTests();
+		return new TestSuite(SourceModifierTest.class);
 	}
 
 	public void testRemoveIndents() throws Exception {
@@ -93,7 +81,7 @@ public class SourceModifierTest extends ASTRewritingTest {
 		buf.append("}\n");
 		String expected= buf.toString();
 
-		assertEqualString(preview, expected);
+		StringAsserts.assertEqualString(preview, expected);
 	}
 
 	public void testAddIndents() throws Exception {
@@ -144,6 +132,6 @@ public class SourceModifierTest extends ASTRewritingTest {
 		buf.append("}\n");
 		String expected= buf.toString();
 
-		assertEqualString(preview, expected);
+		StringAsserts.assertEqualString(preview, expected);
 	}
 }

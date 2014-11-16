@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper Steen Moller - Contributions for:
+ *          Bug 412149: [1.8][compiler] Emit repeated annotations into the designated container
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -25,6 +27,10 @@ public class SingleMemberAnnotation extends Annotation {
 		this.type = type;
 		this.sourceStart = sourceStart;
 		this.sourceEnd = type.sourceEnd;
+	}
+	
+	public SingleMemberAnnotation() {
+		// for subclasses.
 	}
 
 	public ElementValuePair[] computeElementValuePairs() {
@@ -52,6 +58,18 @@ public class SingleMemberAnnotation extends Annotation {
 	}
 
 	public void traverse(ASTVisitor visitor, BlockScope scope) {
+		if (visitor.visit(this, scope)) {
+			if (this.type != null) {
+				this.type.traverse(visitor, scope);
+			}
+			if (this.memberValue != null) {
+				this.memberValue.traverse(visitor, scope);
+			}
+		}
+		visitor.endVisit(this, scope);
+	}
+
+	public void traverse(ASTVisitor visitor, ClassScope scope) {
 		if (visitor.visit(this, scope)) {
 			if (this.type != null) {
 				this.type.traverse(visitor, scope);

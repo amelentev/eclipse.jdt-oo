@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,53 +12,11 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.List;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
+import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.ASTNode;
-import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
-import org.eclipse.jdt.core.dom.ArrayAccess;
-import org.eclipse.jdt.core.dom.ArrayCreation;
-import org.eclipse.jdt.core.dom.ArrayInitializer;
-import org.eclipse.jdt.core.dom.ArrayType;
-import org.eclipse.jdt.core.dom.Assignment;
-import org.eclipse.jdt.core.dom.Block;
-import org.eclipse.jdt.core.dom.BooleanLiteral;
-import org.eclipse.jdt.core.dom.CastExpression;
-import org.eclipse.jdt.core.dom.CatchClause;
-import org.eclipse.jdt.core.dom.CharacterLiteral;
-import org.eclipse.jdt.core.dom.ClassInstanceCreation;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.ConditionalExpression;
-import org.eclipse.jdt.core.dom.Expression;
-import org.eclipse.jdt.core.dom.ExpressionStatement;
-import org.eclipse.jdt.core.dom.FieldAccess;
-import org.eclipse.jdt.core.dom.InfixExpression;
-import org.eclipse.jdt.core.dom.InstanceofExpression;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.MethodInvocation;
-import org.eclipse.jdt.core.dom.Name;
-import org.eclipse.jdt.core.dom.NumberLiteral;
-import org.eclipse.jdt.core.dom.ParenthesizedExpression;
-import org.eclipse.jdt.core.dom.PostfixExpression;
-import org.eclipse.jdt.core.dom.PrefixExpression;
-import org.eclipse.jdt.core.dom.PrimitiveType;
-import org.eclipse.jdt.core.dom.ReturnStatement;
-import org.eclipse.jdt.core.dom.SimpleName;
-import org.eclipse.jdt.core.dom.SimpleType;
-import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
-import org.eclipse.jdt.core.dom.StringLiteral;
-import org.eclipse.jdt.core.dom.SuperConstructorInvocation;
-import org.eclipse.jdt.core.dom.SuperFieldAccess;
-import org.eclipse.jdt.core.dom.SuperMethodInvocation;
-import org.eclipse.jdt.core.dom.ThisExpression;
-import org.eclipse.jdt.core.dom.TryStatement;
-import org.eclipse.jdt.core.dom.Type;
-import org.eclipse.jdt.core.dom.TypeDeclaration;
-import org.eclipse.jdt.core.dom.TypeLiteral;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
@@ -69,22 +27,18 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	public ASTRewritingExpressionsTest(String name) {
 		super(name);
 	}
+	public ASTRewritingExpressionsTest(String name, int apiLevel) {
+		super(name, apiLevel);
+	}
 
 	public static Test allTests() {
 		return new Suite(THIS);
 	}
 
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
-	}
-
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingExpressionsTest.class);
 	}
 
-	/** @deprecated using deprecated code */
 	public void testArrayAccess() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -141,7 +95,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 
-	/** @deprecated using deprecated code */
 	public void testArrayCreation() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -248,6 +201,14 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 			rewrite.getListRewrite(arrayCreation, ArrayCreation.DIMENSIONS_PROPERTY).insertLast(literal2, null);
 
 		}
+		{	// add a new ArrayCreation
+			ArrayCreation arrayCreation= ast.newArrayCreation();
+			arrayCreation.setType(ast.newArrayType(ast.newSimpleType(ast.newSimpleName("Object")), 3));
+			arrayCreation.dimensions().add(ast.newNumberLiteral("1"));
+			arrayCreation.dimensions().add(ast.newNumberLiteral("2"));
+			
+			rewrite.getListRewrite(invocation, MethodInvocation.ARGUMENTS_PROPERTY).insertLast(arrayCreation, null);
+		}
 
 		String preview= evaluateRewrite(cu, rewrite);
 
@@ -260,14 +221,84 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("        new int[],\n");
 		buf.append("        new int[2][10][11],\n");
 		buf.append("        new int[2][][][][],\n");
-		buf.append("        new int[10][11][]);\n");
+		buf.append("        new int[10][11][], new Object[1][2][]);\n");
 		buf.append("    }\n");
 		buf.append("}\n");
 		assertEqualString(preview, buf.toString());
 
 	}
 
-	/** @deprecated using deprecated code */
+	public void testArrayCreation2_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        goo();\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+	
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+	
+		AST ast= astRoot.getAST();
+	
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "E");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+		assertTrue("Number of statements not 1", statements.size() == 1);
+		ExpressionStatement statement= (ExpressionStatement) statements.get(0);
+		MethodInvocation invocation= (MethodInvocation) statement.getExpression();
+	
+		{	// add a new ArrayCreation with annotations
+			ArrayCreation arrayCreation= ast.newArrayCreation();
+			SimpleType elementType= ast.newSimpleType(ast.newName("java.lang.String"));
+			
+			ArrayType arrayType= ast.newArrayType(elementType);
+			NormalAnnotation annotationC= ast.newNormalAnnotation();
+			annotationC.setTypeName(ast.newSimpleName("C"));
+			MemberValuePair memberValuePair= ast.newMemberValuePair();
+			memberValuePair.setName(ast.newSimpleName("v"));
+			memberValuePair.setValue(ast.newNumberLiteral("99"));
+			annotationC.values().add(memberValuePair);
+			Dimension dim0 = (Dimension) arrayType.dimensions().get(0);
+			dim0.annotations().add(annotationC);
+			
+			SingleMemberAnnotation annotationB= ast.newSingleMemberAnnotation();
+			annotationB.setTypeName(ast.newSimpleName("B"));
+			annotationB.setValue(ast.newNumberLiteral("0"));
+			Dimension dim1 = ast.newDimension();
+			dim1.annotations().add(annotationB);
+			arrayType.dimensions().add(0, dim1);
+			
+			MarkerAnnotation annotationA= ast.newMarkerAnnotation();
+			annotationA.setTypeName(ast.newSimpleName("A"));
+			Dimension dim2 = ast.newDimension();
+			dim2.annotations().add(annotationA);
+			arrayType.dimensions().add(0, dim2);
+			
+			arrayCreation.dimensions().add(ast.newNumberLiteral("1"));
+			arrayCreation.dimensions().add(ast.newNumberLiteral("2"));
+			arrayCreation.setType(arrayType);
+			
+			rewrite.getListRewrite(invocation, MethodInvocation.ARGUMENTS_PROPERTY).insertLast(arrayCreation, null);
+		}
+	
+		String preview= evaluateRewrite(cu, rewrite);
+	
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        goo(new java.lang.String @A [1] @B(0) [2] @C(v = 99) []);\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		assertEqualString(preview, buf.toString());
+	
+	}
 	public void testArrayInitializer() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -349,7 +380,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testArrayInitializer2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -428,7 +458,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testAssignment() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -492,7 +521,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testCastExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -557,7 +585,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 
-	/** @deprecated using deprecated code */
 	public void testCastExpression_bug28824() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -613,7 +640,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 
-	/** @deprecated using deprecated code */
 	public void testCatchClause() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -682,7 +708,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 	/** @deprecated using deprecated code */
-	public void testClassInstanceCreation() throws Exception {
+	public void testClassInstanceCreation_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -770,7 +796,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	public void testClassInstanceCreation2() throws Exception {
+	public void testClassInstanceCreation2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -784,7 +810,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -845,7 +871,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 
 
-	/** @deprecated using deprecated code */
 	public void testConditionalExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -900,7 +925,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testFieldAccess() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -953,7 +977,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testInfixExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1034,6 +1057,88 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
+	public void testInfixExpression2() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        i= 0 + 2;\n");
+		buf.append("        j= 1 + 0;\n");
+		buf.append("        k= 0 + 2 + 3 + 4 + 5;\n");
+		buf.append("        l= 1 + 0 + 3 + 4 + 5;\n");
+		buf.append("        m= 0 + 0 + 0 + 4 + 5;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+	
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+	
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "E");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+		{ // remove left side
+			ExpressionStatement stmt= (ExpressionStatement) statements.get(0);
+			Assignment assignment= (Assignment) stmt.getExpression();
+			InfixExpression expr= (InfixExpression) assignment.getRightHandSide();
+	
+			rewrite.remove(expr.getLeftOperand(), null);
+		}
+	
+		{ // remove right side
+			ExpressionStatement stmt= (ExpressionStatement) statements.get(1);
+			Assignment assignment= (Assignment) stmt.getExpression();
+			InfixExpression expr= (InfixExpression) assignment.getRightHandSide();
+	
+			rewrite.remove(expr.getRightOperand(), null);
+		}
+	
+		{ // remove left side (with extended operands)
+			ExpressionStatement stmt= (ExpressionStatement) statements.get(2);
+			Assignment assignment= (Assignment) stmt.getExpression();
+			InfixExpression expr= (InfixExpression) assignment.getRightHandSide();
+	
+			rewrite.remove(expr.getLeftOperand(), null);
+		}
+	
+		{ // remove right side (with extended operands)
+			ExpressionStatement stmt= (ExpressionStatement) statements.get(3);
+			Assignment assignment= (Assignment) stmt.getExpression();
+			InfixExpression expr= (InfixExpression) assignment.getRightHandSide();
+			
+			rewrite.remove(expr.getRightOperand(), null);
+		}
+		
+		{ // remove left, right, and extended operand
+			ExpressionStatement stmt= (ExpressionStatement) statements.get(4);
+			Assignment assignment= (Assignment) stmt.getExpression();
+			InfixExpression expr= (InfixExpression) assignment.getRightHandSide();
+			
+			rewrite.remove(expr.getLeftOperand(), null);
+			rewrite.remove(expr.getRightOperand(), null);
+			rewrite.remove((ASTNode) expr.extendedOperands().get(0), null);
+		}
+		
+		String preview= evaluateRewrite(cu, rewrite);
+	
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        i= 2;\n");
+		buf.append("        j= 1;\n");
+		buf.append("        k= 2 + 3 + 4 + 5;\n");
+		buf.append("        l= 1 + 3 + 4 + 5;\n");
+		buf.append("        m= 4 + 5;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		assertEqualString(preview, buf.toString());
+	
+	}
+
 	/** @deprecated using deprecated code */
 	public void testInstanceofExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -1097,7 +1202,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testMethodInvocation() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1174,7 +1278,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void _testMethodParamsRenameReorder() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1252,7 +1355,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testMethodInvocation1() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1314,7 +1416,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	public void testMethodInvocation2() throws Exception {
+	public void testMethodInvocation2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1326,7 +1428,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -1362,7 +1464,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testParenthesizedExpression() throws Exception {
 		//System.out.println(getClass().getName()+"::" + getName() +" disabled (bug 23362)");
 
@@ -1413,7 +1514,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testPrefixExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1461,7 +1561,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testPostfixExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1509,7 +1608,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testSuperConstructorInvocation() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1591,7 +1689,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	public void testSuperConstructorInvocation2() throws Exception {
+	public void testSuperConstructorInvocation2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1605,7 +1703,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -1642,7 +1740,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	public void testSuperConstructorInvocation4() throws Exception {
+	public void testSuperConstructorInvocation4_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1656,7 +1754,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -1694,7 +1792,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 
 	}
-	/** @deprecated using deprecated code */
 	public void testSuperFieldInvocation() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1744,7 +1841,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 
 	}
-	/** @deprecated using deprecated code */
 	public void testSuperMethodInvocation() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1825,7 +1921,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	public void testSuperMethodInvocation2() throws Exception {
+	public void testSuperMethodInvocation2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1837,7 +1933,7 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -1874,7 +1970,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 
-	/** @deprecated using deprecated code */
 	public void testThisExpression() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1930,7 +2025,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testTypeLiteral() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1978,7 +2072,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 	}
 
 
-	/** @deprecated using deprecated code */
 	public void testSimpleName() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -2020,7 +2113,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testNumberLiteral() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -2062,7 +2154,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testBooleanLiteral() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -2104,7 +2195,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testStringLiteral() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -2146,7 +2236,6 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 
 	}
 
-	/** @deprecated using deprecated code */
 	public void testCharacterLiteral() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -2248,6 +2337,152 @@ public class ASTRewritingExpressionsTest extends ASTRewritingTest {
 		buf.append("    }\n");
 		buf.append("}\n");
 		assertEqualString(preview, buf.toString());
+	}
+
+	public void testIntersectionCastExpression_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		String content =
+				"import java.io.Serializable;\n" +
+				"public class X {\n" +
+				"      public Serializable main(Object obj) {\n" +
+				"         Serializable o = ((@Marker1 @Marker2 Serializable & I) () -> {});\n" +
+				"    	  Serializable oo = obj;\n" +
+				"         Serializable ooo = (Serializable) obj;\n" +
+				"      }\n" +
+				"}\n" +
+				"interface I {\n" +
+				"  public void foo();\n" +
+				"}\n" +
+				"interface J {\n" +
+				"  public void foo();\n" +
+				"  public void bar();\n" +
+				"}\n" +
+				"interface K {\n" +
+				"  public void foo();\n" +
+				"  public void bar();\n" +
+				"}\n";
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", content, false, null);
+
+		CompilationUnit unit= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(unit.getAST());
+		AST ast= unit.getAST();
+
+		TypeDeclaration type =  (TypeDeclaration) unit.types().get(0);
+		ASTNode node = (ASTNode) type.bodyDeclarations().get(0);
+		MethodDeclaration method = (MethodDeclaration) node;
+		
+		VariableDeclarationStatement statement = (VariableDeclarationStatement) method.getBody().statements().get(0);
+		VariableDeclarationFragment fragment = (VariableDeclarationFragment) statement.fragments().get(0);
+		CastExpression cast = (CastExpression) ((ParenthesizedExpression)fragment.getInitializer()).getExpression();
+		Type castType = cast.getType();
+		assertEquals("Not an intersection cast type", ASTNode.INTERSECTION_TYPE, castType.getNodeType());
+
+		{
+			// Modify intersection cast types by adding new types and removing and adding annotations
+			ListRewrite listRewrite = rewrite.getListRewrite(castType, IntersectionType.TYPES_PROPERTY);
+			SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("J"));
+			MarkerAnnotation annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker3"));
+			simpleType.annotations().add(annot);
+			listRewrite.insertLast(simpleType, null);
+
+			simpleType = (SimpleType) ((IntersectionType) castType).types().get(0);
+			listRewrite = rewrite.getListRewrite(simpleType, SimpleType.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) simpleType.annotations().get(0), null);
+			listRewrite.remove((ASTNode) simpleType.annotations().get(1), null);
+		}
+		{
+			// Create new intersection cast types
+			IntersectionType intersection = ast.newIntersectionType();
+			SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("I"));
+			MarkerAnnotation annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker1"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+
+			simpleType = ast.newSimpleType(ast.newSimpleName("J"));
+			annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker2"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+
+			simpleType = ast.newSimpleType(ast.newSimpleName("Serializable"));
+			annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker3"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+
+			 statement = (VariableDeclarationStatement) method.getBody().statements().get(1);
+			fragment = (VariableDeclarationFragment) statement.fragments().get(0);
+			CastExpression castExp = ast.newCastExpression();
+			castExp.setType(intersection);
+			castExp.setExpression(ast.newSimpleName("obj"));
+			rewrite.set(fragment, VariableDeclarationFragment.INITIALIZER_PROPERTY, castExp, null);
+		}
+		{
+			IntersectionType intersection = ast.newIntersectionType();
+			SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("I"));
+			MarkerAnnotation annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker1"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+			
+			simpleType = ast.newSimpleType(ast.newSimpleName("Serializable"));
+			annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker2"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+
+			statement = (VariableDeclarationStatement) method.getBody().statements().get(2);
+			fragment = (VariableDeclarationFragment) statement.fragments().get(0);
+			CastExpression castExp = (CastExpression) fragment.getInitializer();
+			rewrite.set(castExp, CastExpression.TYPE_PROPERTY, intersection, null);
+		}
+		{ // Add a new cast expression
+			cast = ast.newCastExpression();
+			IntersectionType intersection = ast.newIntersectionType();
+			SimpleType simpleType = ast.newSimpleType(ast.newSimpleName("I"));
+			MarkerAnnotation annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker1"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+
+			simpleType = ast.newSimpleType(ast.newSimpleName("Serializable"));
+			annot = ast.newMarkerAnnotation();
+			annot.setTypeName(ast.newSimpleName("Marker2"));
+			simpleType.annotations().add(annot);
+			intersection.types().add(simpleType);
+			cast.setType(intersection);
+			cast.setExpression(ast.newSimpleName("obj"));
+
+			ReturnStatement returnSt = ast.newReturnStatement();
+			returnSt.setExpression(cast);
+			ListRewrite listRewrite = rewrite.getListRewrite(method.getBody(), Block.STATEMENTS_PROPERTY);
+			listRewrite.insertLast(returnSt, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		content =
+				"import java.io.Serializable;\n" +
+				"public class X {\n" +
+				"      public Serializable main(Object obj) {\n" +
+				"         Serializable o = ((Serializable & I & @Marker3 J) () -> {});\n" +
+				"    	  Serializable oo = (@Marker1 I & @Marker2 J & @Marker3 Serializable) obj;\n" +
+				"         Serializable ooo = (@Marker1 I & @Marker2 Serializable) obj;\n" +
+				"        return (@Marker1 I & @Marker2 Serializable) obj;\n" +
+				"      }\n" +
+				"}\n" +
+				"interface I {\n" +
+				"  public void foo();\n" +
+				"}\n" +
+				"interface J {\n" +
+				"  public void foo();\n" +
+				"  public void bar();\n" +
+				"}\n" +
+				"interface K {\n" +
+				"  public void foo();\n" +
+				"  public void bar();\n" +
+				"}\n";
+		assertEqualString(preview, content);
 	}
 
 }

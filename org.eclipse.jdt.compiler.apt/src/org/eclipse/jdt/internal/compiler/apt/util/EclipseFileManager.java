@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2013 IBM Corporation and others.
+ * Copyright (c) 2006, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -539,6 +539,9 @@ public class EclipseFileManager implements StandardJavaFileManager {
 	public Iterable<? extends JavaFileObject> getJavaFileObjectsFromFiles(Iterable<? extends File> files) {
 		ArrayList<JavaFileObject> javaFileArrayList = new ArrayList<JavaFileObject>();
 		for (File f : files) {
+			if (f.isDirectory()) {
+				throw new IllegalArgumentException("file : " + f.getAbsolutePath() + " is a directory"); //$NON-NLS-1$ //$NON-NLS-2$
+			}
 			javaFileArrayList.add(new EclipseFileObject(f.getAbsolutePath(), f.toURI(), getKind(f), this.charset));
 		}
 		return javaFileArrayList;
@@ -759,6 +762,8 @@ public class EclipseFileManager implements StandardJavaFileManager {
 			javaFileObject = getJavaFileForInput(location, name, file.getKind());
 		} catch (IOException e) {
 			// ignore
+		} catch (IllegalArgumentException iae) {
+			return null; // Either unknown kind or location not present
 		}
 		if (javaFileObject == null) {
 			return null;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2012 BEA Systems, Inc. and others 
+ * Copyright (c) 2006, 2014 BEA Systems, Inc. and others 
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -24,6 +24,7 @@ import org.eclipse.jdt.internal.compiler.batch.CompilationUnit;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileReader;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFormatException;
 import org.eclipse.jdt.internal.compiler.env.IBinaryType;
+import org.eclipse.jdt.internal.compiler.lookup.BinaryTypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
 
 /**
@@ -189,15 +190,20 @@ public class HookedJavaFileObject extends
 	 */
 	protected final String _fileName;
 	
+	
+	
 	/**
 	 * A compilation unit is created when the writer or stream is closed.  Only do this once.
 	 */
 	private boolean _closed = false;
+
+	private String _typeName;
 	
-	public HookedJavaFileObject(JavaFileObject fileObject, String fileName, BatchFilerImpl filer) {
+	public HookedJavaFileObject(JavaFileObject fileObject, String fileName, String typeName, BatchFilerImpl filer) {
 		super(fileObject);
 		_filer = filer;
 		_fileName = fileName;
+		_typeName = typeName;
 	}
 
 	@Override
@@ -224,15 +230,28 @@ public class HookedJavaFileObject extends
 					try {
 						binaryType = ClassFileReader.read(_fileName);
 					} catch (ClassFormatException e) {
-						// ignore
+						/* When the annotation processor produces garbage, javac seems to show some resilience, by hooking the source type,
+						   which since is resolved can answer annotations during discovery - Not sure if this sanctioned by the spec, to be taken
+						   up with Oracle. Here we mimic the bug, see that addNewClassFile is simply collecting ReferenceBinding's, so adding
+						   a SourceTypeBinding works just fine.
+						*/
+						ReferenceBinding type = this._filer._env._compiler.lookupEnvironment.getType(CharOperation.splitOn('.', _typeName.toCharArray()));
+						if (type != null) 
+							_filer.addNewClassFile(type);
 					} catch (IOException e) {
 						// ignore
 					}
 					if (binaryType != null) {
 						char[] name = binaryType.getName();
 						ReferenceBinding type = this._filer._env._compiler.lookupEnvironment.getType(CharOperation.splitOn('/', name));
-						if (type != null && type.isValidBinding() && type.isBinaryBinding()) {
-							_filer.addNewClassFile(type);
+						if (type != null && type.isValidBinding()) {
+							if (type.isBinaryBinding()) {
+								_filer.addNewClassFile(type);
+							} else {
+								BinaryTypeBinding binaryBinding = new BinaryTypeBinding(type.getPackage(), binaryType, this._filer._env._compiler.lookupEnvironment, true);
+								if (binaryBinding != null)
+									_filer.addNewClassFile(binaryBinding);
+							}
 						}
 					}
 					break;

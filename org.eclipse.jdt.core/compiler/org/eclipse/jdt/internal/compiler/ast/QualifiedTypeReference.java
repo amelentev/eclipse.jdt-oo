@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -28,10 +28,15 @@ public class QualifiedTypeReference extends TypeReference {
 		this.sourceEnd = (int)(this.sourcePositions[this.sourcePositions.length-1] & 0x00000000FFFFFFFFL ) ;
 	}
 
-	public TypeReference copyDims(int dim){
-		//return a type reference copy of me with some dimensions
-		//warning : the new type ref has a null binding
-		return new ArrayQualifiedTypeReference(this.tokens, dim, this.sourcePositions);
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
+		int totalDimensions = this.dimensions() + additionalDimensions;
+		Annotation [][] allAnnotations = getMergedAnnotationsOnDimensions(additionalDimensions, additionalAnnotations);
+		ArrayQualifiedTypeReference arrayQualifiedTypeReference = new ArrayQualifiedTypeReference(this.tokens, totalDimensions, allAnnotations, this.sourcePositions);
+		arrayQualifiedTypeReference.annotations = this.annotations;
+		arrayQualifiedTypeReference.bits |= (this.bits & ASTNode.HasTypeAnnotations);
+		if (!isVarargs)
+			arrayQualifiedTypeReference.extendedDimensions = additionalDimensions;
+		return arrayQualifiedTypeReference;
 	}
 
 	protected TypeBinding findNextTypeBinding(int tokenIndex, Scope scope, PackageBinding packageBinding) {
@@ -61,6 +66,29 @@ public class QualifiedTypeReference extends TypeReference {
 	public char[] getLastToken() {
 		return this.tokens[this.tokens.length-1];
 	}
+
+	protected void rejectAnnotationsOnPackageQualifiers(Scope scope, PackageBinding packageBinding) {
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=390882
+		if (packageBinding == null || this.annotations == null) return;
+
+		int i = packageBinding.compoundName.length;
+		for (int j = 0; j < i; j++) {
+			Annotation[] qualifierAnnot = this.annotations[j];
+			if (qualifierAnnot != null && qualifierAnnot.length > 0) {
+				scope.problemReporter().misplacedTypeAnnotations(qualifierAnnot[0], qualifierAnnot[qualifierAnnot.length - 1]);
+				this.annotations[j] = null;
+			}
+		}
+	}
+
+	protected static void rejectAnnotationsOnStaticMemberQualififer(Scope scope, ReferenceBinding currentType, Annotation[] qualifierAnnot) {
+		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=385137
+		if (currentType.isMemberType() && currentType.isStatic() && qualifierAnnot != null && qualifierAnnot.length > 0) {
+			scope.problemReporter().illegalTypeAnnotationsInStaticMemberAccess(qualifierAnnot[0],
+					qualifierAnnot[qualifierAnnot.length - 1]);
+		}
+	}
+
 	protected TypeBinding getTypeBinding(Scope scope) {
 
 		if (this.resolvedType != null) {
@@ -76,6 +104,8 @@ public class QualifiedTypeReference extends TypeReference {
 			return (ReferenceBinding) binding; // not found
 		}
 	    PackageBinding packageBinding = binding == null ? null : (PackageBinding) binding;
+	    rejectAnnotationsOnPackageQualifiers(scope, packageBinding);
+
 	    boolean isClassScope = scope.kind == Scope.CLASS_SCOPE;
 	    ReferenceBinding qualifiedType = null;
 		for (int i = packageBinding == null ? 0 : packageBinding.compoundName.length, max = this.tokens.length, last = max-1; i < max; i++) {
@@ -94,8 +124,11 @@ public class QualifiedTypeReference extends TypeReference {
 					return null;
 			ReferenceBinding currentType = (ReferenceBinding) this.resolvedType;
 			if (qualifiedType != null) {
+				if (this.annotations != null) {
+					rejectAnnotationsOnStaticMemberQualififer(scope, currentType, this.annotations[i-1]);
+				}
 				ReferenceBinding enclosingType = currentType.enclosingType();
-				if (enclosingType != null && enclosingType.erasure() != qualifiedType.erasure()) {
+				if (enclosingType != null && TypeBinding.notEquals(enclosingType.erasure(), qualifiedType.erasure())) {
 					qualifiedType = enclosingType; // inherited member type, leave it associated with its enclosing rather than subtype
 				}
 				boolean rawQualified;
@@ -103,7 +136,7 @@ public class QualifiedTypeReference extends TypeReference {
 					qualifiedType = scope.environment().createRawType(currentType, qualifiedType);
 				} else if ((rawQualified = qualifiedType.isRawType()) && !currentType.isStatic()) {
 					qualifiedType = scope.environment().createRawType((ReferenceBinding)currentType.erasure(), qualifiedType);
-				} else if ((rawQualified || qualifiedType.isParameterizedType()) && qualifiedType.erasure() == currentType.enclosingType().erasure()) {
+				} else if ((rawQualified || qualifiedType.isParameterizedType()) && TypeBinding.equalsEquals(qualifiedType.erasure(), currentType.enclosingType().erasure())) {
 					qualifiedType = scope.environment().createParameterizedType((ReferenceBinding)currentType.erasure(), null, qualifiedType);
 				} else {
 					qualifiedType = currentType;
@@ -130,23 +163,45 @@ public class QualifiedTypeReference extends TypeReference {
 	}
 
 	public StringBuffer printExpression(int indent, StringBuffer output) {
-
 		for (int i = 0; i < this.tokens.length; i++) {
 			if (i > 0) output.append('.');
+			if (this.annotations != null && this.annotations[i] != null) {
+				printAnnotations(this.annotations[i], output);
+				output.append(' ');
+			}
 			output.append(this.tokens[i]);
 		}
 		return output;
 	}
 
 	public void traverse(ASTVisitor visitor, BlockScope scope) {
-
-		visitor.visit(this, scope);
+		if (visitor.visit(this, scope)) {
+			if (this.annotations != null) {
+				int annotationsLevels = this.annotations.length;
+				for (int i = 0; i < annotationsLevels; i++) {
+					int annotationsLength = this.annotations[i] == null ? 0 : this.annotations[i].length;
+					for (int j = 0; j < annotationsLength; j++)
+						this.annotations[i][j].traverse(visitor, scope);
+				}
+			}
+		}
 		visitor.endVisit(this, scope);
 	}
 
 	public void traverse(ASTVisitor visitor, ClassScope scope) {
-
-		visitor.visit(this, scope);
+		if (visitor.visit(this, scope)) {
+			if (this.annotations != null) {
+				int annotationsLevels = this.annotations.length;
+				for (int i = 0; i < annotationsLevels; i++) {
+					int annotationsLength = this.annotations[i] == null ? 0 : this.annotations[i].length;
+					for (int j = 0; j < annotationsLength; j++)
+						this.annotations[i][j].traverse(visitor, scope);
+				}
+			}
+		}
 		visitor.endVisit(this, scope);
+	}
+	public int getAnnotatableLevels() {
+		return this.tokens.length;
 	}
 }

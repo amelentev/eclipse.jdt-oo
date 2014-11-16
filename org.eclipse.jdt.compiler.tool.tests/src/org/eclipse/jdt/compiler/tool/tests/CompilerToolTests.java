@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2011 IBM Corporation and others.
+ * Copyright (c) 2006, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper Steen Moeller - Contributions for:
+ *         Bug 407297: [1.8][compiler] Control generation of parameter names by option
  *******************************************************************************/
 package org.eclipse.jdt.compiler.tool.tests;
 
@@ -59,6 +61,7 @@ public class CompilerToolTests extends TestCase {
 		suite.addTest(new CompilerToolTests("testInitializeJavaCompiler"));
 		suite.addTest(new CompilerToolTests("testFileManager"));
 		suite.addTest(new CompilerToolTests("testFileManager2"));
+		suite.addTest(new CompilerToolTests("testInferBinaryName"));
 		suite.addTest(new CompilerToolTests("testCheckOptions"));
 		suite.addTest(new CompilerToolTests("testCompilerOneClassWithSystemCompiler"));
 //		suite.addTest(new CompilerToolTests("testCompilerOneClassWithSystemCompiler2"));
@@ -137,6 +140,7 @@ public class CompilerToolTests extends TestCase {
 		"-XprintProcessorInfo",
 		"-proc:none",
 		"-proc:only",
+		"-parameters",
 	};
 static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] { 
 	// a series of fake options to test the behavior upon ignored and 
@@ -302,6 +306,7 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 		}
 		StandardJavaFileManager manager = Compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
+		@SuppressWarnings("resource")
 		ForwardingJavaFileManager<StandardJavaFileManager> forwardingJavaFileManager = new ForwardingJavaFileManager<StandardJavaFileManager>(manager) {
 			@Override
 			public FileObject getFileForInput(Location location, String packageName, String relativeName)
@@ -556,6 +561,7 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 		// System compiler
 		StandardJavaFileManager manager = Compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
 
+		@SuppressWarnings("resource")
 		ForwardingJavaFileManager<StandardJavaFileManager> forwardingJavaFileManager = new ForwardingJavaFileManager<StandardJavaFileManager>(manager) {
 			@Override
 			public JavaFileObject getJavaFileForOutput(Location location,
@@ -824,6 +830,53 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 		assertTrue("delete failed", inputFile.delete());
 	}
 
+	// Test that JavaFileManager#inferBinaryName returns null for invalid file
+	public void testInferBinaryName() {
+		String tmpFolder = System.getProperty("java.io.tmpdir");
+		File dir = new File(tmpFolder, "src" + System.currentTimeMillis());
+		dir.mkdirs();
+		File inputFile = new File(dir, "test.txt");
+		BufferedWriter writer = null;
+		try {
+			writer = new BufferedWriter(new FileWriter(inputFile));
+			writer.write("This is not a valid Java file");
+			writer.flush();
+			writer.close();
+		} catch (IOException e) {
+		} finally {
+			if (writer != null) {
+				try {
+					writer.close();
+				} catch (IOException e) {
+				}
+			}
+		}
+		try {
+			StandardJavaFileManager fileManager = Compiler.getStandardFileManager(null, Locale.getDefault(), Charset.defaultCharset());
+	
+			List<File> fins = new ArrayList<File>();
+			fins.add(dir);
+			JavaFileManager.Location sourceLoc = javax.tools.StandardLocation.SOURCE_PATH;
+			fileManager.setLocation(sourceLoc, fins);
+	
+			Set<JavaFileObject.Kind> fileTypes = new HashSet<JavaFileObject.Kind>();
+			fileTypes.add(JavaFileObject.Kind.OTHER);
+
+			Iterable<? extends JavaFileObject> compilationUnits = fileManager.list(sourceLoc, "", fileTypes, true);
+			JavaFileObject invalid = null;
+			for (JavaFileObject javaFileObject : compilationUnits) {
+				invalid = javaFileObject;
+				break;
+			}
+			String inferredName = fileManager.inferBinaryName(sourceLoc, invalid);
+			fileManager.close();
+			assertNull("Should return null for invalid file", inferredName);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		assertTrue("delete failed", inputFile.delete());
+		assertTrue("delete failed", dir.delete());
+	}
 	public void testFileManager() {
 		String tmpFolder = System.getProperty("java.io.tmpdir");
 		File dir = new File(tmpFolder, "src" + System.currentTimeMillis());
@@ -871,6 +924,16 @@ static final String[] FAKE_ZERO_ARG_OPTIONS = new String[] {
 				builder.append(name.substring(lastIndexOf + 1));
 			}
 			assertEquals("Wrong contents", "X.java", String.valueOf(builder));
+			
+			List<File> files = new ArrayList<File>();
+			files.add(dir);
+			try {
+				fileManager.getJavaFileObjectsFromFiles(files);
+				fail("IllegalArgumentException should be thrown but not");
+			} catch(IllegalArgumentException iae) {
+				// Do nothing
+			}
+			
 			fileManager.close();
 		} catch (IOException e) {
 			e.printStackTrace();

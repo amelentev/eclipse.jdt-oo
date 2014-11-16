@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2011 IBM Corporation and others.
+ * Copyright (c) 2007, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,6 +12,7 @@
 package org.eclipse.jdt.internal.compiler.apt.model;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -109,6 +110,12 @@ public class ErrorTypeElement extends TypeElementImpl {
 	public List<? extends AnnotationMirror> getAnnotationMirrors() {
 		return Collections.emptyList();
 	}
+	
+	@SuppressWarnings("unchecked")
+	public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
+		return (A[]) Array.newInstance(annotationType, 0);
+	}
+
 
 	/* (non-Javadoc)
 	 * @see javax.lang.model.element.Element#getEnclosedElements()

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -21,18 +21,31 @@
  *							bug 395002 - Self bound generic class doesn't resolve bounds properly for wildcards for certain parametrisation.
  *							bug 383368 - [compiler][null] syntactic null analysis for field references
  *							bug 400761 - [compiler][null] null may be return as boolean without a diagnostic
+ *							Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *							Bug 427438 - [1.8][compiler] NPE at org.eclipse.jdt.internal.compiler.ast.ConditionalExpression.generateCode(ConditionalExpression.java:280)
+ *							Bug 430150 - [1.8][null] stricter checking against type variables
  *     Jesper S Moller - Contributions for
  *							Bug 378674 - "The method can be declared as static" is wrong
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *							Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
+ *							Bug 426616 - [1.8][compiler] Type Annotations, multiple problems 
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.ASSIGNMENT_CONTEXT;
+
+import java.util.List;
+
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
 import org.eclipse.jdt.internal.compiler.impl.*;
+import org.eclipse.jdt.internal.compiler.ast.TypeReference.AnnotationCollector;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
+@SuppressWarnings("rawtypes")
 public class LocalDeclaration extends AbstractVariableDeclaration {
 
 	public LocalVariableBinding binding;
@@ -86,7 +99,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		this.bits &= ~FirstAssignmentToLocal;  // int i = (i = 0);
 	}
 	flowInfo.markAsDefinitelyAssigned(this.binding);
-	nullStatus = checkAssignmentAgainstNullAnnotation(currentScope, flowContext, this.binding, nullStatus, this.initialization, this.initialization.resolvedType);
+	if (currentScope.compilerOptions().isAnnotationBasedNullAnalysisEnabled) {
+		nullStatus = NullAnnotationMatching.checkAssignment(currentScope, flowContext, this.binding, nullStatus, this.initialization, this.initialization.resolvedType);
+	}
 	if ((this.binding.type.tagBits & TagBits.IsBaseType) == 0) {
 		flowInfo.markNullStatus(this.binding, nullStatus);
 		// no need to inform enclosing try block since its locals won't get
@@ -158,11 +173,30 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		return LOCAL_VARIABLE;
 	}
 
+	// for local variables
+	public void getAllAnnotationContexts(int targetType, LocalVariableBinding localVariable, List allAnnotationContexts) {
+		AnnotationCollector collector = new AnnotationCollector(this, targetType, localVariable, allAnnotationContexts);
+		this.traverseWithoutInitializer(collector, (BlockScope) null);
+	}
+
+	// for arguments
+	public void getAllAnnotationContexts(int targetType, int parameterIndex, List allAnnotationContexts) {
+		AnnotationCollector collector = new AnnotationCollector(this, targetType, parameterIndex, allAnnotationContexts);
+		this.traverse(collector, (BlockScope) null);
+	}
+		
+	public boolean isArgument() {
+		return false;
+	}
+	public boolean isReceiver() {
+		return false;
+	}
 	public void resolve(BlockScope scope) {
 
 		// create a binding and add it to the scope
 		TypeBinding variableType = this.type.resolveType(scope, true /* check bounds*/);
 
+		this.bits |= (this.type.bits & ASTNode.HasTypeAnnotations);
 		checkModifiers();
 		if (variableType != null) {
 			if (variableType == TypeBinding.VOID) {
@@ -177,8 +211,11 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 
 		Binding existingVariable = scope.getBinding(this.name, Binding.VARIABLE, this, false /*do not resolve hidden field*/);
 		if (existingVariable != null && existingVariable.isValidBinding()){
-			if (existingVariable instanceof LocalVariableBinding && this.hiddenVariableDepth == 0) {
-				scope.problemReporter().redefineLocal(this);
+			boolean localExists = existingVariable instanceof LocalVariableBinding; 
+			if (localExists && (this.bits & ASTNode.ShadowsOuterLocal) != 0 && scope.isLambdaSubscope() && this.hiddenVariableDepth == 0) {
+					scope.problemReporter().lambdaRedeclaresLocal(this);
+			} else if (localExists && this.hiddenVariableDepth == 0) {
+					scope.problemReporter().redefineLocal(this);
 			} else {
 				scope.problemReporter().localVariableHiding(this, existingVariable, false);
 			}
@@ -208,10 +245,11 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 					this.initialization.computeConversion(scope, variableType, initializationType);
 				}
 			} else {
-			    this.initialization.setExpectedType(variableType);
+				this.initialization.setExpressionContext(ASSIGNMENT_CONTEXT);
+				this.initialization.setExpectedType(variableType);
 				TypeBinding initializationType = this.initialization.resolveType(scope);
 				if (initializationType != null) {
-					if (variableType != initializationType) // must call before computeConversion() and typeMismatchError()
+					if (TypeBinding.notEquals(variableType, initializationType)) // must call before computeConversion() and typeMismatchError()
 						scope.compilationUnitScope().recordTypeConversion(variableType, initializationType);
 					if (this.initialization.isConstantValueOfTypeAssignableToType(initializationType, variableType)
 						|| initializationType.isCompatibleWith(variableType, scope)) {
@@ -250,8 +288,10 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 					: Constant.NotAConstant);
 		}
 		// only resolve annotation at the end, for constant to be positioned before (96991)
-		resolveAnnotations(scope, this.annotations, this.binding);
-		scope.validateNullAnnotation(this.binding.tagBits, this.type, this.annotations);
+		resolveAnnotations(scope, this.annotations, this.binding, true);
+		Annotation.isTypeUseCompatible(this.type, scope, this.annotations);
+		if (!scope.validateNullAnnotation(this.binding.tagBits, this.type, this.annotations))
+			this.binding.tagBits &= ~TagBits.AnnotationNullMASK;
 	}
 
 	public void traverse(ASTVisitor visitor, BlockScope scope) {
@@ -268,4 +308,17 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 		visitor.endVisit(this, scope);
 	}
+	
+	private void traverseWithoutInitializer(ASTVisitor visitor, BlockScope scope) {		
+		if (visitor.visit(this, scope)) {
+			if (this.annotations != null) {
+				int annotationsLength = this.annotations.length;
+				for (int i = 0; i < annotationsLength; i++)
+					this.annotations[i].traverse(visitor, scope);
+			}
+			this.type.traverse(visitor, scope);
+		}
+		visitor.endVisit(this, scope);
+	}
+
 }

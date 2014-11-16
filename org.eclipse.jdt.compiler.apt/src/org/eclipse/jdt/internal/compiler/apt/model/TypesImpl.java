@@ -85,7 +85,7 @@ public class TypesImpl implements Types {
     		case CONSTRUCTOR :
     		case METHOD :
     			MethodBinding methodBinding = (MethodBinding) elementImpl._binding;
-    			if (methodBinding.declaringClass != referenceBinding) {
+    			if (TypeBinding.notEquals(methodBinding.declaringClass, referenceBinding)) {
     				throw new IllegalArgumentException("element is not valid for the containing declared type"); //$NON-NLS-1$
     			}
     			for (MethodBinding method : referenceBinding.methods()) {
@@ -98,7 +98,7 @@ public class TypesImpl implements Types {
     		case FIELD :
     		case ENUM_CONSTANT:
     			FieldBinding fieldBinding = (FieldBinding) elementImpl._binding;
-    			if (fieldBinding.declaringClass != referenceBinding) {
+    			if (TypeBinding.notEquals(fieldBinding.declaringClass, referenceBinding)) {
     				throw new IllegalArgumentException("element is not valid for the containing declared type"); //$NON-NLS-1$
     			}
     			for (FieldBinding field : referenceBinding.fields()) {
@@ -112,7 +112,7 @@ public class TypesImpl implements Types {
     		case INTERFACE :
     		case CLASS :
     			ReferenceBinding referenceBinding2 = (ReferenceBinding) elementImpl._binding;
-    			if (referenceBinding2.enclosingType() != referenceBinding) {
+    			if (TypeBinding.notEquals(referenceBinding2.enclosingType(), referenceBinding)) {
     				throw new IllegalArgumentException("element is not valid for the containing declared type"); //$NON-NLS-1$
     			}
     			for (ReferenceBinding referenceBinding3 : referenceBinding.memberTypes()) {
@@ -395,7 +395,18 @@ public class TypesImpl implements Types {
         }
         Binding b1 = ((TypeMirrorImpl)t1).binding();
         Binding b2 = ((TypeMirrorImpl)t2).binding();
-        return b1 == b2;
+
+        if (b1 == b2) {
+            return true;
+        }
+        if (!(b1 instanceof TypeBinding) || !(b2 instanceof TypeBinding)) {
+            return false;
+        }
+        TypeBinding type1 = ((TypeBinding) b1);
+        TypeBinding type2 = ((TypeBinding) b2);
+        if (TypeBinding.equalsEquals(type1,  type2))
+        	return true;
+        return CharOperation.equals(type1.computeUniqueKey(), type2.computeUniqueKey());
     }
 
     /* (non-Javadoc)

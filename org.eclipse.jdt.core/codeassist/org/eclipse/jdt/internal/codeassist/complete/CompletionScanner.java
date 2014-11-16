@@ -1,9 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
+ *
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
@@ -50,6 +51,15 @@ public CompletionScanner(long sourceLevel) {
 		null /*taskTags*/,
 		null/*taskPriorities*/,
 		true/*taskCaseSensitive*/);
+}
+protected boolean isAtAssistIdentifier() {
+	if (this.cursorLocation < this.startPosition && this.currentPosition == this.startPosition) { // fake empty identifier got issued
+		return true;
+	}
+	if (this.cursorLocation+1 >= this.startPosition && this.cursorLocation < this.currentPosition) {
+		return true;
+	}
+	return false;
 }
 /*
  * Truncate the current identifier if it is containing the cursor location. Since completion is performed
@@ -102,7 +112,7 @@ public char[] getCurrentTokenSourceString() {
 	}
 	return super.getCurrentTokenSourceString();
 }
-public int getNextToken() throws InvalidInputException {
+protected int getNextToken0() throws InvalidInputException {
 
 	this.wasAcr = false;
 	this.unicodeCharSize = 0;
@@ -194,6 +204,7 @@ public int getNextToken() throws InvalidInputException {
 					this.currentPosition = this.startPosition; // for being detected as empty free identifier
 					return TokenNameIdentifier;
 				}
+				this.currentPosition = this.startPosition; // fake EOF should not drown the real next token.
 				return TokenNameEOF;
 			}
 
@@ -254,6 +265,8 @@ public int getNextToken() throws InvalidInputException {
 							return TokenNameMINUS_MINUS;
 						if (test > 0)
 							return TokenNameMINUS_EQUAL;
+						if (getNextChar('>'))
+							return TokenNameARROW;
 						return TokenNameMINUS;
 					}
 				case '~' :
@@ -331,6 +344,8 @@ public int getNextToken() throws InvalidInputException {
 				case '?' :
 					return TokenNameQUESTION;
 				case ':' :
+					if (getNextChar(':'))
+						return TokenNameCOLON_COLON;
 					return TokenNameCOLON;
 				case '\'' :
 					{

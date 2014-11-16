@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -12,46 +12,101 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.List;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.AbstractTypeDeclaration;
+import org.eclipse.jdt.core.dom.ArrayCreation;
+import org.eclipse.jdt.core.dom.ArrayType;
+import org.eclipse.jdt.core.dom.AssertStatement;
+import org.eclipse.jdt.core.dom.Assignment;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.BooleanLiteral;
+import org.eclipse.jdt.core.dom.BreakStatement;
+import org.eclipse.jdt.core.dom.CatchClause;
+import org.eclipse.jdt.core.dom.ClassInstanceCreation;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.ConstructorInvocation;
+import org.eclipse.jdt.core.dom.ContinueStatement;
+import org.eclipse.jdt.core.dom.DoStatement;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.ExpressionStatement;
+import org.eclipse.jdt.core.dom.Dimension;
+import org.eclipse.jdt.core.dom.ForStatement;
+import org.eclipse.jdt.core.dom.IfStatement;
+import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.LabeledStatement;
+import org.eclipse.jdt.core.dom.MarkerAnnotation;
+import org.eclipse.jdt.core.dom.MemberValuePair;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier;
+import org.eclipse.jdt.core.dom.Name;
+import org.eclipse.jdt.core.dom.NormalAnnotation;
+import org.eclipse.jdt.core.dom.ParenthesizedExpression;
+import org.eclipse.jdt.core.dom.PrefixExpression;
+import org.eclipse.jdt.core.dom.PrimitiveType;
+import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.SimplePropertyDescriptor;
+import org.eclipse.jdt.core.dom.SimpleType;
+import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.StringLiteral;
+import org.eclipse.jdt.core.dom.SwitchCase;
+import org.eclipse.jdt.core.dom.SwitchStatement;
+import org.eclipse.jdt.core.dom.SynchronizedStatement;
+import org.eclipse.jdt.core.dom.ThrowStatement;
+import org.eclipse.jdt.core.dom.TryStatement;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.TypeDeclarationStatement;
+import org.eclipse.jdt.core.dom.TypeLiteral;
+import org.eclipse.jdt.core.dom.UnionType;
+import org.eclipse.jdt.core.dom.VariableDeclarationExpression;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.WhileStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
+import org.eclipse.jdt.core.formatter.CodeFormatter;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
+import org.eclipse.jdt.internal.core.dom.rewrite.ASTRewriteFormatter;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.TextEdit;
 
 public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
-	private static final Class THIS= ASTRewritingStatementsTest.class;
+	/** @deprecated using deprecated code */
+	private static final SimplePropertyDescriptor INTERNAL_VDS_MODIFIERS_PROPERTY = VariableDeclarationStatement.MODIFIERS_PROPERTY;
 
 	public ASTRewritingStatementsTest(String name) {
 		super(name);
 	}
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
+	public ASTRewritingStatementsTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return buildModelTestSuite(THIS);
-//		TestSuite suite= new Suite(THIS.getClass().getName());
-//		suite.addTest(new ASTRewritingStatementsTest("testTryStatementWithResources3"));
-//		suite.addTest(new ASTRewritingStatementsTest("testTryStatementWithResources4"));
-//		suite.addTest(new ASTRewritingStatementsTest("testTryStatementWithResources5"));
-//		return suite;
+		return createSuite(ASTRewritingStatementsTest.class);
 	}
 
+	/** @deprecated using deprecated code */
+	private void internalSetExtraDimensions(VariableDeclarationFragment node, int dimensions) {
+		if (this.apiLevel < AST.JLS8) {
+			node.setExtraDimensions(dimensions);
+		} else {
+			while (dimensions > 0) {
+				node.extraDimensions().add(node.getAST().newDimension());
+			}
+		}
+	}
 	public void testInsert1() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		/* foo(): append a return statement */
@@ -1073,7 +1128,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 	}
 
-	public void testConstructorInvocation2() throws Exception {
+	public void testConstructorInvocation2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1087,7 +1142,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		AST ast= astRoot.getAST();
@@ -1381,7 +1436,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 
 	}
-	public void testDoStatement2() throws Exception {
+	public void testDoStatement2_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -1398,7 +1453,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, true);
+			CompilationUnit astRoot= createAST(cu, true);
 			ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 			AST ast= astRoot.getAST();
 	
@@ -4510,7 +4565,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	}
 
 	/** @deprecated using deprecated code */
-	public void testThrowStatement() throws Exception {
+	public void testThrowStatement_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -4721,7 +4776,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testTryStatement2() throws Exception {
+	public void testTryStatement2_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -4739,7 +4794,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -4779,7 +4834,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			deleteProject("P_17");
 		}
 	}
-	public void testTryStatement3() throws Exception {
+	public void testTryStatement3_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -4797,7 +4852,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 	
@@ -4841,7 +4896,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			deleteProject("P_17");
 		}
 	}
-	public void testTryStatement4() throws Exception {
+	public void testTryStatement4_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -4860,7 +4915,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 			assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED) == 0);
@@ -4892,7 +4947,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			deleteProject("P_17");
 		}
 	}
-	public void testTryStatementWithResources() throws Exception {
+	public void testTryStatementWithResources_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -4913,7 +4968,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -4989,7 +5044,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 		}
 	}
 
-	public void testTryStatementWithResources2() throws Exception {
+	public void testTryStatementWithResources2_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 
@@ -5007,7 +5062,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5048,7 +5103,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/**
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=351170
 	 */
-	public void testTryStatementWithResources3() throws Exception {
+	public void testTryStatementWithResources3_since_4() throws Exception {
 
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -5072,7 +5127,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}");
 
 			ICompilationUnit cu = pack1.createCompilationUnit("X.java", buf.toString(), false, null);
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, true, true);
+			CompilationUnit astRoot= createAST(cu, true, true);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5121,7 +5176,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/**
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=351170
 	 */
-	public void testTryStatementWithResources4() throws Exception {
+	public void testTryStatementWithResources4_since_4() throws Exception {
 
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -5144,7 +5199,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}");
 
 			ICompilationUnit cu = pack1.createCompilationUnit("X.java", buf.toString(), false, null);
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, true, true);
+			CompilationUnit astRoot= createAST(cu, true, true);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5156,7 +5211,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			TryStatement tryStatement = (TryStatement) statement;
 
 			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
-			fragment.setExtraDimensions(0);
+			internalSetExtraDimensions(fragment, 0);
 			fragment.setName(ast.newSimpleName("reader2"));
 			ClassInstanceCreation classInstanceCreation = ast.newClassInstanceCreation();
 			classInstanceCreation.setType(ast.newSimpleType(ast.newSimpleName("FileReader")));
@@ -5199,7 +5254,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	/**
 	 * https://bugs.eclipse.org/bugs/show_bug.cgi?id=351170
 	 */
-	public void testTryStatementWithResources5() throws Exception {
+	public void testTryStatementWithResources5_since_4() throws Exception {
 
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -5222,7 +5277,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}");
 
 			ICompilationUnit cu = pack1.createCompilationUnit("X.java", buf.toString(), false, null);
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, true, true);
+			CompilationUnit astRoot= createAST(cu, true, true);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5234,7 +5289,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			TryStatement tryStatement = (TryStatement) statement;
 
 			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
-			fragment.setExtraDimensions(0);
+			internalSetExtraDimensions(fragment, 0);
 			fragment.setName(ast.newSimpleName("reader2"));
 			ClassInstanceCreation classInstanceCreation = ast.newClassInstanceCreation();
 			classInstanceCreation.setType(ast.newSimpleType(ast.newSimpleName("FileReader")));
@@ -5275,7 +5330,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	}
 
 	/** @deprecated using deprecated code */
-	public void testTypeDeclarationStatement() throws Exception {
+	public void testTypeDeclarationStatement_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -5323,7 +5378,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 	}
 
-	public void testVariableDeclarationStatement() throws Exception {
+	public void testVariableDeclarationStatement_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -5355,7 +5410,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 			// add modifier
 			int newModifiers= Modifier.FINAL;
-			rewrite.set(decl, VariableDeclarationStatement.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(decl, INTERNAL_VDS_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			PrimitiveType newType= ast.newPrimitiveType(PrimitiveType.BOOLEAN);
 			rewrite.replace(decl.getType(), newType, null);
@@ -5371,7 +5426,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 			// add modifier
 			int newModifiers= Modifier.FINAL;
-			rewrite.set(decl, VariableDeclarationStatement.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(decl, INTERNAL_VDS_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			List fragments= decl.fragments();
 			assertTrue("Number of fragments not 3", fragments.size() == 3);
@@ -5390,7 +5445,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 			// add modifiers
 			int newModifiers= 0;
-			rewrite.set(decl, VariableDeclarationStatement.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(decl, INTERNAL_VDS_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 		}
 
 		String preview= evaluateRewrite(cu, rewrite);
@@ -5699,7 +5754,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 	
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=350285
 	// Test that converting a multi catch into a normal catch using complete block copy doesn't change indentation
-	public void testTryStatementWithMultiCatch1() throws Exception {
+	public void testTryStatementWithMultiCatch1_since_4() throws Exception {
 		createProject("P_17", JavaCore.VERSION_1_7);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
 		try {
@@ -5717,7 +5772,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5772,7 +5827,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 
 	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=350285
 	// similar to testTryStatementWithMultiCatch1() but has a different brace position
-	public void testTryStatementWithMultiCatch2() throws Exception {
+	public void testTryStatementWithMultiCatch2_since_4() throws Exception {
 		IJavaProject project = createProject("P_17", JavaCore.VERSION_1_7);
 		project.setOption(DefaultCodeFormatterConstants.FORMATTER_BRACE_POSITION_FOR_BLOCK, DefaultCodeFormatterConstants.NEXT_LINE);
 		IPackageFragmentRoot currentSourceFolder = getPackageFragmentRoot("P_17", "src");
@@ -5792,7 +5847,7 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-			CompilationUnit astRoot= createAST(AST.JLS4, cu, false);
+			CompilationUnit astRoot= createAST(cu);
 			AST ast= astRoot.getAST();
 			ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -5846,7 +5901,1247 @@ public class ASTRewritingStatementsTest extends ASTRewritingTest {
 			deleteProject("P_17");
 		}
 	}
+	public void testBug400568_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i @Annot1 @Annot2 [] @Annot1 @Annot3 [] = new int @Annot1 @Annot2  [2] @Annot2 @Annot3 [size()] @Annot2 @Annot1 [];\n");
+		buf.append("    	int [] j [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [size()] @Annot1 @Annot3 [], k [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [size()] @Annot1 @Annot3 [];\n");
+		buf.append("    }\n");
+		buf.append("    public int size() { return 2; }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot3 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast= astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+
+		// Get while statement block
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(0);
+		List fragments = statement.fragments();
+		VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+		Type type = statement.getType();
+
+		{
+			// Add new dimension with and without annotations
+			assertEquals("Incorrect type", ASTNode.ARRAY_TYPE, type.getNodeType());
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+
+			ListRewrite listRewrite= rewrite.getListRewrite(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS2_PROPERTY);
+			Dimension dim= ast.newDimension();
+			MarkerAnnotation markerAnnotation;
+			listRewrite.insertFirst(dim, null);
+
+			ArrayType creationType = creation.getType();
+			ArrayType newArrayType = (ArrayType) ASTNode.copySubtree(ast, creationType);
+			newArrayType.dimensions().add(ast.newDimension());
+			
+			Dimension dim0 = ast.newDimension();
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot3"));
+			dim0.annotations().add(markerAnnotation);
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			dim0.annotations().add(markerAnnotation);
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			dim0.annotations().add(markerAnnotation);
+			newArrayType.dimensions().add(dim0);
+			rewrite.set(creation, ArrayCreation.TYPE_PROPERTY, newArrayType, null);
+
+		}
+		{
+			statement = (VariableDeclarationStatement) statements.get(1);
+			fragments = statement.fragments();
+			assertEquals("Incorrect no of fragments", 2, fragments.size());
+			fragment = (VariableDeclarationFragment) fragments.get(0);
+			type = statement.getType();
+
+			// Modify existing annotations by altering annotations and expressions
+			assertEquals("Incorrect type", ASTNode.ARRAY_TYPE, type.getNodeType());
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType creationType = creation.getType();
+
+			List expressions = creation.dimensions();
+			ListRewrite listRewrite = rewrite.getListRewrite(creation, ArrayCreation.DIMENSIONS_PROPERTY);
+			Expression exp = (Expression) expressions.get(1);
+			listRewrite.remove(exp, null);
+
+			Dimension dim = (Dimension) creationType.dimensions().get(0);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation annotation = (MarkerAnnotation) dim.annotations().get(0);
+			listRewrite.remove(annotation, null);
+
+			dim = (Dimension) creationType.dimensions().get(1);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			annotation = (MarkerAnnotation) dim.annotations().get(1);
+			listRewrite.remove(annotation, null);
+
+			dim = (Dimension) creationType.dimensions().get(2);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			annotation = (MarkerAnnotation) dim.annotations().get(1);
+			listRewrite.remove(annotation, null);
+
+			fragment = (VariableDeclarationFragment) fragments.get(1);
+
+			creation = (ArrayCreation) fragment.getInitializer();
+			creationType = creation.getType();
+			dim = (Dimension) creationType.dimensions().get(0);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			annotation = (MarkerAnnotation) dim.annotations().get(1);
+			listRewrite.remove(annotation, null);
+			annotation = (MarkerAnnotation) dim.annotations().get(0);
+			listRewrite.remove(annotation, null);
+
+			dim = (Dimension) creationType.dimensions().get(1);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			annotation = (MarkerAnnotation) dim.annotations().get(1);
+			listRewrite.remove(annotation, null);
+			annotation = (MarkerAnnotation) dim.annotations().get(0);
+			listRewrite.remove(annotation, null);
+
+			dim = (Dimension) creationType.dimensions().get(2);
+			listRewrite = rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			annotation = (MarkerAnnotation) dim.annotations().get(1);
+			listRewrite.remove(annotation, null);
+			annotation = (MarkerAnnotation) dim.annotations().get(0);
+			listRewrite.remove(annotation, null);
+
+			expressions = creation.dimensions();
+			listRewrite = rewrite.getListRewrite(creation, ArrayCreation.DIMENSIONS_PROPERTY);
+			Expression expression = ast.newNumberLiteral("10"); 
+			listRewrite.replace((ASTNode) expressions.get(1), expression, null);
+
+			MethodInvocation invoc = ast.newMethodInvocation();
+			invoc.setName(ast.newSimpleName("size"));
+			listRewrite.insertAt(invoc, 2, null);
+
+		}
+		// Get new code
+		String preview= evaluateRewrite(cu, rewrite);
+
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i []@Annot1 @Annot2 [] @Annot1 @Annot3 [] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [size()] @Annot2 @Annot1 [][] @Annot3 @Annot2 @Annot1 [];\n");
+		buf.append("    	int [] j [][] = new int @Annot2 [2] @Annot2 [] @Annot1 [], k [][] = new int [2] [10] [size()];\n");
+		buf.append("    }\n");
+		buf.append("    public int size() { return 2; }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot3 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	public void testBug400568_a_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int @Annot1 @Annot2  [2]@Annot2 @Annot3[size(new int[][]{})] [];\n");
+		buf.append("    	int [] j [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [size(new int[]{})] @Annot1 @Annot3 [], k [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [10] @Annot1 @Annot3 [size(new int[][]{})];\n");
+		buf.append("    }\n");
+		buf.append("    public int size(Object obj) { return 2; }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot3 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(0);
+		List fragments = statement.fragments();
+		VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+		Type type = statement.getType();
+
+		{
+			assertEquals("Incorrect type", ASTNode.ARRAY_TYPE, type.getNodeType());
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+
+			ArrayType arrayType = creation.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode)dim.annotations().get(0), null);
+			listRewrite.remove((ASTNode)dim.annotations().get(1), null);
+		}
+		{
+			statement = (VariableDeclarationStatement) statements.get(1);
+			fragments = statement.fragments();
+			assertEquals("Incorrect no of fragments", 2, fragments.size());
+			fragment = (VariableDeclarationFragment) fragments.get(0);
+
+			assertEquals("Incorrect type", ASTNode.ARRAY_TYPE, type.getNodeType());
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType creationType = creation.getType();
+			rewrite.remove((ASTNode) creationType.dimensions().get(2), null);
+			fragment = (VariableDeclarationFragment) fragments.get(1);
+			creation = (ArrayCreation) fragment.getInitializer();
+			creationType = creation.getType();
+
+			rewrite.remove((ASTNode) creationType.dimensions().get(2), null);
+		}
+		// Get new code
+		String preview= evaluateRewrite(cu, rewrite);
+
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int @Annot1 @Annot2  [2][size(new int[][]{})] [];\n");
+		buf.append("    	int [] j [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [size(new int[]{})], k [][] = new int @Annot1 @Annot2 [2] @Annot2 @Annot3 [10];\n");
+		buf.append("    }\n");
+		buf.append("    public int size(Object obj) { return 2; }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot3 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	
+	public void testBug413592a() throws Exception {
+		String buf = "default int func2(){return 1;}";
+		Document doc = new Document(buf);
+		String formattedString = "\tdefault int func2() {\n" +
+								 "\t\treturn 1;\n" + 
+								 "\t}";
+		TextEdit edit = new ASTRewriteFormatter(null, null, JavaCore.getOptions(), "\n").formatString(CodeFormatter.K_CLASS_BODY_DECLARATIONS, buf, 0, buf.length(), 1);
+		edit.apply(doc);
+		assertTrue("Incorrect Formatting", doc.get().equals(formattedString));
+	}
+
+	public void testBug413592b() throws Exception {
+		String buf = "default int func2(){return 2*(3+4)/5/(6+7);}";
+		Document doc = new Document(buf);
+		String formattedString = "\tdefault int func2() {\n" +
+								 "\t\treturn 2 * (3 + 4) / 5 / (6 + 7);\n" + 
+								 "\t}";
+		TextEdit edit = new ASTRewriteFormatter(null, null, JavaCore.getOptions(), "\n").formatString(CodeFormatter.K_CLASS_BODY_DECLARATIONS, buf, 0, buf.length(), 1);
+		edit.apply(doc);
+		assertTrue("Incorrect Formatting", doc.get().equals(formattedString));
+	}
+
+	public void testBug417923a_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int @Annot1[][][];\n");
+		buf.append("    	int [] j [][] = new int @Annot1 [][][];\n");
+		buf.append("    	int [] k [][] = new int   @Annot1 [][][];\n");
+		buf.append("    	int [] l [][] = new int /* comment @ [] */@Annot1[][][];\n");
+		buf.append("    	int [] m [][] = new int /* comment @ [] */ @Annot1[][][];\n");
+		buf.append("    	int [] n [][] = new int /* comment @ [] */ @Annot1   [][][];\n");
+		buf.append("    	int [] o [][] = new int @Annot1/* comment @ [] */[][][];\n");
+		buf.append("    	int [] p [][] = new int @Annot1 /* comment @ [] */  [][][];\n");
+		buf.append("    	int [] q [][] = new int @Annot1   /* comment @ [] */[][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 3);
+			rewrite.set(creation, ArrayCreation.TYPE_PROPERTY, arrayType, null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[][][];\n");
+		buf.append("    	int [] j [][] = new int[][][];\n");
+		buf.append("    	int [] k [][] = new int[][][];\n");
+		buf.append("    	int [] l [][] = new int[][][];\n");
+		buf.append("    	int [] m [][] = new int[][][];\n");
+		buf.append("    	int [] n [][] = new int[][][];\n");
+		buf.append("    	int [] o [][] = new int[][][];\n");
+		buf.append("    	int [] p [][] = new int[][][];\n");
+		buf.append("    	int [] q [][] = new int[][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	public void testBug417923b_since_8() throws Exception {
+		IPackageFragment pack1 = this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[] @Annot1[][];\n");
+		buf.append("    	int [] j [][] = new int[] @Annot1 [][];\n");
+		buf.append("    	int [] k [][] = new int[]   @Annot1 [][];\n");
+		buf.append("    	int [] l [][] = new int[] /* comment @ [] */@Annot1[][];\n");
+		buf.append("    	int [] m [][] = new int[] /* comment @ [] */ @Annot1[][];\n");
+		buf.append("    	int [] n [][] = new int[] /* comment @ [] */ @Annot1   [][];\n");
+		buf.append("    	int [] o [][] = new int[] @Annot1/* comment @ [] */[][];\n");
+		buf.append("    	int [] p [][] = new int[] @Annot1 /* comment @ [] */  [][];\n");
+		buf.append("    	int [] q [][] = new int[] @Annot1   /* comment @ [] */[][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 3);
+			rewrite.set(creation, ArrayCreation.TYPE_PROPERTY, arrayType, null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[][][];\n");
+		buf.append("    	int [] j [][] = new int[][][];\n");
+		buf.append("    	int [] k [][] = new int[][][];\n");
+		buf.append("    	int [] l [][] = new int[][][];\n");
+		buf.append("    	int [] m [][] = new int[][][];\n");
+		buf.append("    	int [] n [][] = new int[][][];\n");
+		buf.append("    	int [] o [][] = new int[][][];\n");
+		buf.append("    	int [] p [][] = new int[][][];\n");
+		buf.append("    	int [] q [][] = new int[][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923c_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int @Annot1[][][];\n");
+		buf.append("    	int [] j [][] = new int @Annot1 [][][];\n");
+		buf.append("    	int [] k [][] = new int   @Annot1  [][][];\n");
+		buf.append("    	int [] l [][] = new int /* comment @ [] */@Annot1[][][];\n");
+		buf.append("    	int [] m [][] = new int /* comment @ [] */ @Annot1[][][];\n");
+		buf.append("    	int [] n [][] = new int /* comment @ [] */ @Annot1   [][][];\n");
+		buf.append("    	int [] o [][] = new int @Annot1/* comment @ [] */[][][];\n");
+		buf.append("    	int [] p [][] = new int @Annot1 /* comment @ [] */  [][][];\n");
+		buf.append("    	int [] q [][] = new int @Annot1   /* comment @ [] */[][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = creation.getType();
+
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode)dim.annotations().get(0), null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[][][];\n");
+		buf.append("    	int [] j [][] = new int[][][];\n");
+		buf.append("    	int [] k [][] = new int[][][];\n");
+		buf.append("    	int [] l [][] = new int [][][];\n");
+		buf.append("    	int [] m [][] = new int /* comment @ [] */[][][];\n");
+		buf.append("    	int [] n [][] = new int /* comment @ [] */[][][];\n");
+		buf.append("    	int [] o [][] = new int/* comment @ [] */[][][];\n");
+		buf.append("    	int [] p [][] = new int/* comment @ [] */  [][][];\n");
+		buf.append("    	int [] q [][] = new int/* comment @ [] */[][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923d_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[] @Annot1[][];\n");
+		buf.append("    	int [] j [][] = new int[] @Annot1 [][];\n");
+		buf.append("    	int [] k [][] = new int[]   @Annot1  [][];\n");
+		buf.append("    	int [] l [][] = new int[] /* comment @ [] */@Annot1[][];\n");
+		buf.append("    	int [] m [][] = new int[] /* comment @ [] */ @Annot1[][];\n");
+		buf.append("    	int [] n [][] = new int[] /* comment @ [] */ @Annot1   [][];\n");
+		buf.append("    	int [] o [][] = new int[] @Annot1/* comment @ [] */[][];\n");
+		buf.append("    	int [] p [][] = new int[] @Annot1 /* comment @ [] */  [][];\n");
+		buf.append("    	int [] q [][] = new int[] @Annot1   /* comment @ [] */[][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = creation.getType();
+
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode)dim.annotations().get(0), null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[][][];\n");
+		buf.append("    	int [] j [][] = new int[][][];\n");
+		buf.append("    	int [] k [][] = new int[][][];\n");
+		buf.append("    	int [] l [][] = new int[] [][];\n");
+		buf.append("    	int [] m [][] = new int[] /* comment @ [] */[][];\n");
+		buf.append("    	int [] n [][] = new int[] /* comment @ [] */[][];\n");
+		buf.append("    	int [] o [][] = new int[]/* comment @ [] */[][];\n");
+		buf.append("    	int [] p [][] = new int[]/* comment @ [] */  [][];\n");
+		buf.append("    	int [] q [][] = new int[]/* comment @ [] */[][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923e_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i = new int[][][];\n");
+		buf.append("    	int[][][] j = new int [][][];\n");
+		buf.append("    	int[][][] k = new int  [][][];\n");
+		buf.append("    	int[][][] l = new int/* comment */[][][];\n");
+		buf.append("    	int[][][] m = new int /* comment [] */ [][][];\n");
+		buf.append("    	int[][][] n = new int  /* comment [] */  [][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 6; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = creation.getType();
+
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			listRewrite.insertAt(markerAnnotation, 0, null);
+		}
+		
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i = new int @Annot1 [][][];\n");
+		buf.append("    	int[][][] j = new int @Annot1 [][][];\n");
+		buf.append("    	int[][][] k = new int  @Annot1 [][][];\n");
+		buf.append("    	int[][][] l = new int @Annot1 /* comment */[][][];\n");
+		buf.append("    	int[][][] m = new int @Annot1 /* comment [] */ [][][];\n");
+		buf.append("    	int[][][] n = new int  @Annot1 /* comment [] */  [][][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923f_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i = new int[][][];\n");
+		buf.append("    	int[][][] j = new int[] [][];\n");
+		buf.append("    	int[][][] k = new int[]  [][];\n");
+		buf.append("    	int[][][] l = new int[]/* comment */[][];\n");
+		buf.append("    	int[][][] m = new int[] /* comment [] */ [][];\n");
+		buf.append("    	int[][][] n = new int[]  /* comment [] */  [][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 6; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = creation.getType();
+
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			listRewrite.insertAt(markerAnnotation, 0, null);
+		}
+		
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i = new int[] @Annot1 [][];\n");
+		buf.append("    	int[][][] j = new int[] @Annot1 [][];\n");
+		buf.append("    	int[][][] k = new int[]  @Annot1 [][];\n");
+		buf.append("    	int[][][] l = new int[] @Annot1 /* comment */[][];\n");
+		buf.append("    	int[][][] m = new int[] @Annot1 /* comment [] */ [][];\n");
+		buf.append("    	int[][][] n = new int[]  @Annot1 /* comment [] */  [][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923g_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i;\n");
+		buf.append("    	int [][][] j;\n");
+		buf.append("    	int  [][][] k;\n");
+		buf.append("    	int/* comment */[][][] l;\n");
+		buf.append("    	int /* comment [] */ [][][] m;\n");
+		buf.append("    	int  /* comment [] */  [][][] n;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 6; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			listRewrite.insertAt(markerAnnotation, 0, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int @Annot1 [][][] i;\n");
+		buf.append("    	int @Annot1 [][][] j;\n");
+		buf.append("    	int  @Annot1 [][][] k;\n");
+		buf.append("    	int @Annot1 /* comment */[][][] l;\n");
+		buf.append("    	int @Annot1 /* comment [] */ [][][] m;\n");
+		buf.append("    	int  @Annot1 /* comment [] */  [][][] n;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	public void testBug417923h_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i;\n");
+		buf.append("    	int[] [][] j;\n");
+		buf.append("    	int[]  [][] k;\n");
+		buf.append("    	int[]/* comment */[][] l;\n");
+		buf.append("    	int[] /* comment [] */ [][] m;\n");
+		buf.append("    	int[]  /* comment [] */  [][] n;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 6; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			listRewrite.insertAt(markerAnnotation, 0, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[] @Annot1 [][] i;\n");
+		buf.append("    	int[] @Annot1 [][] j;\n");
+		buf.append("    	int[]  @Annot1 [][] k;\n");
+		buf.append("    	int[] @Annot1 /* comment */[][] l;\n");
+		buf.append("    	int[] @Annot1 /* comment [] */ [][] m;\n");
+		buf.append("    	int[]  @Annot1 /* comment [] */  [][] n;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	
+	public void testBug417923i_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int @Annot1[][][] i;\n");
+		buf.append("    	int @Annot1 [][][] j;\n");
+		buf.append("    	int   @Annot1  [][][] k;\n");
+		buf.append("    	int/* comment @ [] */@Annot1[][][] l;\n");
+		buf.append("    	int /* comment @ [] */ @Annot1[][][] m;\n");
+		buf.append("    	int /* comment @ [] */ @Annot1   [][][] n;\n");
+		buf.append("    	int @Annot1/* comment @ [] */[][][] o;\n");
+		buf.append("    	int @Annot1 /* comment @ [] */  [][][] p;\n");
+		buf.append("    	int @Annot1   /* comment @ [] */[][][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(0), null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i;\n");
+		buf.append("    	int[][][] j;\n");
+		buf.append("    	int[][][] k;\n");
+		buf.append("    	int[][][] l;\n");
+		buf.append("    	int /* comment @ [] */[][][] m;\n");
+		buf.append("    	int /* comment @ [] */[][][] n;\n");
+		buf.append("    	int/* comment @ [] */[][][] o;\n");
+		buf.append("    	int/* comment @ [] */  [][][] p;\n");
+		buf.append("    	int/* comment @ [] */[][][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+	
+	public void testBug417923j_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[] @Annot1[][] i;\n");
+		buf.append("    	int[] @Annot1 [][] j;\n");
+		buf.append("    	int[]   @Annot1  [][] k;\n");
+		buf.append("    	int[]/* comment @ [] */@Annot1[][] l;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1[][] m;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1   [][] n;\n");
+		buf.append("    	int[] @Annot1/* comment @ [] */[][] o;\n");
+		buf.append("    	int[] @Annot1 /* comment @ [] */  [][] p;\n");
+		buf.append("    	int[] @Annot1   /* comment @ [] */[][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(0), null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][][] i;\n");
+		buf.append("    	int[][][] j;\n");
+		buf.append("    	int[][][] k;\n");
+		buf.append("    	int[][][] l;\n");
+		buf.append("    	int[] /* comment @ [] */[][] m;\n");
+		buf.append("    	int[] /* comment @ [] */[][] n;\n");
+		buf.append("    	int[]/* comment @ [] */[][] o;\n");
+		buf.append("    	int[]/* comment @ [] */  [][] p;\n");
+		buf.append("    	int[]/* comment @ [] */[][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923k_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[] @Annot1 @Annot2[][];\n");
+		buf.append("    	int [] j [][] = new int[] @Annot1 @Annot2 [][];\n");
+		buf.append("    	int [] k [][] = new int[]   @Annot1  @Annot2 [][];\n");
+		buf.append("    	int [] l [][] = new int[] /* comment @ [] */@Annot1 @Annot2[][];\n");
+		buf.append("    	int [] m [][] = new int[] /* comment @ [] */ @Annot1 @Annot2 [][];\n");
+		buf.append("    	int [] n [][] = new int[] /* comment @ [] */ @Annot1 @Annot2  [][];\n");
+		buf.append("    	int [] o [][] = new int[] @Annot1 @Annot2/* comment @ [] */[][];\n");
+		buf.append("    	int [] p [][] = new int[] @Annot1 @Annot2/* comment @ [] */  [][];\n");
+		buf.append("    	int [] q [][] = new int[] @Annot1   @Annot2/* comment @ [] */[][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			List fragments = statement.fragments();
+			VariableDeclarationFragment fragment = (VariableDeclarationFragment) fragments.get(0);
+			ArrayCreation creation = (ArrayCreation) fragment.getInitializer();
+			ArrayType arrayType = creation.getType();
+
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode)dim.annotations().get(1), null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int [] i [][] = new int[] @Annot1[][];\n");
+		buf.append("    	int [] j [][] = new int[] @Annot1 [][];\n");
+		buf.append("    	int [] k [][] = new int[]   @Annot1 [][];\n");
+		buf.append("    	int [] l [][] = new int[] /* comment @ [] */@Annot1[][];\n");
+		buf.append("    	int [] m [][] = new int[] /* comment @ [] */ @Annot1 [][];\n");
+		buf.append("    	int [] n [][] = new int[] /* comment @ [] */ @Annot1  [][];\n");
+		buf.append("    	int [] o [][] = new int[] @Annot1/* comment @ [] */[][];\n");
+		buf.append("    	int [] p [][] = new int[] @Annot1/* comment @ [] */  [][];\n");
+		buf.append("    	int [] q [][] = new int[] @Annot1/* comment @ [] */[][];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923l_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[] @Annot1 @Annot2[][] i;\n");
+		buf.append("    	int[] @Annot1 @Annot2 [][] j;\n");
+		buf.append("    	int[]   @Annot1  @Annot2 [][] k;\n");
+		buf.append("    	int[]/* comment @ [] */@Annot1 @Annot2[][] l;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1 @Annot2 [][] m;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1   @Annot2 [][] n;\n");
+		buf.append("    	int[] @Annot1 @Annot2/* comment @ [] */[][] o;\n");
+		buf.append("    	int[] @Annot1 @Annot2/* comment @ [] */  [][] p;\n");
+		buf.append("    	int[] @Annot1   @Annot2/* comment @ [] */[][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		for (int i = 0; i < 9; ++i) {
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(i);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(1), null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[] @Annot1[][] i;\n");
+		buf.append("    	int[] @Annot1 [][] j;\n");
+		buf.append("    	int[]   @Annot1 [][] k;\n");
+		buf.append("    	int[]/* comment @ [] */@Annot1[][] l;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1 [][] m;\n");
+		buf.append("    	int[] /* comment @ [] */ @Annot1 [][] n;\n");
+		buf.append("    	int[] @Annot1/* comment @ [] */[][] o;\n");
+		buf.append("    	int[] @Annot1/* comment @ [] */  [][] p;\n");
+		buf.append("    	int[] @Annot1/* comment @ [] */[][] q;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBug417923m_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int   @Annot1(value1 = 2, value2 = 10) [][] i;\n");
+		buf.append("    	int[] @Annot2(float[].class) [] j;\n");
+		buf.append("    	int[][] k;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {\n");
+		buf.append("	int value1() default 1;\n");
+		buf.append("	int value2();\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {\n");
+		buf.append("	@SuppressWarnings(\"rawtypes\")\n");
+		buf.append("	Class value() default int[].class;\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+
+		{
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(0);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(0), null);
+		}
+		{
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(1);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(0), null);
+		}
+		{
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(1);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.remove((ASTNode) dim.annotations().get(0), null);
+		}
+		{
+			VariableDeclarationStatement statement = (VariableDeclarationStatement) statements.get(2);
+			ArrayType arrayType = (ArrayType) statement.getType();
+			
+			SingleMemberAnnotation annotation = ast.newSingleMemberAnnotation();
+			annotation.setTypeName(ast.newSimpleName("Annot2"));
+			ArrayType type = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.FLOAT), 1);
+			TypeLiteral literal = ast.newTypeLiteral();
+			literal.setType(type);
+			annotation.setValue(literal);
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.insertFirst(annotation, null);
+		}
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    	int[][] i;\n");
+		buf.append("    	int[][] j;\n");
+		buf.append("    	int[] @Annot2(float[].class) [] k;\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {\n");
+		buf.append("	int value1() default 1;\n");
+		buf.append("	int value2();\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {\n");
+		buf.append("	@SuppressWarnings(\"rawtypes\")\n");
+		buf.append("	Class value() default int[].class;\n");
+		buf.append("}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	public void testBugASTFormatter_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Marker {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {\n");
+		buf.append("	int value1() default 1;\n");
+		buf.append("	int value2();\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {\n");
+		buf.append("	@SuppressWarnings(\"rawtypes\")\n");
+		buf.append("	Class value() default int[].class;\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("X.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		AST ast = astRoot.getAST();
+		ASTRewrite rewrite= ASTRewrite.create(ast);
+
+		TypeDeclaration typeDecl = (TypeDeclaration) astRoot.types().get(0);
+		MethodDeclaration methodDecl= typeDecl.getMethods()[0];
+		Block block= methodDecl.getBody();
+
+		{
+			ArrayType arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 2);
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			MarkerAnnotation markerAnnotation = ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Marker"));
+			dim.annotations().add(markerAnnotation);
+			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
+			fragment.setName(ast.newSimpleName("i"));
+			VariableDeclarationStatement statement = ast.newVariableDeclarationStatement(fragment);
+			statement.setType(arrayType);
+			
+			ListRewrite listRewrite= rewrite.getListRewrite(block, Block.STATEMENTS_PROPERTY);
+			listRewrite.insertFirst(statement, null);
+			
+		}
+		{
+			ArrayType arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 2);
+			Dimension dim = (Dimension) arrayType.dimensions().get(1);
+			MarkerAnnotation markerAnnotation = ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Marker"));
+			dim.annotations().add(markerAnnotation);
+			ArrayCreation creation = ast.newArrayCreation();
+			creation.setType(arrayType);
+			creation.dimensions().add(ast.newNumberLiteral("1"));
+			creation.dimensions().add(ast.newNumberLiteral("2"));
+			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
+			fragment.setName(ast.newSimpleName("j"));
+			fragment.setInitializer(creation);
+			
+			arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 2);
+			dim = (Dimension) arrayType.dimensions().get(1);
+			markerAnnotation = ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newName("Marker"));
+			dim.annotations().add(markerAnnotation);
+			
+			VariableDeclarationStatement statement = ast.newVariableDeclarationStatement(fragment);
+			statement.setType(arrayType);
+			
+			ListRewrite listRewrite= rewrite.getListRewrite(block, Block.STATEMENTS_PROPERTY);
+			listRewrite.insertLast(statement, null);
+			
+		}
+		{
+			ArrayType arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 2);
+			Dimension dim = (Dimension) arrayType.dimensions().get(0);
+			MarkerAnnotation markerAnnotation = ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Marker"));
+			dim.annotations().add(markerAnnotation);
+			
+			NormalAnnotation normalAnnotation = ast.newNormalAnnotation();
+			normalAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			MemberValuePair memberValuePair= ast.newMemberValuePair();
+			memberValuePair.setName(ast.newSimpleName("value1"));
+			memberValuePair.setValue(ast.newNumberLiteral("1"));
+			normalAnnotation.values().add(memberValuePair);
+			memberValuePair= ast.newMemberValuePair();
+			memberValuePair.setName(ast.newSimpleName("value2"));
+			memberValuePair.setValue(ast.newNumberLiteral("2"));
+			normalAnnotation.values().add(memberValuePair);
+			dim.annotations().add(normalAnnotation);
+
+			SingleMemberAnnotation singleMemberAnnotation = ast.newSingleMemberAnnotation();
+			singleMemberAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			ArrayType type = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.FLOAT), 1);
+			TypeLiteral literal = ast.newTypeLiteral();
+			literal.setType(type);
+			singleMemberAnnotation.setValue(literal);
+			dim.annotations().add(singleMemberAnnotation);
+			
+			ArrayCreation creation = ast.newArrayCreation();
+			creation.setType(arrayType);
+			creation.dimensions().add(ast.newNumberLiteral("1"));
+			creation.dimensions().add(ast.newNumberLiteral("2"));
+			VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
+			fragment.setName(ast.newSimpleName("k"));
+			fragment.setInitializer(creation);
+			
+			arrayType = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.INT), 2);
+			dim = (Dimension) arrayType.dimensions().get(0);
+			markerAnnotation = ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newName("Marker"));
+			dim.annotations().add(markerAnnotation);
+			
+			normalAnnotation = ast.newNormalAnnotation();
+			normalAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			memberValuePair= ast.newMemberValuePair();
+			memberValuePair.setName(ast.newSimpleName("value1"));
+			memberValuePair.setValue(ast.newNumberLiteral("1"));
+			normalAnnotation.values().add(memberValuePair);
+			memberValuePair= ast.newMemberValuePair();
+			memberValuePair.setName(ast.newSimpleName("value2"));
+			memberValuePair.setValue(ast.newNumberLiteral("2"));
+			normalAnnotation.values().add(memberValuePair);
+			dim.annotations().add(normalAnnotation);
+			
+			singleMemberAnnotation = ast.newSingleMemberAnnotation();
+			singleMemberAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			type = ast.newArrayType(ast.newPrimitiveType(PrimitiveType.FLOAT), 1);
+			literal = ast.newTypeLiteral();
+			literal.setType(type);
+			singleMemberAnnotation.setValue(literal);
+			dim.annotations().add(singleMemberAnnotation);
+			VariableDeclarationStatement statement = ast.newVariableDeclarationStatement(fragment);
+			statement.setType(arrayType);
+			
+			ListRewrite listRewrite= rewrite.getListRewrite(block, Block.STATEMENTS_PROPERTY);
+			listRewrite.insertLast(statement, null);
+			
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class X {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        int[] @Marker [] i;\n");
+		buf.append("        int[] @Marker [] j = new int[1] @Marker [2];\n");
+		buf.append("        int @Marker @Annot1(value1 = 1, value2 = 2) @Annot2(float[].class) [][] k = new int @Marker @Annot1(value1 = 1, value2 = 2) @Annot2(float[].class) [1][2];\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Marker {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {\n");
+		buf.append("	int value1() default 1;\n");
+		buf.append("	int value2();\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {\n");
+		buf.append("	@SuppressWarnings(\"rawtypes\")\n");
+		buf.append("	Class value() default int[].class;\n");
+		buf.append("}\n");
+		assertEqualString(preview, buf.toString());
+	}
 }
-
-
-

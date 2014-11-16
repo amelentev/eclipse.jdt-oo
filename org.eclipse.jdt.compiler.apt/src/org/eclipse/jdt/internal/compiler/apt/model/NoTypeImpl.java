@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007, 2011 BEA Systems, Inc.
+ * Copyright (c) 2007, 2013 BEA Systems, Inc. and others
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,10 +7,16 @@
  *
  * Contributors:
  *    wharley@bea.com - initial API and implementation
+ *    IBM Corporation - Java 8 support
  *******************************************************************************/
 
 package org.eclipse.jdt.internal.compiler.apt.model;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
+import java.util.List;
+
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.NoType;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -64,6 +70,19 @@ public class NoTypeImpl implements NoType, NullType
 		case PACKAGE:
 			return "package"; //$NON-NLS-1$
 		}
+	}
+
+	public List<? extends AnnotationMirror> getAnnotationMirrors() {
+		return Factory.EMPTY_ANNOTATION_MIRRORS;
+	}
+
+	public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+		return null;
+	}
+
+	@SuppressWarnings("unchecked")
+	public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
+		return (A[]) Array.newInstance(annotationType, 0);
 	}
 
 }

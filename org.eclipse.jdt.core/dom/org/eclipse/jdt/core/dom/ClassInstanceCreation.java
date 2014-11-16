@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,16 +16,6 @@ import java.util.List;
 
 /**
  * Class instance creation expression AST node type.
- * For JLS2:
- * <pre>
- * ClassInstanceCreation:
- *        [ Expression <b>.</b> ] <b>new</b> Name
- *            <b>(</b> [ Expression { <b>,</b> Expression } ] <b>)</b>
- *            [ AnonymousClassDeclaration ]
- * </pre>
- * For JLS3, type arguments are added
- * and the type name is generalized to a type so that parameterized
- * types can be instantiated:
  * <pre>
  * ClassInstanceCreation:
  *        [ Expression <b>.</b> ]
@@ -41,25 +31,13 @@ import java.util.List;
  * simple, qualified, or parameterized type.
  * </p>
  * <p>
- * A type like "A.B" can be represented either of two ways:
- * <ol>
- * <li>
- * <code>QualifiedType(SimpleType(SimpleName("A")),SimpleName("B"))</code>
- * </li>
- * <li>
- * <code>SimpleType(QualifiedName(SimpleName("A"),SimpleName("B")))</code>
- * </li>
- * </ol>
- * The first form is preferred when "A" is known to be a type (as opposed
- * to a package). However, a parser cannot always determine this. Clients
- * should be prepared to handle either rather than make assumptions.
- * (Note also that the first form became possible as of JLS3; only the second
- * form existed in JLS2.)
+ * {@link QualifiedType} discusses typical representations of qualified type references.
  * </p>
  *
  * @since 2.0
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClassInstanceCreation extends Expression {
 
 	/**
@@ -79,6 +57,7 @@ public class ClassInstanceCreation extends Expression {
 	/**
 	 * The "name" structural property of this node type (child type: {@link Name}) (JLS2 API only).
 	 * @since 3.0
+	 * @deprecated In the JLS3 API, this property is replaced by {@link #TYPE_PROPERTY}.
 	 */
 	public static final ChildPropertyDescriptor NAME_PROPERTY =
 		new ChildPropertyDescriptor(ClassInstanceCreation.class, "name", Name.class, MANDATORY, NO_CYCLE_RISK); //$NON-NLS-1$

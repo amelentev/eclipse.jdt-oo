@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,6 +18,7 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IClassFile;
 import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.ITypeHierarchy;
 import org.eclipse.jdt.core.JavaCore;
@@ -205,5 +206,324 @@ public void test228845b() throws CoreException, IOException {
 		}
 	}
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=228845
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=400905
+// Fix for 228845 does not seem to work for anonymous/local/functional types. 
+public void test400905() throws CoreException {
+	String newContents =
+		"package x.y;\n" +
+		"public class A {\n" +
+		"    void foo() {\n" +
+        "        class X extends B {}\n" +
+		"    }\n" +
+		"}";
+	
+	ICompilationUnit primaryCu = this.copy.getPrimary();
+	primaryCu.becomeWorkingCopy(null);
+	
+	primaryCu.getBuffer().setContents(newContents);
+	primaryCu.reconcile(ICompilationUnit.NO_AST, false, null, null);
+			
+	IFile file = null;
+	try {
+		file = this.createFile(
+			"P/src/x/y/B.java",
+			"package x.y;\n" +
+			"public class B {\n" +
+			"}");
 
+		IType type = this.getCompilationUnit("P/src/x/y/B.java").getType("B");
+		ITypeHierarchy h = type.newTypeHierarchy(null);  // no working copies explicitly passed, should still honor primary working copies.
+
+		assertHierarchyEquals(
+				"Focus: B [in B.java [in x.y [in src [in P]]]]\n" + 
+				"Super types:\n" + 
+				"  Object [in Object.class [in java.lang [in "+ getExternalJCLPathString() + "]]]\n" + 
+				"Sub types:\n" + 
+				"  X [in foo() [in A [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n",
+			h);
+	} finally {
+		primaryCu.discardWorkingCopy();
+		if (file != null) {
+			this.deleteResource(file);
+		}
+	}
 }
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=228845
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=400905
+// Fix for 228845 does not seem to work for anonymous/local/functional types. 
+public void test400905a() throws CoreException {
+	String newContents =
+		"package x.y;\n" +
+		"public class A {\n" +
+		"    void foo() {\n" +
+        "        X x  = new B() {}\n" +
+		"    }\n" +
+		"}";
+	
+	ICompilationUnit primaryCu = this.copy.getPrimary();
+	primaryCu.becomeWorkingCopy(null);
+	
+	primaryCu.getBuffer().setContents(newContents);
+	primaryCu.reconcile(ICompilationUnit.NO_AST, false, null, null);
+			
+	IFile file = null;
+	try {
+		file = this.createFile(
+			"P/src/x/y/B.java",
+			"package x.y;\n" +
+			"public class B {\n" +
+			"}");
+
+		IType type = this.getCompilationUnit("P/src/x/y/B.java").getType("B");
+		ITypeHierarchy h = type.newTypeHierarchy(null);  // no working copies explicitly passed, should still honor primary working copies.
+
+		assertHierarchyEquals(
+				"Focus: B [in B.java [in x.y [in src [in P]]]]\n" + 
+				"Super types:\n" + 
+				"  Object [in Object.class [in java.lang [in "+ getExternalJCLPathString() + "]]]\n" + 
+				"Sub types:\n" + 
+				"  <anonymous #1> [in foo() [in A [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n",
+			h);
+	} finally {
+		primaryCu.discardWorkingCopy();
+		if (file != null) {
+			this.deleteResource(file);
+		}
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=228845
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=400905
+// Fix for 228845 does not seem to work for anonymous/local/functional types. 
+public void test400905b() throws CoreException, IOException {
+	IJavaProject javaProject = getJavaProject("P");
+	String oldCompliance = javaProject.getOption(JavaCore.COMPILER_COMPLIANCE, true);
+	String oldSource = javaProject.getOption(JavaCore.COMPILER_SOURCE, true);
+	try {
+		javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, "1.8");
+		javaProject.setOption(JavaCore.COMPILER_SOURCE, "1.8");
+		String newContents =
+						"package x.y;\n" +
+						"interface I { \n" +
+						"	int thrice(int x);\n" +
+						"}\n" +
+						"interface J {\n" +
+						"	int twice(int x);\n" +
+						"}\n" +
+						"public class X {\n" +
+						"	I i = (x) -> {return x * 3;}; \n" +
+						"	X x = null;\n" +
+						"	static void goo(I i) {} \n" +
+						"	public static void main(String[] args) { \n" +
+						"		goo((x)-> { \n" +
+						"			int y = 3;\n" +
+						"			return x * y; \n" +
+						"		});\n" +
+						"		I i2 = (x) -> {\n" +
+						"			int y = 3; \n" +
+						"			return x * y;\n" +
+						"		};\n" +
+						"		J j1 = (x) -> { \n" +
+						"			int y = 2;  \n" +
+						"			return x * y;\n" +
+						"		};  \n" +
+						"	}\n" +
+						"}\n";
+
+		ICompilationUnit primaryCu = this.copy.getPrimary();
+		primaryCu.becomeWorkingCopy(null);
+
+		primaryCu.getBuffer().setContents(newContents);
+		primaryCu.reconcile(ICompilationUnit.NO_AST, false, null, null);
+
+		try {
+			IType type = primaryCu.getType("I");
+			ITypeHierarchy h = type.newTypeHierarchy(null);  // no working copies explicitly passed, should still honor primary working copies.
+
+			assertHierarchyEquals(
+							"Focus: I [in [Working copy] A.java [in x.y [in src [in P]]]]\n" + 
+							"Super types:\n" + 
+							"Sub types:\n" + 
+							"  <lambda #1> [in i [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n",
+				h);
+		} finally {
+			primaryCu.discardWorkingCopy();
+		}
+	} finally {
+		if (oldCompliance != null)
+			javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, oldCompliance);
+		if (oldSource != null)
+			javaProject.setOption(JavaCore.COMPILER_SOURCE, oldSource);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=429435, [1.8][search]Hierarchy search for lambda expressions do not show all the lambda expressions
+public void test429435() throws CoreException, IOException {
+	IJavaProject javaProject = getJavaProject("P");
+	String oldCompliance = javaProject.getOption(JavaCore.COMPILER_COMPLIANCE, true);
+	String oldSource = javaProject.getOption(JavaCore.COMPILER_SOURCE, true);
+	try {
+		javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, "1.8");
+		javaProject.setOption(JavaCore.COMPILER_SOURCE, "1.8");
+		String newContents =
+						"package x.y;\n" +
+						"interface I {\n" +
+						"    public int doit();\n" +
+						"}\n" +
+						"public class X {\n" +
+						"void zoo() {\n" +
+						"	    I i = () /*1*/-> {\n" +
+						"                 I i2 = () /*2*/-> Y.foo(() -> Y.foo(()->Y.foo(()->10)));\n" +
+						"                 final Y y = new Y() {\n" +
+						"                		@Override\n" +
+						"                		public int doit() {\n" +
+						"                			I i = () -> 10;\n" +
+						"                			return i.doit();\n" +
+						"                		}\n" +
+						"                 };\n" +
+						"                 return 0;\n" +
+						"       };\n" +
+						"   }\n" +
+						"}\n" +
+						" class Y implements I{\n" +
+						"\n" +
+						"	static int foo(I i) { return 0;}\n" +
+						"	@Override\n" +
+						"	public int doit() {\n" +
+						"		// TODO Auto-generated method stub\n" +
+						"		return 0;\n" +
+						"	}	 \n" +
+						"}\n";
+
+		ICompilationUnit primaryCu = this.copy.getPrimary();
+		primaryCu.becomeWorkingCopy(null);
+
+		primaryCu.getBuffer().setContents(newContents);
+		primaryCu.reconcile(ICompilationUnit.NO_AST, false, null, null);
+
+		try {
+			IType type = primaryCu.getType("I");
+			ITypeHierarchy h = type.newTypeHierarchy(null);  // no working copies explicitly passed, should still honor primary working copies.
+
+			assertHierarchyEquals(
+					"Focus: I [in [Working copy] A.java [in x.y [in src [in P]]]]\n" + 
+							"Super types:\n" + 
+							"Sub types:\n" + 
+							"  <lambda #1> [in doit() [in <anonymous #1> [in doit() [in <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]]]]]\n" + 
+							"  <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]]]]]]]]]\n" + 
+							"  <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]]]]]]]\n" + 
+							"  <lambda #1> [in doit() [in <lambda #1> [in doit() [in <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]]]]]\n" + 
+							"  <lambda #1> [in doit() [in <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]]]\n" + 
+							"  <lambda #1> [in zoo() [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  Y [in [Working copy] A.java [in x.y [in src [in P]]]]\n",
+				h);
+		} finally {
+			primaryCu.discardWorkingCopy();
+		}
+	} finally {
+		if (oldCompliance != null)
+			javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, oldCompliance);
+		if (oldSource != null)
+			javaProject.setOption(JavaCore.COMPILER_SOURCE, oldSource);
+	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=429537, [1.8][hierarchy]NPE in hierarchy resolution 
+public void test429537() throws CoreException, IOException {
+	IJavaProject javaProject = getJavaProject("P");
+	String oldCompliance = javaProject.getOption(JavaCore.COMPILER_COMPLIANCE, true);
+	String oldSource = javaProject.getOption(JavaCore.COMPILER_SOURCE, true);
+	try {
+		javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, "1.8");
+		javaProject.setOption(JavaCore.COMPILER_SOURCE, "1.8");
+		String newContents =
+						"package x.y;\n" +
+						"public class X extends Y {\n" +
+						"public static void main(String [] args) {\n" +
+						"	I<Y> c = () /* foo */ -> () /* bar */ -> {};\n" +
+						"	I<Y> y = args.length < 1 ? (() /* true */-> 42) : (() /* false */ -> 23);\n" +
+						"	Object o = (I) () /* cast */ -> 42;\n" +
+						"	}\n" +
+						"}\n" +
+						"interface I<T> {\n" +
+						"	public T foo();\n" +
+						"}\n" +
+						"class Y {\n" +
+						"	public void bar() {}\n" +
+						"}\n";
+
+		ICompilationUnit primaryCu = this.copy.getPrimary();
+		primaryCu.becomeWorkingCopy(null);
+
+		primaryCu.getBuffer().setContents(newContents);
+		primaryCu.reconcile(ICompilationUnit.NO_AST, false, null, null);
+
+		try {
+			IType type = primaryCu.getType("I");
+			ITypeHierarchy h = type.newTypeHierarchy(null);  // no working copies explicitly passed, should still honor primary working copies.
+
+			assertHierarchyEquals(
+							"Focus: I [in [Working copy] A.java [in x.y [in src [in P]]]]\n" + 
+							"Super types:\n" + 
+							"Sub types:\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n" + 
+							"  <lambda #1> [in main(String[]) [in X [in [Working copy] A.java [in x.y [in src [in P]]]]]]\n",
+				h);
+		} finally {
+			primaryCu.discardWorkingCopy();
+		}
+	} finally {
+		if (oldCompliance != null)
+			javaProject.setOption(JavaCore.COMPILER_COMPLIANCE, oldCompliance);
+		if (oldSource != null)
+			javaProject.setOption(JavaCore.COMPILER_SOURCE, oldSource);
+	}
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=442534, Eclipse's Run button does not work.
+public void test442534() throws CoreException, IOException {
+
+	IJavaProject project = null;
+	try {
+		project = this.createJavaProject(
+				"Bug442534",
+				new String[] {"src"},
+				new String[] {this.getExternalJCLPathString(), "lib"},
+				"bin");
+		project.setOption(JavaCore.COMPILER_COMPLIANCE, "1.8");
+		project.setOption(JavaCore.COMPILER_SOURCE, "1.8");
+
+		this.createFolder("Bug442534/src/q");
+		this.createFile("Bug442534/src/X.java",
+				"import q.*;\n" +
+				"public final class X {\n" +
+				"	public static void main(String[] args) {\n" +
+				"		foo(e -> { if (new Object() instanceof Y);});\n" +
+				"	};\n" +
+				"	static void foo(I i) {\n" +
+				"		return;\n" +
+				"	}\n" +
+				"}\n" +
+				"interface I {\n" +
+				"	void foo(int x);\n" +
+				"}\n");
+
+		this.createFile("Bug442534/src/q/Y.java",
+				"package q;\n" +
+				"public class Y {\n" +
+				"}\n");
+
+		this.createFile("Bug442534/src/q/package-info.java",
+				"package q;\n"
+				);
+
+		project.findType("X").newSupertypeHierarchy(null);
+	} finally {
+		if (project != null)
+			this.deleteProject(project);
+	}
+}
+}
+

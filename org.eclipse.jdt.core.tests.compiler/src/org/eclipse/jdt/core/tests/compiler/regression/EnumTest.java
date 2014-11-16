@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,7 +11,7 @@
  *								Bug 365519 - editorial cleanup after bug 186342 and bug 365387
  *								Bug 265744 - Enum switch should warn about missing default
  *								Bug 374605 - Unreasonable warning for enum-based switch statements
- *								Bug 395681 - [compiler] Improve simulation of javac6 behavior from bug 317719 after fixing bug 388795
+ *								bug 388739 - [1.8][compiler] consider default methods when detecting whether a class needs to be declared abstract
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -2552,7 +2552,7 @@ public void test081() {
 		"1. ERROR in X.java (at line 3)\n" +
 		"	enum E {}\n" +
 		"	     ^\n" +
-		"The member enum E can only be defined inside a top-level class or interface\n" +
+		"The member enum E can only be defined inside a top-level class or interface or in a static context\n" +
 		"----------\n");
 }
 
@@ -2598,7 +2598,7 @@ public void test082() {
 		"1. ERROR in X.java (at line 4)\n" +
 		"	enum E {}\n" +
 		"	     ^\n" +
-		"The member enum E can only be defined inside a top-level class or interface\n" +
+		"The member enum E can only be defined inside a top-level class or interface or in a static context\n" +
 		"----------\n");
 }
 
@@ -6251,7 +6251,7 @@ public void test170() {
 // warnings about enumerators. Since these could be used in indirect ways not obvious. 
 public void test171() {
 	Map customOptions = getCompilerOptions();
-	customOptions.put(CompilerOptions.OPTION_ReportUnusedLocal, CompilerOptions.WARNING);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.WARNING);
 	this.runConformTest(
 		true,	
 		new String[] {
@@ -6272,7 +6272,7 @@ public void test171() {
 		null, customOptions,
 		"",
 		"BLEUBLANCROUGE", null, 
-		JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings);
+		JavacTestOptions.DEFAULT);
 }
 
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=267670. Make sure we don't emit any unused
@@ -6281,7 +6281,7 @@ public void test171() {
 // we DO complain if the enumeration type itself is not used.
 public void test172() {
 	Map customOptions = getCompilerOptions();
-	customOptions.put(CompilerOptions.OPTION_ReportUnusedLocal, CompilerOptions.WARNING);
+	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.WARNING);
 	this.runConformTest(
 		true,	
 		new String[] {
@@ -6305,7 +6305,12 @@ public void test172() {
 			"}\n"
 		},
 		null, customOptions,
-		"",
+		"----------\n" +
+		"1. WARNING in X.java (at line 8)\n" +
+		"	private enum Complaint {       WARNING, ERROR, FATAL_ERROR, PANIC;\n" +
+		"	             ^^^^^^^^^\n" +
+		"The type X.Complaint is never used locally\n" +
+		"----------\n",
 		"HELLORED", null, 
 		JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings);
 }
@@ -6888,7 +6893,14 @@ public void test186() {
 		"----------\n",
 		null, // classlibs
 		true, // flush
-		options);
+		options, // customOptions
+		false /* do not generate output */,
+		false /* do not show category */,
+		false /* do not show warning token */,
+		false /* do not skip javac for this peculiar test */,
+		JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings,
+		false /* performStatementsRecovery */
+		);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=374605
 public void test187() {
@@ -6946,7 +6958,14 @@ public void test187a() {
 		"----------\n",
 		null, // classlibs
 		true, // flush
-		options);
+		options, // customOptions
+		false /* do not generate output */,
+		false /* do not show category */,
+		false /* do not show warning token */,
+		false /* do not skip javac for this peculiar test */,
+		JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings,
+		false /* performStatementsRecovery */
+		);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=374605
 public void test187b() {
@@ -7002,7 +7021,14 @@ public void test188() {
 		"----------\n",
 		null, // classlibs
 		true, // flush
-		options);
+		options, // customOptions
+		false /* do not generate output */,
+		false /* do not show category */,
+		false /* do not show warning token */,
+		false /* do not skip javac for this peculiar test */,
+		JavacTestOptions.Excuse.EclipseHasSomeMoreWarnings,
+		false /* performStatementsRecovery */
+		);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=374605
 public void test189() {
@@ -7032,5 +7058,62 @@ public void test189() {
 		null, // classlibs
 		true, // flush
 		options);
+}
+
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=433060 [1.8][compiler] enum E<T>{I;} causes NPE in AllocationExpression.checkTypeArgumentRedundancy
+public void test433060() {
+	Map options = getCompilerOptions();
+	options.put(JavaCore.COMPILER_PB_REDUNDANT_TYPE_ARGUMENTS, JavaCore.ERROR);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"public enum X<T> {\n" + 
+			"	OBJ;\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 1)\n" + 
+		"	public enum X<T> {\n" + 
+		"	              ^\n" + 
+		"Syntax error, enum declaration cannot have type parameters\n" + 
+		"----------\n",
+		null,
+		true,
+		options);
+}
+public void test434442() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return;
+	this.runConformTest(new String[] {
+			"X.java",
+			"interface I {\n" +
+			"	public enum Letter {\n" +
+			"  		A, B;\n" +
+			"	}\n" +
+			"  public default void test(Letter letter) {\n" +
+			"    switch (letter) {\n" +
+			"      case A:\n" +
+			"        System.out.println(\"A\");\n" +
+			"        break;\n" +
+			"      case B:\n" +
+			"        System.out.println(\"B\");\n" +
+			"        break;\n" +
+			"    }\n" +
+			"  }\n" +
+			"}\n" +
+			"\n" +
+			"public class X implements I {\n" +
+			"  public static void main(String[] args) {\n" +
+			"	  try{\n" +
+			"		  X x = new X();\n" +
+			"		  x.test(Letter.A);\n" +
+			"	  }\n" +
+			"    catch (Exception e) {\n" +
+			"      e.printStackTrace();\n" +
+			"    }\n" +
+			"  }\n" +
+			"} \n" +
+			"\n"
+	});
 }
 }

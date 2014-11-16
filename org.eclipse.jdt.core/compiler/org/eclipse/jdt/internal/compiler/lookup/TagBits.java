@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -9,7 +9,9 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contributions for
  *								bug 186342 - [compiler][null] Using annotations for null checking
+ *								bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -58,7 +60,7 @@ public interface TagBits {
 	long IsArgument = ASTNode.Bit11; // local
 	long ClearPrivateModifier = ASTNode.Bit10; // constructor binding
 	
-	// for java 7
+	// for java 7 - this bit is also set if the variable is explicitly or implicitly final
 	long IsEffectivelyFinal = ASTNode.Bit12; // local
 	long MultiCatchParameter = ASTNode.Bit13; // local
 	long IsResource = ASTNode.Bit14; // local
@@ -85,14 +87,16 @@ public interface TagBits {
 	long PassedBoundCheck = ASTNode.Bit23;
 
 	// set for parameterized type NOT of the form X<?,?>
-	long IsBoundParameterizedType = ASTNode.Bit24;
+	long IsBoundParameterizedType = ASTNode.Bit24; // PTB only.
+	
+	long HasAnnotatedVariants = ASTNode.Bit24; // TVB, STB
 
 	// used by BinaryTypeBinding
 	long HasUnresolvedTypeVariables = ASTNode.Bit25;
 	long HasUnresolvedSuperclass = ASTNode.Bit26;
 	long HasUnresolvedSuperinterfaces = ASTNode.Bit27;
 	long HasUnresolvedEnclosingType = ASTNode.Bit28;
-	long HasUnresolvedMemberTypes = ASTNode.Bit29;
+	long HasUnresolvedMemberTypes = ASTNode.Bit29;  // Also in use at STB.
 
 	long HasTypeVariable = ASTNode.Bit30; // set either for type variables (direct) or parameterized types indirectly referencing type variables
 	long HasDirectWildcard = ASTNode.Bit31; // set for parameterized types directly referencing wildcards
@@ -114,11 +118,13 @@ public interface TagBits {
 	long AnnotationForLocalVariable = ASTNode.Bit42L;
 	long AnnotationForAnnotationType = ASTNode.Bit43L;
 	long AnnotationForPackage = ASTNode.Bit44L;
-	long AnnotationTargetMASK = AnnotationTarget
-				| AnnotationForType | AnnotationForField
-				| AnnotationForMethod | AnnotationForParameter
-				| AnnotationForConstructor | AnnotationForLocalVariable
+	long AnnotationForTypeUse = ASTNode.Bit54L;
+	long AnnotationForTypeParameter = ASTNode.Bit55L;
+	long SE7AnnotationTargetMASK = AnnotationForType | AnnotationForField | AnnotationForMethod
+				| AnnotationForParameter | AnnotationForConstructor | AnnotationForLocalVariable
 				| AnnotationForAnnotationType | AnnotationForPackage;
+	long AnnotationTargetMASK = SE7AnnotationTargetMASK | AnnotationTarget
+				| AnnotationForTypeUse | AnnotationForTypeParameter;
 	// 2-bits for retention (should check (tagBits & RetentionMask) == RuntimeRetention
 	long AnnotationSourceRetention = ASTNode.Bit45L;
 	long AnnotationClassRetention = ASTNode.Bit46L;
@@ -142,6 +148,11 @@ public interface TagBits {
 	long AnnotationNonNullByDefault = ASTNode.Bit58L;
 	/** @since 3.8 canceling null-default annotation for PackageBinding or TypeBinding or MethodBinding: */
 	long AnnotationNullUnspecifiedByDefault = ASTNode.Bit59L;
+	/** From Java 8 */
+	long AnnotationFunctionalInterface = ASTNode.Bit60L;
+	/** From Java 8 */
+	long AnnotationRepeatable = ASTNode.Bit61L; // Only for annotation types and since these cannot have constructors, we can overload HasNonPrivateConstructor.
+
 
 	long AllStandardAnnotationsMask =
 				  AnnotationTargetMASK
@@ -156,10 +167,20 @@ public interface TagBits {
 				| AnnotationNullable
 				| AnnotationNonNull
 				| AnnotationNonNullByDefault
-				| AnnotationNullUnspecifiedByDefault;
+				| AnnotationNullUnspecifiedByDefault
+				| AnnotationRepeatable;
+	
+	long AnnotationNullMASK = AnnotationNullable | AnnotationNonNull;
+	/** @since 3.10 marks a type that has a nullness annotation directly or on a detail (array dimension/type argument). */
+	long HasNullTypeAnnotation = ASTNode.Bit21;
 
+	long HasTypeAnnotations = ASTNode.Bit22;
+	
 	long DefaultValueResolved = ASTNode.Bit60L;
 
 	// set when type contains non-private constructor(s)
 	long HasNonPrivateConstructor = ASTNode.Bit61L;
+	
+	// set when type binding has a captured wildcard somewhere
+	long HasCapturedWildcard = ASTNode.Bit62L;
 }

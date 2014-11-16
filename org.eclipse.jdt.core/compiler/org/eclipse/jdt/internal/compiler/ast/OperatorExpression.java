@@ -13,8 +13,6 @@
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
-import org.eclipse.jdt.internal.compiler.flow.FlowContext;
-import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.util.Util;
 
 public abstract class OperatorExpression extends Expression implements OperatorIds {
@@ -1202,7 +1200,7 @@ public abstract class OperatorExpression extends Expression implements OperatorI
 		//  0000   0000       0000   0000      0000
 		//  <<16   <<12       <<8    <<4
 
-		int[] table = (int[]) get_PLUS().clone();
+		int[] table = get_PLUS().clone();
 
 		// customization
 		table[(T_JavaLangString<<4)+T_byte] 		= T_undefined;
@@ -1557,10 +1555,6 @@ public abstract class OperatorExpression extends Expression implements OperatorI
 				return "="; //$NON-NLS-1$
 		}
 		return "unknown operator"; //$NON-NLS-1$
-	}
-
-	public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
-		return FlowInfo.NON_NULL;
 	}
 
 	public StringBuffer printExpression(int indent, StringBuffer output){

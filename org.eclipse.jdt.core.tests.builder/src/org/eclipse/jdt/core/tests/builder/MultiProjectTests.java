@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,7 +30,7 @@ public class MultiProjectTests extends BuilderTests {
 	public MultiProjectTests(String name) {
 		super(name);
 	}
-
+	
 	public static Test suite() {
 		TestSuite suite = new TestSuite(MultiProjectTests.class.getName());
 		suite.addTest(new MultiProjectTests("testCompileOnlyDependent"));
@@ -57,6 +57,7 @@ public class MultiProjectTests extends BuilderTests {
 		suite.addTest(new MultiProjectTests("test101_class_folder_non_exported"));
 		suite.addTest(new MultiProjectTests("test102_missing_required_binaries"));
 		suite.addTest(new MultiProjectTests("test103_missing_required_binaries"));
+		suite.addTest(new MultiProjectTests("test438923"));
 		return suite;
 	}
 
@@ -1017,7 +1018,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		fullBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	/*
@@ -1068,7 +1069,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		incrementalBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	/*
@@ -1112,7 +1113,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		fullBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 
 		//----------------------------
 		//           Step 2
@@ -1162,7 +1163,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		fullBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	/*
@@ -1213,7 +1214,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		incrementalBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	/*
@@ -1257,7 +1258,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		fullBuild();
-		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type B is not accessible due to restriction on required project Project1", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project2Path, new Problem("", "Access restriction: The type 'B' is not API (restriction on required project 'Project1')", d, 23, 35, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_ERROR)); //$NON-NLS-1$ //$NON-NLS-2$
 
 		//----------------------------
 		//           Step 2
@@ -1362,7 +1363,7 @@ public void testCycle7() throws JavaModelException {
 			);
 
 		fullBuild();
-		expectingSpecificProblemFor(project3Path, new Problem("", "Discouraged access: The type A is not accessible due to restriction on required project Project2", b, 35, 38, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_WARNING)); //$NON-NLS-1$ //$NON-NLS-2$
+		expectingSpecificProblemFor(project3Path, new Problem("", "Discouraged access: The type 'A' is not API (restriction on required project 'Project2')", b, 35, 38, CategorizedProblem.CAT_RESTRICTION, IMarker.SEVERITY_WARNING)); //$NON-NLS-1$ //$NON-NLS-2$
 	}
 
 	public void testMissingRequiredBinaries() throws JavaModelException {
@@ -1605,5 +1606,66 @@ public void test103_missing_required_binaries() throws JavaModelException {
 	} finally {
 		env.setBuildOrder(null);
 	}
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=438923, [compiler]Type is inappropriately considered "indirectly referenced"
+public void test438923() throws JavaModelException {
+	//----------------------------
+	//         Project1
+	//----------------------------
+	IPath p1 = env.addProject("P1"); //$NON-NLS-1$
+	env.addExternalJars(p1, Util.getJavaClassLibs());
+	// remove old package fragment root so that names don't collide
+	env.removePackageFragmentRoot(p1, ""); //$NON-NLS-1$
+	IPath root1 = env.addPackageFragmentRoot(p1, "src"); //$NON-NLS-1$
+	env.setOutputFolder(p1, "bin"); //$NON-NLS-1$
+
+	env.addClass(root1, "p1", "P1I0", //$NON-NLS-1$ //$NON-NLS-2$
+			"package p1;\n" +
+			"public interface P1I0 {\n" +
+			"  interface II {/*empty*/}\n" +
+			"}\n"
+		);
+
+	//----------------------------
+	//         Project2
+	//----------------------------
+	IPath p2 = env.addProject("P2"); //$NON-NLS-1$
+	env.addExternalJars(p2, Util.getJavaClassLibs());
+	// remove old package fragment root so that names don't collide
+	env.removePackageFragmentRoot(p2, ""); //$NON-NLS-1$
+	IPath root2 = env.addPackageFragmentRoot(p2, "src"); //$NON-NLS-1$
+	env.setOutputFolder(p2, "bin"); //$NON-NLS-1$
+
+	env.addClass(root2, "p2", "P2C0", //$NON-NLS-1$ //$NON-NLS-2$
+			"package p2;\n" +
+			"import p1.P1I0;\n" +
+			"public class P2C0 {\n" +
+			"  public void z(final P1I0.II [] ii) {/*empty*/}\n" +
+			"}\n"
+		);
+
+	//----------------------------
+	//         Project3
+	//----------------------------
+	IPath p3 = env.addProject("P3"); //$NON-NLS-1$
+	env.addExternalJars(p3, Util.getJavaClassLibs());
+	// remove old package fragment root so that names don't collide
+	env.removePackageFragmentRoot(p3, ""); //$NON-NLS-1$
+	IPath root3 = env.addPackageFragmentRoot(p3, "src"); //$NON-NLS-1$
+	env.setOutputFolder(p3, "bin"); //$NON-NLS-1$
+
+	env.addClass(root3, "p3", "P3C0", //$NON-NLS-1$ //$NON-NLS-2$
+			"package p3;\n" +
+			"import p2.P2C0;\n" +
+			"public class P3C0\n" +
+			"  extends P2C0 {/*empty*/}\n"
+		);
+
+	// for Project1
+	env.addRequiredProject(p2, p1);
+	env.addRequiredProject(p3, p2);
+
+	fullBuild();
+	expectingNoProblems();
 }
 }

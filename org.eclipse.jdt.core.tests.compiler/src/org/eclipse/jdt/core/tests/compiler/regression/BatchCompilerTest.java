@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,8 +23,10 @@
  *								bug 388281 - [compiler][null] inheritance of null annotations as an option
  *								bug 381443 - [compiler][null] Allow parameter widening from @NonNull to unannotated
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis 
  *     Jesper Steen Moller - Contributions for
  *								bug 404146 - [1.7][compiler] nested try-catch-finally-blocks leads to unrunnable Java byte code
+ *								bug 407297 - [1.8][compiler] Control generation of parameter names by option
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -1402,7 +1404,7 @@ public void test008(){
         "	^^^^\n" +
         "Zork cannot be resolved to a type\n" +
         "----------\n" +
-        "1 problem (1 error)",
+        "1 problem (1 error)\n",
         true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=92398 -- a case that works, another that does not
@@ -1447,23 +1449,23 @@ public void test009(){
         + " -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" +
-		"	Warn warn;\n" +
-		"	^^^^\n" +
-		"Discouraged access: The type Warn is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-		"----------\n" +
-		"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" +
-		"	KO ko;\n" +
-		"	^^\n" +
-		"Access restriction: The type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-		"----------\n" +
-		"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" +
-		"	Zork z;\n" +
-		"	^^^^\n" +
-		"Zork cannot be resolved to a type\n" +
-		"----------\n" +
-		"3 problems (1 error, 2 warnings)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" + 
+        "	Warn warn;\n" + 
+        "	^^^^\n" + 
+        "Discouraged access: The type \'Warn\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" + 
+        "	KO ko;\n" + 
+        "	^^\n" + 
+        "Access restriction: The type \'KO\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" + 
+        "	Zork z;\n" + 
+        "	^^^^\n" + 
+        "Zork cannot be resolved to a type\n" + 
+        "----------\n" + 
+        "3 problems (1 error, 2 warnings)\n",
         true);
 }
 // command line - no user classpath nor bootclasspath
@@ -1575,8 +1577,9 @@ public void test012(){
         "    -1.5 -5 -5.0       use 1.5 compliance (-source 1.5 -target 1.5)\n" +
         "    -1.6 -6 -6.0       use 1.6 compliance (-source 1.6 -target 1.6)\n" +
         "    -1.7 -7 -7.0       use 1.7 compliance (-source 1.7 -target 1.7)\n" +
-        "    -source <version>  set source level: 1.3 to 1.7 (or 5, 5.0, etc)\n" +
-        "    -target <version>  set classfile target: 1.1 to 1.7 (or 5, 5.0, etc)\n" +
+        "    -1.8 -8 -8.0       use 1.8 compliance (-source 1.8 -target 1.8)\n" +
+        "    -source <version>  set source level: 1.3 to 1.8 (or 5, 5.0, etc)\n" +
+        "    -target <version>  set classfile target: 1.1 to 1.8 (or 5, 5.0, etc)\n" +
         "                       cldc1.1 can also be used to generate the StackMap\n" +
         "                       attribute\n" +
         " \n" +
@@ -1649,6 +1652,7 @@ public void test012(){
         "    -repeat <n>        repeat compilation process <n> times for perf analysis\n" +
         "    -inlineJSR         inline JSR bytecode (implicit if target >= 1.5)\n" +
         "    -enableJavadoc     consider references in javadoc\n" +
+        "    -parameters        generate method parameters attribute (for target >= 1.8)\n" +
         "    -Xemacs            used to enable emacs-style output in the console.\n" +
         "                       It does not affect the xml log output\n" +
         "    -missingNullDefault  report missing default nullness annotation\n" + 
@@ -1893,6 +1897,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nullable\" value=\"org.eclipse.jdt.annotation.Nullable\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.annotation.nullanalysis\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.inlineJsrBytecode\" value=\"disabled\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.methodParameters\" value=\"do not generate\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.shareCommonFinallyBlocks\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.targetPlatform\" value=\"1.5\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.codegen.unusedLocal\" value=\"optimize out\"/>\n" + 
@@ -1901,8 +1906,10 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.debug.localVariable\" value=\"do not generate\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.debug.sourceFile\" value=\"generate\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.doc.comment.support\" value=\"disabled\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.emulateJavacBug8031744\" value=\"enabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.generateClassFiles\" value=\"enabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.maxProblemPerUnit\" value=\"100\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.postResolutionRawTypeCompatibilityCheck\" value=\"enabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.annotationSuperInterface\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.assertIdentifier\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.autoboxing\" value=\"ignore\"/>\n" + 
@@ -1984,6 +1991,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unclosedCloseable\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.undocumentedEmptyBlock\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unhandledWarningToken\" value=\"warning\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.problem.uninternedIdentityComparison\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unnecessaryElse\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unnecessaryTypeCheck\" value=\"ignore\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.unqualifiedFieldAccess\" value=\"ignore\"/>\n" + 
@@ -2006,6 +2014,7 @@ public void test012b(){
 			"		<option key=\"org.eclipse.jdt.core.compiler.problem.varargsArgumentNeedCast\" value=\"warning\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.processAnnotations\" value=\"disabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.source\" value=\"1.5\"/>\n" + 
+			"		<option key=\"org.eclipse.jdt.core.compiler.storeAnnotations\" value=\"disabled\"/>\n" +
 			"		<option key=\"org.eclipse.jdt.core.compiler.taskCaseSensitive\" value=\"enabled\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.taskPriorities\" value=\"\"/>\n" + 
 			"		<option key=\"org.eclipse.jdt.core.compiler.taskTags\" value=\"\"/>\n" + 
@@ -2077,7 +2086,7 @@ public void test012b(){
 				"	^^^^\n" +
 				"Zork cannot be resolved to a type\n" +
 				"----------\n" +
-				"1 problem (1 error)",
+				"1 problem (1 error)\n",
 				false);
 		String logContents = Util.fileContent(logFileName);
 		String expectedLogContents =
@@ -2087,7 +2096,7 @@ public void test012b(){
 			"	^^^^\n" +
 			"Zork cannot be resolved to a type\n" +
 			"----------\n" +
-			"1 problem (1 error)";
+			"1 problem (1 error)\n";
 		boolean compareOK = semiNormalizedComparison(expectedLogContents,
 				logContents, textLogsNormalizer);
 		if (!compareOK) {
@@ -2124,7 +2133,7 @@ public void test012b(){
 				"	^^^^\n" +
 				"Zork cannot be resolved to a type\n" +
 				"----------\n" +
-				"1 problem (1 error)",
+				"1 problem (1 error)\n",
 				false);
 		String logContents = Util.fileContent(logFileName);
 		String expectedLogContents =
@@ -2134,7 +2143,7 @@ public void test012b(){
 			"	^^^^\n" +
 			"Zork cannot be resolved to a type\n" +
 			"----------\n" +
-			"1 problem (1 error)";
+			"1 problem (1 error)\n";
 		boolean compareOK = semiNormalizedComparison(expectedLogContents,
 				logContents, textLogsNormalizer);
 		if (!compareOK) {
@@ -2414,22 +2423,22 @@ public void test019(){
 	        + " -d \"" + OUTPUT_DIR + "\"",
 	        "",
 			"----------\n" +
-			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" +
-			"	Warn warn;\n" +
-			"	^^^^\n" +
-			"Discouraged access: The type Warn is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-			"----------\n" +
-			"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" +
-			"	KO ko;\n" +
-			"	^^\n" +
-			"Access restriction: The type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-			"----------\n" +
-			"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" +
-			"	Zork z;\n" +
-			"	^^^^\n" +
-			"Zork cannot be resolved to a type\n" +
-			"----------\n" +
-			"3 problems (1 error, 2 warnings)",
+			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" + 
+			"	Warn warn;\n" + 
+			"	^^^^\n" + 
+			"Discouraged access: The type \'Warn\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+			"----------\n" + 
+			"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" + 
+			"	KO ko;\n" + 
+			"	^^\n" + 
+			"Access restriction: The type \'KO\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+			"----------\n" + 
+			"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" + 
+			"	Zork z;\n" + 
+			"	^^^^\n" + 
+			"Zork cannot be resolved to a type\n" + 
+			"----------\n" + 
+			"3 problems (1 error, 2 warnings)\n",
 	        true);
 	}
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=88364 - skip options -O -Jxxx and -Xxxx, multiple times if needed
@@ -2567,7 +2576,7 @@ public void test019(){
 				"	^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 				"sun.net.spi.nameservice.dns cannot be resolved to a type\n" +
 				"----------\n" +
-				"1 problem (1 error)",
+				"1 problem (1 error)\n",
 				true);
 	}
 //	 https://bugs.eclipse.org/bugs/show_bug.cgi?id=88364 - cumulative -extdirs extends the classpath
@@ -2715,23 +2724,23 @@ public void test027(){
         //               generated, once able to avoid console echoing
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-        "----------\n" +
-        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" +
-        "	Warn warn;\n" +
-        "	^^^^\n" +
-		"Discouraged access: The type Warn is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/p1\n" +
-		"----------\n" +
-		"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" +
-		"	KO ko;\n" +
-		"	^^\n" +
-		"Access restriction: The type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-        "----------\n" +
-        "3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" +
-        "	Zork z;\n" +
-        "	^^^^\n" +
-        "Zork cannot be resolved to a type\n" +
-        "----------\n" +
-        "3 problems (1 error, 2 warnings)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" + 
+        "	Warn warn;\n" + 
+        "	^^^^\n" + 
+        "Discouraged access: The type \'Warn\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/p1\')\n" + 
+        "----------\n" + 
+        "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" + 
+        "	KO ko;\n" + 
+        "	^^\n" + 
+        "Access restriction: The type \'KO\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" + 
+        "	Zork z;\n" + 
+        "	^^^^\n" + 
+        "Zork cannot be resolved to a type\n" + 
+        "----------\n" + 
+        "3 problems (1 error, 2 warnings)\n",
         true);
 }
 public void test028(){
@@ -3005,7 +3014,7 @@ public void test032(){
 	        "	                     ^^^^^^^^^^^^^^^^^^^^^^\n" +
 	        "Type safety: Unchecked cast from X.XX<capture#22-of ?,capture#23-of ?> to X.XX<?,X.XY>\n" +
 	        "----------\n" +
-	        "8 problems (8 warnings)",
+	        "8 problems (8 warnings)\n",
 	        true);
 	// second series shows that a staged build - that simulates the auto build context - is OK as well
 	this.runConformTest(
@@ -3185,7 +3194,7 @@ public void test032(){
         "	                     ^^^^^^^^^^^^^^^^^^^^^^\n" +
         "Type safety: Unchecked cast from X.XX<capture#22-of ?,capture#23-of ?> to X.XX<?,X.XY>\n" +
         "----------\n" +
-        "8 problems (8 warnings)",
+        "8 problems (8 warnings)\n",
         false);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=104664
@@ -3304,13 +3313,13 @@ public void test036(){
         + " -proceedOnError -referenceInfo"
         + " -d \"" + OUTPUT_DIR + File.separator + "bin2/\"",
         "",
-        "----------\n" +
-        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 2)\n" +
-        "	public class Y extends p.X {\n" +
-        "	                       ^^^\n" +
-        "Discouraged access: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/bin1\n" +
-        "----------\n" +
-        "1 problem (1 warning)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 2)\n" + 
+        "	public class Y extends p.X {\n" + 
+        "	                       ^^^\n" + 
+        "Discouraged access: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/bin1\')\n" + 
+        "----------\n" + 
+        "1 problem (1 warning)\n",
         false);
 }
 
@@ -3344,7 +3353,7 @@ public void test037() {
 		"	^\n" +
 		"The final local variable j cannot be assigned. It must be blank and not using a compound assignment\n" +
 		"----------\n" +
-		"2 problems (1 error, 1 warning)",
+		"2 problems (1 error, 1 warning)\n",
 		true);
 }
 
@@ -3382,33 +3391,33 @@ public void test039(){
         + " -proceedOnError -referenceInfo"
         + " -d \"" + OUTPUT_DIR + File.separator + "bin2/\"",
         "",
-        "----------\n" +
-        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 3)\n" +
-        "	X x1;\n" +
-        "	^\n" +
-        "Discouraged access: The type X<T> is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/bin1\n" +
-        "----------\n" +
-        "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 3)\n" +
-        "	X x1;\n" +
-        "	^\n" +
-        "X is a raw type. References to generic type X<T> should be parameterized\n" +
-        "----------\n" +
-        "3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" +
-        "	X<String> x2 = new X<String>();\n" +
-        "	^\n" +
-        "Discouraged access: The type X<String> is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/bin1\n" +
-        "----------\n" +
-        "4. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" +
-        "	X<String> x2 = new X<String>();\n" +
-        "	               ^^^^^^^^^^^^^^^\n" +
-        "Discouraged access: The constructor X<String>() is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/bin1\n" +
-        "----------\n" +
-        "5. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" +
-        "	X<String> x2 = new X<String>();\n" +
-        "	                   ^\n" +
-        "Discouraged access: The type X<String> is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/bin1\n" +
-        "----------\n" +
-        "5 problems (5 warnings)",
+        "----------\n" + 
+       "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 3)\n" + 
+       "	X x1;\n" + 
+       "	^\n" + 
+       "Discouraged access: The type \'X<T>\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/bin1\')\n" + 
+       "----------\n" + 
+       "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 3)\n" + 
+       "	X x1;\n" + 
+       "	^\n" + 
+       "X is a raw type. References to generic type X<T> should be parameterized\n" + 
+       "----------\n" + 
+       "3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" + 
+       "	X<String> x2 = new X<String>();\n" + 
+       "	^\n" + 
+       "Discouraged access: The type \'X<String>\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/bin1\')\n" + 
+       "----------\n" + 
+       "4. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" + 
+       "	X<String> x2 = new X<String>();\n" + 
+       "	               ^^^^^^^^^^^^^^^\n" + 
+       "Discouraged access: The constructor \'X<String>()\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/bin1\')\n" + 
+       "----------\n" + 
+       "5. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src2/Y.java (at line 4)\n" + 
+       "	X<String> x2 = new X<String>();\n" + 
+       "	                   ^\n" + 
+       "Discouraged access: The type \'X<String>\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/bin1\')\n" + 
+       "----------\n" + 
+       "5 problems (5 warnings)\n",
         false);
 }
 
@@ -3450,13 +3459,13 @@ public void test040(){
         + " -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" +
-		"	p.Z z;\n" +
-		"	^^^\n" +
-		"Access restriction: The type Z is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" + 
+        "	p.Z z;\n" + 
+        "	^^^\n" + 
+        "Access restriction: The type \'Z\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "1 problem (1 warning)\n",
         false);
 }
 
@@ -3499,13 +3508,13 @@ public void test041(){
         + " -warn:-discouraged -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" +
-		"	p.Z z;\n" +
-		"	^^^\n" +
-		"Access restriction: The type Z is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" + 
+        "	p.Z z;\n" + 
+        "	^^^\n" + 
+        "Access restriction: The type \'Z\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "1 problem (1 warning)\n",
         false);
 }
 
@@ -3548,13 +3557,13 @@ public void test042(){
         + " -warn:-forbidden -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 3)\n" +
-		"	p.X x;\n" +
-		"	^^^\n" +
-		"Discouraged access: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 3)\n" + 
+        "	p.X x;\n" + 
+        "	^^^\n" + 
+        "Discouraged access: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "1 problem (1 warning)\n",
         false);
 }
 
@@ -3625,7 +3634,7 @@ public void test044(){
         "	^\n" +
         "Null pointer access: The variable o can only be null at this location\n" +
         "----------\n" +
-        "1 problem (1 warning)",
+        "1 problem (1 warning)\n",
         true);
 }
 
@@ -3757,18 +3766,18 @@ public void test048(){
         + " -warn:+discouraged,forbidden,deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
         + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
         "",
-        "----------\n" +
-        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 2)\n" +
-        "	@SuppressWarnings(\"deprecation\")\n" +
-        "	                  ^^^^^^^^^^^^^\n" +
-        "Unnecessary @SuppressWarnings(\"deprecation\")\n" +
-        "----------\n" +
-        "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" +
-        "	p.X x;\n" +
-        "	^^^\n" +
-        "Discouraged access: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-        "----------\n" +
-        "2 problems (2 warnings)",
+        "----------\n" + 
+        "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 2)\n" + 
+        "	@SuppressWarnings(\"deprecation\")\n" + 
+        "	                  ^^^^^^^^^^^^^\n" + 
+        "Unnecessary @SuppressWarnings(\"deprecation\")\n" + 
+        "----------\n" + 
+        "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Y.java (at line 4)\n" + 
+        "	p.X x;\n" + 
+        "	^^^\n" + 
+        "Discouraged access: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+        "----------\n" + 
+        "2 problems (2 warnings)\n",
         false);
 }
 
@@ -3858,7 +3867,7 @@ public void test051(){
 		"	^^^^^^\n" +
 		"Switch case may be entered by falling through previous case. If intended, add a new comment //$FALL-THROUGH$ on the line above\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
         true);
 }
 
@@ -3928,7 +3937,7 @@ public void test052(){
      "	^\n" +
      "Syntax error on token \"}\", delete this token\n" +
      "----------\n" +
-     "5 problems (5 errors)",
+     "5 problems (5 errors)\n",
      false);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=137053
@@ -4123,7 +4132,7 @@ public void test061(){
 		"	^^^\n" +
 		"foo cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		false /* do not flush output directory */);
 }
 
@@ -4524,13 +4533,13 @@ public void test073_per_source_output_directory(){
         + " -sourcepath \"" + OUTPUT_DIR + File.separator + source1 + "\"" +
         	"[-**/*][-d \"" + OUTPUT_DIR + File.separator + output1 + "\"]",
 		"",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" +
-		"	X f;\n" +
-		"	^\n" +
-		"Access restriction: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/src1\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" + 
+		"	X f;\n" + 
+		"	^\n" + 
+		"Access restriction: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/src1\')\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -4713,13 +4722,13 @@ public void test079_per_source_output_directory(){
         + " -classpath \"" + OUTPUT_DIR + File.separator + source1 + "\"" +
         	"[-**/*][-d \"" + OUTPUT_DIR + File.separator + output1 + "\"]",
 		"",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" +
-		"	X f;\n" +
-		"	^\n" +
-		"Access restriction: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/src1\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" + 
+		"	X f;\n" + 
+		"	^\n" + 
+		"Access restriction: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/src1\')\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -4907,13 +4916,13 @@ public void test085_per_source_output_directory(){
         	"\"" + OUTPUT_DIR + File.separator + source1 + "\"" +
         	"[-**/*][-d \"" + OUTPUT_DIR + File.separator + output1 + "\"]",
 		"",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" +
-		"	X f;\n" +
-		"	^\n" +
-		"Access restriction: The type X is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---/src1\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/Z.java (at line 2)\n" + 
+		"	X f;\n" + 
+		"	^\n" + 
+		"Access restriction: The type \'X\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---/src1\')\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -6045,7 +6054,7 @@ public void test141_null_ref_option(){
      "	^\n" +
      "Null pointer access: The variable o can only be null at this location\n" +
      "----------\n" +
-     "1 problem (1 warning)",
+     "1 problem (1 warning)\n",
      true);
 }
 // null ref option
@@ -6074,7 +6083,7 @@ public void test142_null_ref_option(){
   "	    ^\n" +
   "Redundant null check: The variable o can only be null at this location\n" +
   "----------\n" +
-  "1 problem (1 warning)",
+  "1 problem (1 warning)\n",
   true);
 }
 // null ref option
@@ -6163,7 +6172,7 @@ public void test146_declared_thrown_checked_exceptions(){
   "	                         ^^^^^^^^^^^\n" +
   "The declared exception IOException is not actually thrown by the method foo() from type X\n" +
   "----------\n" +
-  "1 problem (1 warning)",
+  "1 problem (1 warning)\n",
   true);
 }
 
@@ -6196,38 +6205,38 @@ public void test148_access_restrictions(){
   + " -warn:+deprecation,syntheticAccess,uselessTypeCheck,unsafe,finalBound,unusedLocal"
   + " -proceedOnError -referenceInfo -d \"" + OUTPUT_DIR + "\"",
   "",
-  "----------\n" +
-  "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 3)\n" +
-  "	KO ko;\n" +
-  "	^^\n" +
-  "Access restriction: The type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-  "----------\n" +
-  "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" +
-  "	ko = new KO();\n" +
-  "	     ^^^^^^^^\n" +
-  "Access restriction: The constructor KO() is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-  "----------\n" +
-  "3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" +
-  "	ko = new KO();\n" +
-  "	         ^^\n" +
-  "Access restriction: The type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-  "----------\n" +
-  "4. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" +
-  "	ko.bar();\n" +
-  "	^^^^^^^^\n" +
-  "Access restriction: The method bar() from the type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-  "----------\n" +
-  "5. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" +
-  "	if (ko.m) {}\n" +
-  "	       ^\n" +
-  "Access restriction: The field m from the type KO is not accessible due to restriction on classpath entry ---OUTPUT_DIR_PLACEHOLDER---\n" +
-  "----------\n" +
-  "6. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 9)\n" +
-  "	Zork z;\n" +
-  "	^^^^\n" +
-  "Zork cannot be resolved to a type\n" +
-  "----------\n" +
-  "6 problems (1 error, 5 warnings)",
+  "----------\n" + 
+  "1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 3)\n" + 
+  "	KO ko;\n" + 
+  "	^^\n" + 
+  "Access restriction: The type \'KO\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+  "----------\n" + 
+  "2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" + 
+  "	ko = new KO();\n" + 
+  "	     ^^^^^^^^\n" + 
+  "Access restriction: The constructor \'KO()\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+  "----------\n" + 
+  "3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 5)\n" + 
+  "	ko = new KO();\n" + 
+  "	         ^^\n" + 
+  "Access restriction: The type \'KO\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+  "----------\n" + 
+  "4. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 6)\n" + 
+  "	ko.bar();\n" + 
+  "	^^^^^^^^\n" + 
+  "Access restriction: The method \'KO.bar()\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+  "----------\n" + 
+  "5. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 7)\n" + 
+  "	if (ko.m) {}\n" + 
+  "	       ^\n" + 
+  "Access restriction: The field \'KO.m\' is not API (restriction on classpath entry \'---OUTPUT_DIR_PLACEHOLDER---\')\n" + 
+  "----------\n" + 
+  "6. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X.java (at line 9)\n" + 
+  "	Zork z;\n" + 
+  "	^^^^\n" + 
+  "Zork cannot be resolved to a type\n" + 
+  "----------\n" + 
+  "6 problems (1 error, 5 warnings)\n",
   true);
 }
 //http://bugs.eclipse.org/bugs/show_bug.cgi?id=168230
@@ -6271,7 +6280,7 @@ public void test150_null_ref_options() {
 		"	^\n" +
 		"Null pointer access: The variable s can only be null at this location\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // http://bugs.eclipse.org/bugs/show_bug.cgi?id=192875
@@ -6317,7 +6326,7 @@ public void test152() {
 		"	^\n" +
 		"Null pointer access: The variable s can only be null at this location\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6349,7 +6358,7 @@ public void test153_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -6383,7 +6392,7 @@ public void test154_warn_options() {
 		"	^\n" +
 		"Null pointer access: The variable s can only be null at this location\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6409,7 +6418,7 @@ public void test155_warn_options() {
 		"	^\n" +
 		"Null pointer access: The variable s can only be null at this location\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210518
@@ -6436,7 +6445,7 @@ public void test156_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210518
@@ -6468,7 +6477,7 @@ public void test157_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210518
@@ -6495,7 +6504,7 @@ public void test158_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6521,7 +6530,7 @@ public void test159_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6552,7 +6561,7 @@ public void test160_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6584,7 +6593,7 @@ public void test161_warn_options() {
 		"	       ^\n" +
 		"The value of the local variable u is not used\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6632,7 +6641,7 @@ public void test163_warn_options() {
 		"	^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -6668,7 +6677,7 @@ public void test164_warn_options() {
 		"	^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6737,7 +6746,7 @@ public void test167_warn_options() {
 		"	^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6771,7 +6780,7 @@ public void test168_warn_options() {
 		"	 ^^^^^\n" +
 		"Javadoc: Missing parameter name\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false);
 }
 // -warn option - regression tests
@@ -6802,7 +6811,7 @@ public void test169_warn_options() {
 		"	 ^^^^^\n" +
 		"Javadoc: Missing parameter name\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6849,7 +6858,7 @@ public void test171_warn_options() {
 		"	             ^\n" +
 		"Javadoc: Missing comment for public declaration\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -6879,7 +6888,7 @@ public void test172_warn_options() {
 		"	^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -6899,7 +6908,7 @@ public void test172_warn_options() {
 		"	         ^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		false);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210524
@@ -6985,7 +6994,7 @@ public void test174_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -7053,7 +7062,7 @@ public void test175_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"4 problems (4 warnings)",
+		"4 problems (4 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7098,7 +7107,7 @@ public void test176_warn_options() {
 		"	    ^\n" +
 		"The field X.XX.i is hiding a field from type X\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7143,7 +7152,7 @@ public void test177_warn_options() {
 		"	             ^\n" +
 		"The parameter i is hiding a field from type X\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7188,7 +7197,7 @@ public void test178_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7233,7 +7242,7 @@ public void test179_warn_options() {
 		"	      ^^\n" +
 		"The type XX is hiding the type X.XX\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7288,7 +7297,7 @@ public void test180_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7343,7 +7352,7 @@ public void test181_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7398,7 +7407,7 @@ public void test182_warn_options() {
 		"	      ^^\n" +
 		"The type XX is hiding the type X.XX\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7453,7 +7462,7 @@ public void test183_warn_options() {
 		"	         ^^\n" +
 		"Unreachable catch block for E1. Only more specific exceptions are thrown and they are handled by previous catch block(s).\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7482,7 +7491,7 @@ public void test184_warn_options() {
 		"	         ^\n" +
 		"The static field X.i should be accessed in a static way\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -7519,7 +7528,7 @@ public void test185_warn_options() {
 		"	         ^\n" +
 		"The static field X.i should be accessed in a static way\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7548,7 +7557,7 @@ public void test186_warn_options() {
 		"	               ^\n" +
 		"The static field Y.j should be accessed directly\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7582,7 +7591,7 @@ public void test187_warn_options() {
 		"	               ^\n" +
 		"The static field Y.j should be accessed directly\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7611,7 +7620,7 @@ public void test188_warn_options() {
 		"	               ^\n" +
 		"The static field Y.j should be accessed directly\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7640,7 +7649,7 @@ public void test189_warn_options() {
 		"	         ^\n" +
 		"The static field X.i should be accessed in a static way\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7695,7 +7704,7 @@ public void test190_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"5 problems (5 warnings)",
+		"5 problems (5 warnings)\n",
 		true);
 	// observe -warn options variations
 	this.runConformTest(
@@ -7773,7 +7782,7 @@ public void test191_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"8 problems (8 warnings)",
+		"8 problems (8 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7808,7 +7817,7 @@ public void test192_warn_options() {
 		"	                     ^\n" +
 		"The value of the parameter i is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7843,7 +7852,7 @@ public void test193_warn_options() {
 		"	       ^^^^^^^^^^^^^^^^^^^\n" +
 		"The import java.util.ArrayList is never used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7878,7 +7887,7 @@ public void test194_warn_options() {
 		"	^^^^\n" +
 		"The label next is never explicitly referenced\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7913,7 +7922,7 @@ public void test195_warn_options() {
 		"	    ^\n" +
 		"The value of the local variable j is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7948,7 +7957,7 @@ public void test196_warn_options() {
 		"	             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" +
 		"The method foo(int) from the type X is never used locally\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -7983,7 +7992,7 @@ public void test197_warn_options() {
 		"	      ^^^^^^\n" +
 		"Unused type arguments for the non generic method bar() of type X; it should not be parameterized with arguments <String>\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8018,7 +8027,7 @@ public void test198_warn_options() {
 		"	                               ^^^^^^^^^^^^^^^^^^^\n" +
 		"The declared exception IOException is not actually thrown by the method foo(int) from type X\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8083,7 +8092,7 @@ public void test199_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8148,7 +8157,7 @@ public void test200_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8213,7 +8222,7 @@ public void test201_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8278,7 +8287,7 @@ public void test202_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8343,7 +8352,7 @@ public void test203_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8408,7 +8417,7 @@ public void test204_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // -warn option - regression tests
@@ -8473,7 +8482,7 @@ public void test205_warn_options() {
 		"	 ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"7 problems (7 warnings)",
+		"7 problems (7 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -8541,7 +8550,7 @@ public void test208_warn_options() {
 		"	                    ^\n" +
 		"The value of the parameter i is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -8632,7 +8641,7 @@ public void test212_warn_options() {
 		"	                    ^\n" +
 		"The value of the parameter i is not used\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -8658,7 +8667,7 @@ public void test213_warn_options() {
 		"	                    ^\n" +
 		"The value of the parameter i is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -8736,7 +8745,7 @@ public void test216b_warn_options() {
 		"	       ^\n" +
 		"Javadoc: The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 	// same sources, what if we add -warn:+javadoc
 	this.runConformTest(
@@ -8751,7 +8760,7 @@ public void test216b_warn_options() {
 		"	       ^\n" +
 		"Javadoc: The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false);
 	// same sources, what if we only have -warn:javadoc
 	this.runConformTest(
@@ -8766,7 +8775,7 @@ public void test216b_warn_options() {
 		"	       ^\n" +
 		"Javadoc: The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -8798,7 +8807,7 @@ public void test217_warn_options() {
 		"	     ^^^^^^\n" +
 		"Javadoc: \'public\' visibility for malformed doc comments hides this \'private\' reference\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 	// same sources, what if we add -warn:+javadoc
 	this.runConformTest(
@@ -8813,7 +8822,7 @@ public void test217_warn_options() {
 		"	     ^^^^^^\n" +
 		"Javadoc: \'public\' visibility for malformed doc comments hides this \'private\' reference\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false);
 	// same sources, what if we only have -warn:javadoc
 	this.runConformTest(
@@ -8828,7 +8837,7 @@ public void test217_warn_options() {
 		"	     ^^^^^^\n" +
 		"Javadoc: \'public\' visibility for malformed doc comments hides this \'private\' reference\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=214731
@@ -8912,7 +8921,7 @@ public void test221_warn_options() {
 		"	^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210524
@@ -8950,7 +8959,7 @@ public void test222_warn_options() {
 		"	         ^\n" +
 		"The type Y is deprecated\n" +
 		"----------\n" +
-		"2 problems (2 warnings)",
+		"2 problems (2 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=210524
@@ -9098,7 +9107,7 @@ public void test227_warn_options() {
 		"	                    ^\n" +
 		"The value of the parameter i is not used\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=211588
@@ -9144,7 +9153,7 @@ public void test229_warn_options() {
 		"	                         ^^^^^^^^^^^\n" +
 		"The declared exception IOException is not actually thrown by the method foo() from type X\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 //-warn option - regression tests
@@ -9173,7 +9182,7 @@ public void test230_warn_options() {
 		"	                  ^\n" + 
 		"Redundant specification of type arguments <String>\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=216684
@@ -9367,7 +9376,7 @@ public void test231_sourcepath_vs_classpath() throws IOException, InterruptedExc
 		"	                     ^^^^^\n" +
 		"CONST cannot be resolved or is not a field\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		false /* shouldFlushOutputDirectory */,
 		null /* progress */);
 	if (RUN_JAVAC) {
@@ -9613,7 +9622,7 @@ public void test235_classpath() throws IOException, InterruptedException {
 		"	                     ^^^^^\n" + 
 		"CONST cannot be resolved or is not a field\n" + 
 		"----------\n" + 
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		false /* shouldFlushOutputDirectory */,
 		null /* progress */);
 	// javac passes, using the most recent file amongst source and class files
@@ -9912,7 +9921,7 @@ public void test241_jar_ref_in_jar(){
 			"	          ^^\n" + 
 			"R3 cannot be resolved or is not a field\n" + 
 			"----------\n" + 
-			"1 problem (1 error)",
+			"1 problem (1 error)\n",
 			true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -9942,7 +9951,7 @@ public void test242_jar_ref_in_jar(){
 			"	          ^^\n" + 
 			"R3 cannot be resolved or is not a field\n" + 
 			"----------\n" + 
-			"1 problem (1 error)",
+			"1 problem (1 error)\n",
 			true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10067,7 +10076,7 @@ public void test247_jar_ref_in_jar(){
 	"	^\n" +
 	"C cannot be resolved to a type\n" +
 	"----------\n" +
-	"1 problem (1 error)",
+	"1 problem (1 error)\n",
 	true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10148,7 +10157,7 @@ public void test250_jar_ref_in_jar(){
 		"	^\n" +
 		"B cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10172,13 +10181,13 @@ public void test251_jar_ref_in_jar(){
 		+ " -proceedOnError -referenceInfo"
 		+ " -d \"" + OUTPUT_DIR + File.separator + "bin\" ",
 		"",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" +
-		"	A a;\n" +
-		"	^\n" +
-		"Discouraged access: The type A is not accessible due to restriction on classpath entry ---LIB_DIR_PLACEHOLDER---/lib3.jar\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" + 
+		"	A a;\n" + 
+		"	^\n" + 
+		"Discouraged access: The type \'A\' is not API (restriction on classpath entry \'---LIB_DIR_PLACEHOLDER---/lib3.jar\')\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=217233
@@ -10333,13 +10342,13 @@ public void test256_jar_ref_in_jar(){
 		+ " -proceedOnError -referenceInfo"
 		+ " -d \"" + OUTPUT_DIR + File.separator + "bin\" ",
 		"",
-		"----------\n" +
-		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" +
-		"	A a;\n" +
-		"	^\n" +
-		"Discouraged access: The type A is not accessible due to restriction on classpath entry ---LIB_DIR_PLACEHOLDER---/lib3.jar\n" +
-		"----------\n" +
-		"1 problem (1 warning)",
+		"----------\n" + 
+		"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" + 
+		"	A a;\n" + 
+		"	^\n" + 
+		"Discouraged access: The type \'A\' is not API (restriction on classpath entry \'---LIB_DIR_PLACEHOLDER---/lib3.jar\')\n" + 
+		"----------\n" + 
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10442,7 +10451,7 @@ public void test260_jar_ref_in_jar(){
 		"	^^\n" +
 		"S2 cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10472,7 +10481,7 @@ public void test261_jar_ref_in_jar(){
 		"	^\n" +
 		"B cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10589,7 +10598,7 @@ public void test264_jar_ref_in_jar(){
 		"	^\n" +
 		"A cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true,
 		null /* progress */);
 }
@@ -10623,7 +10632,7 @@ public void test265_jar_ref_in_jar(){
 		"	^\n" +
 		"A cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true,
 		null /* progress */);
 }
@@ -10655,7 +10664,7 @@ public void test266_jar_ref_in_jar(){
 		"	^\n" +
 		"A cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true,
 		null /* progress */);
 }
@@ -10688,7 +10697,7 @@ public void test267_jar_ref_in_jar(){
 		"	^\n" +
 		"A cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true,
 		null /* progress */);
 }
@@ -10899,7 +10908,7 @@ public void test277_jar_ref_in_jar(){
 		"	^\n" +
 		"B cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=97332 - jars pointed by jars
@@ -10929,7 +10938,7 @@ public void test278_jar_ref_in_jar(){
 		"	^\n" +
 		"B cannot be resolved to a type\n" +
 		"----------\n" +
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=216684
@@ -11132,7 +11141,7 @@ public void test286_option_files() {
         "	                  ^\n" +
         "Syntax error, annotation declarations are only available if source level is 1.5 or greater\n" +
         "----------\n" +
-        "1 problem (1 error)",
+        "1 problem (1 error)\n",
         true /*shouldFlushOutput*/);
 }
 // command-line expansion
@@ -11174,7 +11183,7 @@ public void test288_warn_options() {
 		"	                                        ^^\n" + 
 		"Redundant superinterface IX for the type X, already defined by BaseX\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=246066 - variation
@@ -11197,7 +11206,7 @@ public void test289_warn_options() {
 		"	                                        ^^\n" + 
 		"Redundant superinterface IX for the type X, already defined by BaseX\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=246066 - variation
@@ -11271,7 +11280,7 @@ public void test292_warn_options() {
 		"	              ^^^^^^^^^^\n" +
 		"The method toString() of type X should be tagged with @Override since it actually overrides a superclass method\n" +
 		"----------\n" +
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 
@@ -11342,7 +11351,7 @@ public void test293_warn_options() {
 		"	    ^\n" + 
 		"Null pointer access: The variable c can only be null at this location\n" + 
 		"----------\n" + 
-		"5 problems (5 warnings)", 
+		"5 problems (5 warnings)\n",
 		true);
 }
 
@@ -11399,7 +11408,7 @@ public void test294_warn_options() {
 		"	               	            ^^^^^\n" + 
 		"The method foo() from the type A can be declared as static\n" + 
 		"----------\n" + 
-		"3 problems (3 warnings)", 
+		"3 problems (3 warnings)\n",
 		true);
 }
 
@@ -11461,7 +11470,7 @@ public void test295_warn_options() {
 		"	               	            ^^^^^\n" + 
 		"The method foo() from the type A can be declared as static\n" + 
 		"----------\n" + 
-		"4 problems (4 warnings)", 
+		"4 problems (4 warnings)\n",
 		true);
 }
 
@@ -11484,13 +11493,13 @@ public void test293(){
 		+ " -proceedOnError -referenceInfo -err:+discouraged"
 		+ " -d \"" + OUTPUT_DIR + File.separator + "bin\" ",
 		"",
-		"----------\n" +
-		"1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" +
-		"	A a;\n" +
-		"	^\n" +
-		"Discouraged access: The type A is not accessible due to restriction on classpath entry ---LIB_DIR_PLACEHOLDER---/lib3.jar\n" +
-		"----------\n" +
-		"1 problem (1 error)",
+		"----------\n" + 
+		"1. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/src/p/X.java (at line 4)\n" + 
+		"	A a;\n" + 
+		"	^\n" + 
+		"Discouraged access: The type \'A\' is not API (restriction on classpath entry \'---LIB_DIR_PLACEHOLDER---/lib3.jar\')\n" + 
+		"----------\n" + 
+		"1 problem (1 error)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=280784
@@ -11589,7 +11598,7 @@ public void test299(){
 		"	            ^\n" + 
 		"The value of the field X.i is not used\n" + 
 		"----------\n" + 
-		"2 problems (1 error, 1 warning)",
+		"2 problems (1 error, 1 warning)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=295551
@@ -11629,7 +11638,7 @@ public void test301(){
 		"	            ^\n" + 
 		"The value of the field X.i is not used\n" + 
 		"----------\n" + 
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=295551
@@ -11652,7 +11661,7 @@ public void test302(){
 		"	            ^\n" + 
 		"The value of the field X.i is not used\n" + 
 		"----------\n" + 
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=295551
@@ -11680,7 +11689,7 @@ public void test303(){
 		"	            ^\n" + 
 		"The value of the field X.i is not used\n" + 
 		"----------\n" + 
-		"2 problems (1 error, 1 warning)",
+		"2 problems (1 error, 1 warning)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=295551
@@ -11703,7 +11712,7 @@ public void test304(){
 		"	            ^\n" + 
 		"The value of the field X.i is not used\n" + 
 		"----------\n" + 
-		"1 problem (1 error)",
+		"1 problem (1 error)\n",
 		true);
 }
 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=310330
@@ -11836,7 +11845,7 @@ public void test0307a(){
 		        "	^\n" + 
 		        "I cannot be resolved to a type\n" + 
 		        "----------\n" + 
-		        "2 problems (2 errors)",
+		        "2 problems (2 errors)\n",
 		        false);
 		final String userDir = System.getProperty("user.dir");
 		File f = new File(userDir, "X.java");
@@ -11901,7 +11910,7 @@ public void test0307b(){
 		        "	^\n" + 
 		        "I cannot be resolved to a type\n" + 
 		        "----------\n" + 
-		        "2 problems (2 errors)",
+		        "2 problems (2 errors)\n",
 		        false);
 		final String userDir = System.getProperty("user.dir");
 		File f = new File(userDir, "X.java");
@@ -11966,7 +11975,7 @@ public void test0307c(){
 		        "	^\n" + 
 		        "I cannot be resolved to a type\n" + 
 		        "----------\n" + 
-		        "2 problems (2 errors)",
+		        "2 problems (2 errors)\n",
 		        false);
 		final String userDir = System.getProperty("user.dir");
 		File f = new File(userDir, "X.java");
@@ -12031,7 +12040,7 @@ public void test0307d(){
 		        "	^\n" + 
 		        "I cannot be resolved to a type\n" + 
 		        "----------\n" + 
-		        "2 problems (2 errors)",
+		        "2 problems (2 errors)\n",
 		        false);
 		final String userDir = System.getProperty("user.dir");
 		File f = new File(userDir, "X.java");
@@ -12096,7 +12105,7 @@ public void test0307e(){
 		        "	^\n" + 
 		        "I cannot be resolved to a type\n" + 
 		        "----------\n" + 
-		        "2 problems (2 errors)",
+		        "2 problems (2 errors)\n",
 		        false);
 		final String userDir = System.getProperty("user.dir");
 		File f = new File(userDir, "X.java");
@@ -12156,7 +12165,7 @@ public void testInferenceIn14Project(){
 		        "	           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
 		        "Type mismatch: cannot convert from Object to Bundle\n" + 
 		        "----------\n" + 
-		        "1 problem (1 error)",
+		        "1 problem (1 error)\n",
 		        true);
 	} catch (IOException e) {
 		System.err.println("BatchCompilerTest#testInference14 could not write to current working directory " + currentWorkingDirectoryPath);
@@ -12207,7 +12216,7 @@ public void testInferenceIn15Project(){  // ensure 1.5 complains too
 		        "	           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
 		        "Type mismatch: cannot convert from BundleWiring to Bundle\n" + 
 		        "----------\n" + 
-		        "1 problem (1 error)",
+		        "1 problem (1 error)\n",
 		        true);
 	} catch (IOException e) {
 		System.err.println("BatchCompilerTest#testInference14 could not write to current working directory " + currentWorkingDirectoryPath);
@@ -12351,7 +12360,7 @@ public void testReportingUnavoidableGenericProblems() {
 		"	^^^^\n" + 
 		"Zork cannot be resolved to a type\n" + 
 		"----------\n" + 
-		"2 problems (1 error, 1 warning)",
+		"2 problems (1 error, 1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=322817  -- without new option kicking in
@@ -12388,7 +12397,7 @@ public void testReportingUnavoidableGenericProblems2() {
 		"	^^^^\n" + 
 		"Zork cannot be resolved to a type\n" + 
 		"----------\n" + 
-		"3 problems (1 error, 2 warnings)",
+		"3 problems (1 error, 2 warnings)\n",
 		true);
 }
 //-warn option - regression tests
@@ -12437,7 +12446,7 @@ public void test0309_warn_options() {
 		"	           ^\n" + 
 		"Potential resource leak: \'r\' may not be closed\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12461,7 +12470,7 @@ public void test310_warn_options() {
 		"	                                   ^^^^^\n" +
 		"The method Y.foo() is overriding a synchronized method without being synchronized\n" +
 		"----------\n" +
-		"1 problem (1 warning)", 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12487,7 +12496,7 @@ public void test310b_warn_options() {
 		"	                                      ^^^^^\n" +
 		"The method new X(){}.foo() is overriding a synchronized method without being synchronized\n" +
 		"----------\n" +
-		"1 problem (1 warning)", 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12590,7 +12599,7 @@ public void test312_warn_options() {
 		"	    ^^\n" + 
 		"Null comparison always yields false: The variable o2 is specified as @NonNull\n" + 
 		"----------\n" + 
-		"9 problems (9 warnings)", 
+		"9 problems (9 warnings)\n",
 		true);
 }
 
@@ -12632,14 +12641,14 @@ public void test313_warn_options() {
 		"2. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
 		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
 		"	                     ^^^^^^\n" + 
-		"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
+		"Missing nullable annotation: inherited method from X specifies this parameter as @Nullable\n" + 
 		"----------\n" + 
 		"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
 		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
 		"	                               ^^^^^^\n" +
-		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+		"Missing non-null annotation: inherited method from X specifies this parameter as @NonNull\n" +
 		"----------\n" +
-		"3 problems (3 warnings)", 
+		"3 problems (3 warnings)\n",
 		true);
 }
 
@@ -12681,14 +12690,14 @@ public void test314_warn_options() {
 		"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
 		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
 		"	                     ^^^^^^\n" + 
-		"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
+		"Missing nullable annotation: inherited method from X specifies this parameter as @Nullable\n" + 
 		"----------\n" + 
 		"3. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
 		"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
 		"	                               ^^^^^^\n" +
-		"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+		"Missing non-null annotation: inherited method from X specifies this parameter as @NonNull\n" +
 		"----------\n" +
-		"3 problems (3 errors)", 
+		"3 problems (3 errors)\n",
 		true);
 }
 
@@ -12759,7 +12768,7 @@ public void test315_warn_options_a() {
 		"	        ^^\n" + 
 		"A default nullness annotation has not been specified for the package p1\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)", 
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12770,7 +12779,7 @@ public void test315_warn_options_b() {
 		new String[] {
 				"X1.java",
 				"public class X1 {\n" +
-				"	Zork;\n" +
+				"	Zork z;\n" +
 				"}\n",
 				"org/eclipse/jdt/annotation/NonNull.java",
 				NONNULL_ANNOTATION_CONTENT,
@@ -12791,11 +12800,11 @@ public void test315_warn_options_b() {
 		"A default nullness annotation has not been specified for the type X1\n" + 
 		"----------\n" + 
 		"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/X1.java (at line 2)\n" + 
-		"	Zork;\n" + 
+		"	Zork z;\n" + 
 		"	^^^^\n" + 
-		"Syntax error on token \"Zork\", VariableDeclarator expected after this token\n" + 
+		"Zork cannot be resolved to a type\n" + 
 		"----------\n" + 
-		"2 problems (1 error, 1 warning)", 
+		"2 problems (1 error, 1 warning)\n",
 		true);
 }
 
@@ -12854,7 +12863,7 @@ public void test317_warn_options() {
 		"	        ^\n" +
 		"The enum constant GREEN should have a corresponding case label in this enum switch on Color. To suppress this problem, add a comment //$CASES-OMITTED$ on the line above the 'default:'\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12886,7 +12895,7 @@ public void test318_warn_options() {
 			"	        ^\n" +
 			"The enum constant GREEN should have a corresponding case label in this enum switch on Color. To suppress this problem, add a comment //$CASES-OMITTED$ on the line above the 'default:'\n" +
 			"----------\n" +
-			"1 problem (1 error)",
+			"1 problem (1 error)\n",
 			true);
 }
 
@@ -12919,7 +12928,7 @@ public void test319_warn_options() {
 		"	        ^\n" +
 		"The switch over the enum type Color should have a default case\n" +
 		"----------\n" +
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -12960,7 +12969,7 @@ public void test320_warn_options() {
 		"	   ^^^^\n" + 
 		"Null type mismatch: required '@NonNull String' but the provided value is null\n" + 
 		"----------\n" + 
-		"1 problem (1 error)", 
+		"1 problem (1 error)\n",
 		true);
 }
 
@@ -13023,7 +13032,7 @@ public void test318_nowarn_options() {
 			"	 ^^^^^\n" +
 			"Javadoc: Missing parameter name\n" +
 			"----------\n" +
-			"1 problem (1 warning)",
+			"1 problem (1 warning)\n",
 			true);
 }
 
@@ -13275,7 +13284,7 @@ public void test328_nowarn_options() {
 			"	^\n" +
 			"a cannot be resolved to a variable\n" +
 			"----------\n" +
-			"1 problem (1 error)",
+			"1 problem (1 error)\n",
 			true);
 }
 
@@ -13305,7 +13314,7 @@ public void test329_nowarn_options() {
 			"	   ^^^^^^^^^^^^\n" +
 			"TODO nothing\n" +
 			"----------\n" +
-			"1 problem (1 warning)",
+			"1 problem (1 warning)\n",
 			true);
 }
 
@@ -13343,7 +13352,7 @@ public void testBug375409a() {
 		"	         ^\n" + 
 		"Javadoc: Parameter a is not declared\n" + 
 		"----------\n" + 
-		"3 problems (3 warnings)",
+		"3 problems (3 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
@@ -13370,7 +13379,7 @@ public void testBug375409b() {
 		"	                    ^\n" + 
 		"Javadoc: Missing tag for parameter i\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
@@ -13397,7 +13406,7 @@ public void testBug375409c() {
 		"	             ^\n" + 
 		"Javadoc: Missing comment for public declaration\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
@@ -13429,7 +13438,7 @@ public void testBug375409d() {
 		"	                     ^^\n" + 
 		"Javadoc: Missing tag for parameter i2\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		true);
 }
 
@@ -13444,7 +13453,8 @@ public void testBug375409e() {
 				"import java.lang.annotation.*;\n" +
 				"public class X {\n" +
 				"  @NonNull Object foo(@Nullable Object o, @NonNull Object o2) {\n" +
-				"	 return new X().bar();\n" +
+				"	 Object o3 = new X().bar();\n" + // need a local to involve flow analysis
+				"	 return o3;\n" +
 				"  }\n" +
 				"  @Nullable Object bar() {\n" +
 				"	 return null;\n" +
@@ -13515,7 +13525,7 @@ public void testBug375409f() {
 		"	       ^^^^\n" + 
 		"Null type mismatch: required \'@NonNull Object\' but the provided value is null\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)", 
+		"1 problem (1 warning)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=375409
@@ -13625,7 +13635,7 @@ public void testBug375366b() throws IOException {
 		"	                       ^^^^^^^^^^^\n" + 
 		"The value of the parameter unusedParam is not used\n" + 
 		"----------\n" + 
-		"1 problem (1 warning)",
+		"1 problem (1 warning)\n",
 		false /*don't flush output dir*/,
 		null /* progress */);
 }
@@ -13672,14 +13682,14 @@ public void testBug375366c() throws IOException {
 			"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" + 
 			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" + 
 			"	                     ^^^^^^\n" + 
-			"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" + 
+			"Missing nullable annotation: inherited method from X specifies this parameter as @Nullable\n" + 
 			"----------\n" + 
 			"3. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
 			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
 			"	                               ^^^^^^\n" +
-			"Missing non-null annotation: inherited method from X declares this parameter as @NonNull\n" +
+			"Missing non-null annotation: inherited method from X specifies this parameter as @NonNull\n" +
 			"----------\n" +
-			"3 problems (2 errors, 1 warning)", 
+			"3 problems (2 errors, 1 warning)\n",
 			false/*don't flush*/);
 }
 
@@ -13726,9 +13736,9 @@ public void testBug375366d() throws IOException {
 			"2. ERROR in ---OUTPUT_DIR_PLACEHOLDER---/p/X.java (at line 9)\n" +
 			"	@Nullable Object foo(Object o, Object o2) { return null; }\n" +
 			"	                     ^^^^^^\n" +
-			"Missing nullable annotation: inherited method from X declares this parameter as @Nullable\n" +
+			"Missing nullable annotation: inherited method from X specifies this parameter as @Nullable\n" +
 			"----------\n" +
-			"2 problems (2 errors)", 
+			"2 problems (2 errors)\n",
 			false/*don't flush*/);
 }
 
@@ -13778,7 +13788,7 @@ public void test385780_warn_option() {
 		"	        ^\n" + 
 		"Unused type parameter T\n" + 
 		"----------\n" + 
-		"4 problems (4 warnings)",
+		"4 problems (4 warnings)\n",
 		true);
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=405225
@@ -13801,5 +13811,236 @@ public void test405225_extdirs() {
 		"",
 		"",
 		true);
+}
+//Bug 408038 - Classes which implement Externalizable should not have an unused constructor warning
+public void test408038a() {
+	this.runConformTest(
+		new String[] {
+			"externalizable/warning/X.java",
+			"package externalizable.warning;\n" +
+			"\n" +
+			"public class X {\n" +
+			"	private class Y {\n" +
+			"		static final int i = 10;\n" +
+			"		public Y() {}\n" +
+			"		public Y(int x) {System.out.println(x);}\n" +
+			"	}\n" +
+			"\n" +
+			"	public void zoo() {\n" +
+			"		System.out.println(Y.i);\n" +
+			"		Y y = new Y(5);\n" +
+			"		System.out.println(y);\n" +
+			"	}\n" +
+			"}",
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "externalizable" + File.separator + "warning" + File.separator + "X.java\""
+			+ " -1.6 -d none",
+			"",
+			"----------\n" +
+			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/externalizable/warning/X.java (at line 6)\n" +
+			"	public Y() {}\n" +
+			"	       ^^^\n" +
+			"The constructor X.Y() is never used locally\n" +
+			"----------\n" +
+			"1 problem (1 warning)\n",
+			true);
+}
+//Bug 408038 - Classes which implement Externalizable should not have an unused constructor warning
+public void test408038b() {
+	this.runConformTest(
+		new String[] {
+			"externalizable/warning/X.java",
+			"package externalizable.warning;\n" +
+			"\n" +
+			"public class X {\n" +
+			"	private static class Y {\n" +
+			"		static final int i = 10;\n" +
+			"		public Y() {}\n" +
+			"		public Y(int x) {System.out.println(x);}\n" +
+			"	}\n" +
+			"\n" +
+			"	public void zoo() {\n" +
+			"		System.out.println(Y.i);\n" +
+			"		Y y = new Y(5);\n" +
+			"		System.out.println(y);\n" +
+			"	}\n" +
+			"}",
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "externalizable" + File.separator + "warning" + File.separator + "X.java\""
+			+ " -1.6 -d none",
+			"",
+			"----------\n" +
+			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/externalizable/warning/X.java (at line 6)\n" +
+			"	public Y() {}\n" +
+			"	       ^^^\n" +
+			"The constructor X.Y() is never used locally\n" +
+			"----------\n" +
+			"1 problem (1 warning)\n",
+			true);
+}
+//Bug 408038 - Classes which implement Externalizable should not have an unused constructor warning
+public void test408038c() {
+	this.runConformTest(
+		new String[] {
+			"externalizable/warning/X.java",
+			"package externalizable.warning;\n" +
+			"import java.io.Externalizable;\n" +
+			"import java.io.IOException;\n" +
+			"import java.io.ObjectInput;\n" +
+			"import java.io.ObjectOutput;\n" +
+			"\n" +
+			"public class X {\n" +
+			"	private static class Y implements Externalizable {\n" +
+			"		static final int i = 10;\n" +
+			"		public Y() {}\n" +
+			"		public Y(int x) {System.out.println(x);}\n" +
+			"\n" +
+			"		@Override\n" +
+			"		public void writeExternal(ObjectOutput out) throws IOException {\n" +
+			"		}\n" +
+			"\n" +
+			"		@Override\n" +
+			"		public void readExternal(ObjectInput in) throws IOException,\n" +
+			"		ClassNotFoundException {\n" +
+			"		}\n" +
+			"	}\n" +
+			"\n" +
+			"	public void zoo() {\n" +
+			"		System.out.println(Y.i);\n" +
+			"		Y y = new Y(5);\n" +
+			"		System.out.println(y);\n" +
+			"	}\n" +
+			"}",
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "externalizable" + File.separator + "warning" + File.separator + "X.java\""
+			+ " -1.6 -d none",
+			"",
+			"",
+			true);
+}
+//Bug 408038 - Classes which implement Externalizable should not have an unused constructor warning
+public void test408038d() {
+	this.runConformTest(
+		new String[] {
+			"externalizable/warning/X.java",
+			"package externalizable.warning;\n" +
+			"import java.io.Externalizable;\n" +
+			"import java.io.IOException;\n" +
+			"import java.io.ObjectInput;\n" +
+			"import java.io.ObjectOutput;\n" +
+			"\n" +
+			"public class X {\n" +
+			"	private class Y implements Externalizable {\n" +
+			"		static final int i = 10;\n" +
+			"		public Y() {}\n" +
+			"		public Y(int x) {System.out.println(x);}\n" +
+			"\n" +
+			"		@Override\n" +
+			"		public void writeExternal(ObjectOutput out) throws IOException {\n" +
+			"		}\n" +
+			"\n" +
+			"		@Override\n" +
+			"		public void readExternal(ObjectInput in) throws IOException,\n" +
+			"		ClassNotFoundException {\n" +
+			"		}\n" +
+			"	}\n" +
+			"\n" +
+			"	public void zoo() {\n" +
+			"		System.out.println(Y.i);\n" +
+			"		Y y = new Y(5);\n" +
+			"		System.out.println(y);\n" +
+			"	}\n" +
+			"}",
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "externalizable" + File.separator + "warning" + File.separator + "X.java\""
+			+ " -1.6 -d none",
+			"",
+			"----------\n" +
+			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/externalizable/warning/X.java (at line 10)\n" +
+			"	public Y() {}\n" +
+			"	       ^^^\n" +
+			"The constructor X.Y() is never used locally\n" +
+			"----------\n" +
+			"1 problem (1 warning)\n",
+			true);
+}
+// Bug 408038 - Classes which implement Externalizable should not have an unused constructor warning
+// The test case is not directly related to the bug. It was discovered as a result
+// of the bug. Please see comment 16 bullet 4 in bugzilla.
+public void test408038e() {
+	this.runConformTest(
+		new String[] {
+			"externalizable/warning/X.java",
+			"package externalizable.warning;\n" +
+			"class X {\n" +
+			"	int i;\n" +
+			"	private X(int x) {i = x;}\n" +
+			"	X() {}\n" +
+			"	public int foo() {\n" +
+			"		X x = new X();\n" +
+			"		return x.i;\n" +
+			"	}\n" +
+			"}\n"
+			},
+			"\"" + OUTPUT_DIR +  File.separator + "externalizable" + File.separator + "warning" + File.separator + "X.java\""
+			+ " -1.6 -d none",
+			"",
+			"----------\n" +
+			"1. WARNING in ---OUTPUT_DIR_PLACEHOLDER---/externalizable/warning/X.java (at line 4)\n" +
+			"	private X(int x) {i = x;}\n" +
+	        "	        ^^^^^^^^\n" +
+	        "The constructor X(int) is never used locally\n" +
+	        "----------\n" +
+	        "1 problem (1 warning)\n",
+			true);
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=419351
+public void testBug419351() {
+	String backup = System.getProperty("java.endorsed.dirs");
+	String currentWorkingDirectoryPath = System.getProperty("user.dir");
+	if (currentWorkingDirectoryPath == null) {
+		fail("BatchCompilerTest#testBug419351 could not access the current working directory " + currentWorkingDirectoryPath);
+	} else if (!new File(currentWorkingDirectoryPath).isDirectory()) {
+		fail("BatchCompilerTest#testBug419351 current working directory is not a directory " + currentWorkingDirectoryPath);
+	}
+	String endorsedPath = currentWorkingDirectoryPath + File.separator + "endorsed";
+	new File(endorsedPath).mkdir();
+	String lib1Path = endorsedPath + File.separator + "lib1.jar";
+	try {
+		System.setProperty("java.endorsed.dirs", endorsedPath);
+		Util.createJar(
+				new String[] {
+						"java/lang/String.java",
+						"package java.lang;\n" + 
+						"public class String {\n" +
+						"    public String(java.lang.Object obj) {}\n" +
+						"}\n"
+				},
+				null,
+				lib1Path,
+				JavaCore.VERSION_1_5);
+		this.runConformTest(
+				new String[] {
+						"src/X.java",
+						"public class X {\n" +
+						"    public void foo(Object obj) {\n" +
+						"        java.lang.String str = new java.lang.String(obj);\n" +
+						"	}\n" +
+						"}\n",
+				},
+				"\"" + OUTPUT_DIR +  File.separator + "src/X.java\""
+				+ " -sourcepath \"" + OUTPUT_DIR +  File.separator + "src\""
+				+ " -1.4 -nowarn"
+				+ " -d \"" + OUTPUT_DIR + File.separator + "bin\" ",
+				"",
+				"",
+		        true);
+	} catch (IOException e) {
+		System.err.println("BatchCompilerTest#testBug419351 could not write to current working directory " + currentWorkingDirectoryPath);
+	} finally {
+		System.setProperty("java.endorsed.dirs", backup);
+		new File(endorsedPath).delete();
+		new File(lib1Path).delete();
+	}
 }
 }

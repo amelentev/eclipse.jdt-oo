@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -36,6 +36,30 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 	}
 	public static Test suite() {
 		return buildModelTestSuite(ASTConverterAST3Test.class);
+	}
+	/** 
+	 * Internal access method to VariableDeclarationFragment#setExtraDimensions() for avoiding deprecated warnings.
+	 *
+	 * @param node
+	 * @param dimensions
+	 * @deprecated
+	 */
+	private void internalSetExtraDimensions(VariableDeclarationFragment node, int dimensions) {
+		node.setExtraDimensions(dimensions);
+	}
+	/** 
+	 * Internal access method to MethodDeclaration#thrownExceptions() for avoiding deprecated warnings.
+	 * @deprecated
+	 */
+	private static List internalThrownExceptions(MethodDeclaration methodDeclaration) {
+		return methodDeclaration.thrownExceptions();
+	}
+
+	/**
+	 * @deprecated
+	 */
+	private Type componentType(ArrayType array) {
+		return array.getComponentType();
 	}
 
 	public void test0001() throws JavaModelException {
@@ -2714,20 +2738,20 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		NumberLiteral literal = this.ast.newNumberLiteral();
 		literal.setToken("10");//$NON-NLS-1$
 		fragment.setInitializer(literal);
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		VariableDeclarationStatement statement = this.ast.newVariableDeclarationStatement(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("z"));//$NON-NLS-1$
 		fragment.setInitializer(this.ast.newNullLiteral());
-		fragment.setExtraDimensions(1);
+		internalSetExtraDimensions(fragment, 1);
 		statement.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("i"));//$NON-NLS-1$
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		statement.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("j"));//$NON-NLS-1$
-		fragment.setExtraDimensions(2);
+		internalSetExtraDimensions(fragment, 2);
 		statement.fragments().add(fragment);
 		statement.setType(this.ast.newPrimitiveType(PrimitiveType.INT));
 		assertTrue("Both AST trees should be identical", statement.subtreeMatch(new ASTMatcher(), node));		//$NON-NLS-1$
@@ -2754,20 +2778,20 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		NumberLiteral literal = this.ast.newNumberLiteral();
 		literal.setToken("10");//$NON-NLS-1$
 		fragment.setInitializer(literal);
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		VariableDeclarationStatement statement = this.ast.newVariableDeclarationStatement(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("z"));//$NON-NLS-1$
 		fragment.setInitializer(this.ast.newNullLiteral());
-		fragment.setExtraDimensions(1);
+		internalSetExtraDimensions(fragment, 1);
 		statement.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("i"));//$NON-NLS-1$
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		statement.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("j"));//$NON-NLS-1$
-		fragment.setExtraDimensions(2);
+		internalSetExtraDimensions(fragment, 2);
 		statement.fragments().add(fragment);
 		statement.setType(this.ast.newArrayType(this.ast.newPrimitiveType(PrimitiveType.INT), 1));
 		assertTrue("Both AST trees should be identical", statement.subtreeMatch(new ASTMatcher(), node));		//$NON-NLS-1$
@@ -2793,7 +2817,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		VariableDeclarationFragment variableDeclarationFragment = this.ast.newVariableDeclarationFragment();
 		variableDeclarationFragment.setName(this.ast.newSimpleName("tab")); //$NON-NLS-1$
 		variableDeclarationFragment.setInitializer(this.ast.newNullLiteral());//$NON-NLS-1$
-		variableDeclarationFragment.setExtraDimensions(1);
+		internalSetExtraDimensions(variableDeclarationFragment, 1);
 		VariableDeclarationExpression variableDeclarationExpression = this.ast.newVariableDeclarationExpression(variableDeclarationFragment);
 		variableDeclarationExpression.setType(this.ast.newArrayType(this.ast.newSimpleType(this.ast.newSimpleName("String")), 1));//$NON-NLS-1$
 		forStatement.initializers().add(variableDeclarationExpression);
@@ -2821,7 +2845,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		VariableDeclarationFragment variableDeclarationFragment = this.ast.newVariableDeclarationFragment();
 		variableDeclarationFragment.setName(this.ast.newSimpleName("tab")); //$NON-NLS-1$
 		variableDeclarationFragment.setInitializer(this.ast.newNullLiteral());//$NON-NLS-1$
-		variableDeclarationFragment.setExtraDimensions(1);
+		internalSetExtraDimensions(variableDeclarationFragment, 1);
 		VariableDeclarationExpression variableDeclarationExpression = this.ast.newVariableDeclarationExpression(variableDeclarationFragment);
 		variableDeclarationExpression.setType(this.ast.newSimpleType(this.ast.newSimpleName("String")));//$NON-NLS-1$
 		forStatement.initializers().add(variableDeclarationExpression);
@@ -2849,7 +2873,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		VariableDeclarationFragment variableDeclarationFragment = this.ast.newVariableDeclarationFragment();
 		variableDeclarationFragment.setName(this.ast.newSimpleName("tab")); //$NON-NLS-1$
 		variableDeclarationFragment.setInitializer(this.ast.newNullLiteral());//$NON-NLS-1$
-		variableDeclarationFragment.setExtraDimensions(1);
+		internalSetExtraDimensions(variableDeclarationFragment, 1);
 		VariableDeclarationExpression variableDeclarationExpression = this.ast.newVariableDeclarationExpression(variableDeclarationFragment);
 		variableDeclarationExpression.setType(this.ast.newSimpleType(this.ast.newSimpleName("String")));//$NON-NLS-1$
 		forStatement.initializers().add(variableDeclarationExpression);
@@ -2878,7 +2902,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		assertTrue("Not a declaration", frag.getName().isDeclaration()); //$NON-NLS-1$
 		VariableDeclarationFragment fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("i")); //$NON-NLS-1$
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		FieldDeclaration fieldDeclaration = this.ast.newFieldDeclaration(fragment);
 		fieldDeclaration.setType(this.ast.newPrimitiveType(PrimitiveType.INT));
 		assertTrue("Both AST trees should be identical", fieldDeclaration.subtreeMatch(new ASTMatcher(), node));		//$NON-NLS-1$
@@ -2900,22 +2924,22 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		NumberLiteral literal = this.ast.newNumberLiteral();
 		literal.setToken("10"); //$NON-NLS-1$
 		fragment.setInitializer(literal);
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		FieldDeclaration fieldDeclaration = this.ast.newFieldDeclaration(fragment);
 		fieldDeclaration.modifiers().add(this.ast.newModifier(Modifier.ModifierKeyword.PUBLIC_KEYWORD));
 		fieldDeclaration.setType(this.ast.newPrimitiveType(PrimitiveType.INT));
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("y"));//$NON-NLS-1$
-		fragment.setExtraDimensions(1);
+		internalSetExtraDimensions(fragment, 1);
 		fragment.setInitializer(this.ast.newNullLiteral());
 		fieldDeclaration.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("i"));//$NON-NLS-1$
-		fragment.setExtraDimensions(0);
+		internalSetExtraDimensions(fragment, 0);
 		fieldDeclaration.fragments().add(fragment);
 		fragment = this.ast.newVariableDeclarationFragment();
 		fragment.setName(this.ast.newSimpleName("j"));//$NON-NLS-1$
-		fragment.setExtraDimensions(2);
+		internalSetExtraDimensions(fragment, 2);
 		fieldDeclaration.fragments().add(fragment);
 		assertTrue("Both AST trees should be identical", fieldDeclaration.subtreeMatch(new ASTMatcher(), node));		//$NON-NLS-1$
 		checkSourceRange(node, "public int x= 10, y[] = null, i, j[][];", source); //$NON-NLS-1$
@@ -7506,8 +7530,8 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		assertNotNull("No result", result); //$NON-NLS-1$
 		assertTrue("Not a compilation unit", result instanceof CompilationUnit); //$NON-NLS-1$
 		CompilationUnit compilationUnit = (CompilationUnit) result;
-		assertEquals("Wrong size", 1, compilationUnit.getMessages().length); //$NON-NLS-1$
-		assertEquals("Wrong size", 1, compilationUnit.getProblems().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 2, compilationUnit.getMessages().length); //$NON-NLS-1$
+		assertEquals("Wrong size", 2, compilationUnit.getProblems().length); //$NON-NLS-1$
 	}
 
 	/**
@@ -7638,13 +7662,13 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		ITypeBinding typeBinding = arrayType.resolveBinding();
 		checkSourceRange(type, "java.lang.Object[][]", source); //$NON-NLS-1$
 		assertNotNull("No type binding", typeBinding); //$NON-NLS-1$
-		Type elementType = arrayType.getComponentType();
+		Type elementType = componentType(arrayType);
 		ITypeBinding typeBinding2 = elementType.resolveBinding();
 		assertNotNull("No type binding2", typeBinding2); //$NON-NLS-1$
 		assertEquals("wrong dimension", 1, typeBinding2.getDimensions()); //$NON-NLS-1$
 		assertEquals("wrong name", "Object[]", typeBinding2.getName());		 //$NON-NLS-1$ //$NON-NLS-2$
 		assertTrue("Not an array type", elementType.isArrayType()); //$NON-NLS-1$
-		Type elementType2 = ((ArrayType) elementType).getComponentType();
+		Type elementType2 = componentType(((ArrayType) elementType));
 		assertTrue("Not a simple type", elementType2.isSimpleType()); //$NON-NLS-1$
 		ITypeBinding typeBinding3 = elementType2.resolveBinding();
 		assertNotNull("No type binding3", typeBinding3); //$NON-NLS-1$
@@ -7985,7 +8009,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		ITypeBinding typeBinding3 = simpleType.resolveBinding();
 		assertNotNull("no type binding3", typeBinding3); //$NON-NLS-1$
 		assertEquals("wrong name", "Object", typeBinding3.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType2 = (ArrayType) type;
 		ITypeBinding typeBinding4 = arrayType2.resolveBinding();
@@ -8027,14 +8051,14 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		ITypeBinding typeBinding3 = simpleType.resolveBinding();
 		assertNotNull("no type binding3", typeBinding3); //$NON-NLS-1$
 		assertEquals("wrong name", "Object", typeBinding3.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType.getComponentType();
+		type = componentType(arrayType);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType2 = (ArrayType) type;
 		checkSourceRange(arrayType2, "Object[10][]", source); //$NON-NLS-1$
 		ITypeBinding typeBinding4 = arrayType2.resolveBinding();
 		assertNotNull("no type binding4", typeBinding4); //$NON-NLS-1$
 		assertEquals("wrong name", "Object[][]", typeBinding4.getName()); //$NON-NLS-1$ //$NON-NLS-2$
-		type = arrayType2.getComponentType();
+		type = componentType(arrayType2);
 		assertTrue("Not an array type", type instanceof ArrayType); //$NON-NLS-1$
 		ArrayType arrayType3 = (ArrayType) type;
 		ITypeBinding typeBinding5 = arrayType3.resolveBinding();
@@ -8146,7 +8170,7 @@ public class ASTConverterAST3Test extends ConverterTestSetup {
 		assertNotNull("not null", node); //$NON-NLS-1$
 		assertTrue("not a MethodDeclaration", node instanceof MethodDeclaration); //$NON-NLS-1$
 		MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-		List thrownExceptions = methodDeclaration.thrownExceptions();
+		List thrownExceptions = internalThrownExceptions(methodDeclaration);
 		assertEquals("Wrong size", 1, thrownExceptions.size()); //$NON-NLS-1$
 		Name name = (Name) thrownExceptions.get(0);
 		IBinding binding = name.resolveBinding();

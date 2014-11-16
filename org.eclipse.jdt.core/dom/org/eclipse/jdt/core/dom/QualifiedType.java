@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2003, 2011 IBM Corporation and others.
+ * Copyright (c) 2003, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,35 +16,58 @@ import java.util.List;
 
 /**
  * Type node for a qualified type (added in JLS3 API).
+ * 
  * <pre>
  * QualifiedType:
- *    Type <b>.</b> SimpleName
+ *    Type <b>.</b> { Annotation } SimpleName
  * </pre>
  * <p>
  * Not all node arrangements will represent legal Java constructs. In particular,
  * it is nonsense if the type is an array type or primitive type. The normal use
- * is when the type is a simple or parameterized type.
+ * is when the type is a ParameterizedType, an annotated QualifiedType, or a
+ * NameQualifiedType.
  * </p>
  * <p>
- * A type like "A.B" can be represented either of two ways:
- * <ol>
- * <li>
- * <code>QualifiedType(SimpleType(SimpleName("A")),SimpleName("B"))</code>
- * </li>
- * <li>
- * <code>SimpleType(QualifiedName(SimpleName("A"),SimpleName("B")))</code>
- * </li>
- * </ol>
- * The first form is preferred when "A" is known to be a type. However, a
- * parser cannot always determine this. Clients should be prepared to handle
- * either rather than make assumptions. (Note also that the first form
- * became possible as of JLS3; only the second form existed in JLS2 API.)
+ * A "."-separated type like "A.B" can be represented in three ways:
+ * <pre>
+ * 1.    SimpleType       | 2. NameQualifiedType   | 3.  QualifiedType
+ *     QualifiedName      | SimpleName  SimpleName | SimpleType  SimpleName
+ * SimpleName  SimpleName |     "A"         "B"    | SimpleName      "B"
+ *     "A"         "B"    |                        |     "A"
+ * </pre>
+ * <p>
+ * The ASTParser creates the SimpleType form (wrapping a name) if possible. The
+ * SimpleType form doesn't support any embedded Annotations nor ParameterizedTypes.
+ * The NameQualifiedType form is only available since JLS8 and the
+ * QualifiedType form only since JLS3. The NameQualifiedType and QualifiedType forms
+ * allow Annotations on the last SimpleName. The QualifiedType form cannot be used if
+ * the qualifier represents a package name.
  * </p>
- *
+ * <p>
+ * The part before the last "." is called the <em>qualifier</em> of a type. If
+ * the name after the last "." has annotations or if the qualifier is not a
+ * (possibly qualified) name, then the ASTParser creates either a
+ * NameQualifiedType or a QualifiedType:
+ * </p>
+ * <ul>
+ * <li>
+ * If the qualifier is a (possibly qualified) name, then a NameQualifiedType is
+ * created.
+ * </li>
+ * <li>
+ * Otherwise, a QualifiedType is created and its qualifier is built using the
+ * same rules.
+ * </li>
+ * </ul>
+ * 
+ * @see SimpleType
+ * @see NameQualifiedType
+ * 
  * @since 3.1
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
-public class QualifiedType extends Type {
+@SuppressWarnings("rawtypes")
+public class QualifiedType extends AnnotatableType {
     /**
      * This index represents the position inside a parameterized qualified type.
      */
@@ -57,17 +80,31 @@ public class QualifiedType extends Type {
 		new ChildPropertyDescriptor(QualifiedType.class, "qualifier", Type.class, MANDATORY, CYCLE_RISK); //$NON-NLS-1$
 
 	/**
+	 * The "annotations" structural property of this node type (element type: {@link Annotation}).
+	 * @since 3.10
+	 */
+	public static final ChildListPropertyDescriptor ANNOTATIONS_PROPERTY =
+			internalAnnotationsPropertyFactory(QualifiedType.class);
+	
+	/**
 	 * The "name" structural property of this node type (child type: {@link SimpleName}).
 	 */
 	public static final ChildPropertyDescriptor NAME_PROPERTY =
 		new ChildPropertyDescriptor(QualifiedType.class, "name", SimpleName.class, MANDATORY, NO_CYCLE_RISK); //$NON-NLS-1$
-
+	
 	/**
 	 * A list of property descriptors (element type:
 	 * {@link StructuralPropertyDescriptor}),
 	 * or null if uninitialized.
 	 */
 	private static final List PROPERTY_DESCRIPTORS;
+	/**
+	 * A list of property descriptors (element type:
+	 * {@link StructuralPropertyDescriptor}),
+	 * or null if uninitialized.
+	 * @since 3.10
+	 */
+	private static final List PROPERTY_DESCRIPTORS_8_0;
 
 	static {
 		List propertyList = new ArrayList(3);
@@ -75,6 +112,13 @@ public class QualifiedType extends Type {
 		addProperty(QUALIFIER_PROPERTY, propertyList);
 		addProperty(NAME_PROPERTY, propertyList);
 		PROPERTY_DESCRIPTORS = reapPropertyList(propertyList);
+		
+		propertyList = new ArrayList(4);
+		createPropertyList(QualifiedType.class, propertyList);
+		addProperty(QUALIFIER_PROPERTY, propertyList);
+		addProperty(ANNOTATIONS_PROPERTY, propertyList);
+		addProperty(NAME_PROPERTY, propertyList);
+		PROPERTY_DESCRIPTORS_8_0 = reapPropertyList(propertyList);
 	}
 
 	/**
@@ -87,12 +131,19 @@ public class QualifiedType extends Type {
 	 * {@link StructuralPropertyDescriptor})
 	 */
 	public static List propertyDescriptors(int apiLevel) {
-		return PROPERTY_DESCRIPTORS;
+		switch (apiLevel) {
+			case AST.JLS2_INTERNAL :
+			case AST.JLS3_INTERNAL :
+			case AST.JLS4_INTERNAL:
+				return PROPERTY_DESCRIPTORS;
+			default :
+				return PROPERTY_DESCRIPTORS_8_0;
+		}
 	}
 
 	/**
 	 * The type node; lazily initialized; defaults to a type with
-	 * an unspecfied, but legal, simple name.
+	 * an unspecified, but legal, simple name.
 	 */
 	private Type qualifier = null;
 
@@ -117,12 +168,31 @@ public class QualifiedType extends Type {
 	}
 
 	/* (omit javadoc for this method)
+	 * Method declared on AnnotatableType.
+	 * @since 3.10
+	 */
+	final ChildListPropertyDescriptor internalAnnotationsProperty() {
+		return ANNOTATIONS_PROPERTY;
+	}
+
+	/* (omit javadoc for this method)
 	 * Method declared on ASTNode.
 	 */
 	final List internalStructuralPropertiesForType(int apiLevel) {
 		return propertyDescriptors(apiLevel);
 	}
 
+	/* (omit javadoc for this method)
+	 * Method declared on ASTNode.
+	 */
+	final List internalGetChildListProperty(ChildListPropertyDescriptor property) {
+		if (property == ANNOTATIONS_PROPERTY) {
+			return annotations();
+		}
+		// allow default implementation to flag the error
+		return super.internalGetChildListProperty(property);
+	}
+	
 	/* (omit javadoc for this method)
 	 * Method declared on ASTNode.
 	 */
@@ -161,6 +231,10 @@ public class QualifiedType extends Type {
 		QualifiedType result = new QualifiedType(target);
 		result.setSourceRange(getStartPosition(), getLength());
 		result.setQualifier((Type) ((ASTNode) getQualifier()).clone(target));
+		if (this.ast.apiLevel >= AST.JLS8) {
+			result.annotations().addAll(
+					ASTNode.copySubtrees(target, annotations()));
+		}
 		result.setName((SimpleName) ((ASTNode) getName()).clone(target));
 		return result;
 	}
@@ -181,6 +255,9 @@ public class QualifiedType extends Type {
 		if (visitChildren) {
 			// visit children in normal left to right reading order
 			acceptChild(visitor, getQualifier());
+			if (this.ast.apiLevel >= AST.JLS8) {
+				acceptChildren(visitor, this.annotations);
+			}
 			acceptChild(visitor, getName());
 		}
 		visitor.endVisit(this);
@@ -269,7 +346,7 @@ public class QualifiedType extends Type {
 	 */
 	int memSize() {
 		// treat Code as free
-		return BASE_NODE_SIZE + 3 * 4;
+		return BASE_NODE_SIZE + 4 * 4;
 	}
 
 	/* (omit javadoc for this method)
@@ -279,6 +356,7 @@ public class QualifiedType extends Type {
 		return
 			memSize()
 			+ (this.qualifier == null ? 0 : getQualifier().treeSize())
+			+ (this.annotations == null ? 0 : this.annotations.listSize())
 			+ (this.name == null ? 0 : getName().treeSize());
 	}
 }

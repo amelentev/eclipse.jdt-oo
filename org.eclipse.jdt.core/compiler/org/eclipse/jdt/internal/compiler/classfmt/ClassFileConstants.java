@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,11 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Jesper S Moller - Contributions for
+ *							Bug 405066 - [1.8][compiler][codegen] Implement code generation infrastructure for JSR335             
+ *							Bug 406982 - [1.8][compiler] Generation of MethodParameters Attribute in classfile
+ *     Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.classfmt;
 
@@ -37,12 +42,19 @@ public interface ClassFileConstants {
 	int AccEnum         = 0x4000;
 
 	/**
+	 * From classfile version 52 (compliance 1.8 up), meaning that a formal parameter is mandated
+	 * by a language specification, so all compilers for the language must emit it.
+	 */
+	int AccMandated     = 0x8000;
+
+	
+	/**
 	 * Other VM flags.
 	 */
 	int AccSuper = 0x0020;
 
 	/**
-	 * Extra flags for types and members attributes.
+	 * Extra flags for types and members attributes (not from the JVMS, should have been defined in ExtraCompilerModifiers).
 	 */
 	int AccAnnotationDefault = ASTNode.Bit18; // indicate presence of an attribute  "DefaultValue" (annotation method)
 	int AccDeprecated = ASTNode.Bit21; // indicate presence of an attribute "Deprecated"
@@ -77,6 +89,17 @@ public interface ClassFileConstants {
 	int ConstantMethodTypeFixedSize = 3;
 	int ConstantInvokeDynamicFixedSize = 5;
 
+	// JVMS 4.4.8
+	int MethodHandleRefKindGetField = 1;
+	int MethodHandleRefKindGetStatic = 2;
+	int MethodHandleRefKindPutField = 3;
+	int MethodHandleRefKindPutStatic = 4;
+	int MethodHandleRefKindInvokeVirtual = 5;
+	int MethodHandleRefKindInvokeStatic = 6;
+	int MethodHandleRefKindInvokeSpecial = 7;
+	int MethodHandleRefKindNewInvokeSpecial = 8;
+	int MethodHandleRefKindInvokeInterface = 9;
+
 	int MAJOR_VERSION_1_1 = 45;
 	int MAJOR_VERSION_1_2 = 46;
 	int MAJOR_VERSION_1_3 = 47;
@@ -84,7 +107,7 @@ public interface ClassFileConstants {
 	int MAJOR_VERSION_1_5 = 49;
 	int MAJOR_VERSION_1_6 = 50;
 	int MAJOR_VERSION_1_7 = 51;
-	int MAJOR_VERSION_1_8 = 52;  // Oracle has not updated this as of JDK8b39, i.e it still says 51.
+	int MAJOR_VERSION_1_8 = 52;
 
 	int MINOR_VERSION_0 = 0;
 	int MINOR_VERSION_1 = 1;
@@ -128,4 +151,11 @@ public interface ClassFileConstants {
 	int ATTR_VARS = 0x4; // LocalVariableTableAttribute
 	int ATTR_STACK_MAP_TABLE = 0x8; // Stack map table attribute
 	int ATTR_STACK_MAP = 0x10; // Stack map attribute: cldc
+	int ATTR_TYPE_ANNOTATION = 0x20; // type annotation attribute (jsr 308)
+	int ATTR_METHOD_PARAMETERS = 0x40; // method parameters attribute (jep 118)
+
+	// See java.lang.invoke.LambdaMetafactory constants - option bitflags when calling altMetaFactory()
+	int FLAG_SERIALIZABLE = 0x01;
+	int FLAG_MARKERS = 0x02;
+	int FLAG_BRIDGES = 0x04;
 }

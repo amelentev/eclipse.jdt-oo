@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,6 +8,7 @@
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
+ *								Bug 388800 - [1.8] adjust tests to 1.8 JRE
  *								bug 393719 - [compiler] inconsistent warnings on iteration variables
  *     Jesper S Moller -  Contribution for
  *								bug 401853 - Eclipse Java compiler creates invalid bytecode (java.lang.VerifyError)
@@ -78,11 +79,11 @@ public void test002() {
 			"    }\n" +
 			"}\n",
 		},
-		"----------\n" +
-		"1. ERROR in X.java (at line 4)\n" +
-		"	for (int value : new int[] {value}) {\n" +
-		"	                            ^^^^^\n" +
-		"The local variable value may not have been initialized\n" +
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	for (int value : new int[] {value}) {\n" + 
+		"	                            ^^^^^\n" + 
+		"value cannot be resolved to a variable\n" + 
 		"----------\n");
 }
 public void test003() {
@@ -98,11 +99,11 @@ public void test003() {
 			"    }\n" +
 			"}\n",
 		},
-		"----------\n" +
-		"1. ERROR in X.java (at line 4)\n" +
-		"	for (int value : value) {\n" +
-		"	                 ^^^^^\n" +
-		"Can only iterate over an array or an instance of java.lang.Iterable\n" +
+		"----------\n" + 
+		"1. ERROR in X.java (at line 4)\n" + 
+		"	for (int value : value) {\n" + 
+		"	                 ^^^^^\n" + 
+		"value cannot be resolved to a variable\n" + 
 		"----------\n");
 }
 public void test004() {
@@ -1105,6 +1106,7 @@ public void test023() {
 				"   public Iterator<String> iterator() {\n" +
 				"        return null;\n" +
 				"    }\n" +
+				ITERABLE_IMPL_JRE8.replaceAll("\\*", "String") +
 				"}\n",
 			},
 			"----------\n" +
@@ -1627,11 +1629,13 @@ public void test034() throws Exception {
 			"	}\n" +
 			"	public void remove() {\n" +
 			"	}\n" +
+			ITERATOR_IMPL_JRE8.replaceAll("\\*", "T") +
 			"}\n" +
 			"class Bar implements Iterable<String> {\n" +
 			"	public Iterator<String> iterator() {\n" +
 			"		return new ArrayIterator<String>(new String[]{\"a\",\"b\"});\n" +
 			"	}\n" +
+			ITERABLE_IMPL_JRE8.replaceAll("\\*", "String") +
 			"}\n",
 		},
 		"ab");
@@ -1720,6 +1724,7 @@ public void test035() throws Exception {
 			"	}\n" +
 			"	public void remove() {\n" +
 			"	}\n" +
+			ITERATOR_IMPL_JRE8.replaceAll("\\*", "T") +
 			"}\n" +
 			"interface IFoo extends Iterable<String> {\n" +
 			"}\n" +
@@ -1727,6 +1732,7 @@ public void test035() throws Exception {
 			"	public Iterator<String> iterator() {\n" +
 			"		return new ArrayIterator<String>(new String[]{\"a\",\"b\"});\n" +
 			"	}\n" +
+			ITERABLE_IMPL_JRE8.replaceAll("\\*", "String") +
 			"}\n",
 		},
 		"ab");
@@ -1802,40 +1808,42 @@ public void test036() throws Exception {
 			"		X x = new X();\n" +
 			"		x.foo(x);\n" +
 			"	}\n" +
+			ITERABLE_IMPL_JRE8.replaceAll("\\*", "String") +
 			"}",
 		},
 		"ab");
 	String expectedOutput =
-		"  // Method descriptor #37 (Ljava/lang/Runnable;)V\n" +
-		"  // Signature: <T::Ljava/lang/Runnable;:Ljava/lang/Iterable<Ljava/lang/String;>;>(TT;)V\n" +
-		"  // Stack: 2, Locals: 4\n" +
-		"  public void foo(java.lang.Runnable t);\n" +
-		"     0  aload_1 [t]\n" +
-		"     1  invokeinterface java.lang.Iterable.iterator() : java.util.Iterator [39] [nargs: 1]\n" +
-		"     6  astore_3\n" +
-		"     7  goto 27\n" +
-		"    10  aload_3\n" +
-		"    11  invokeinterface java.util.Iterator.next() : java.lang.Object [43] [nargs: 1]\n" +
-		"    16  checkcast java.lang.String [18]\n" +
-		"    19  astore_2 [s]\n" +
-		"    20  getstatic java.lang.System.out : java.io.PrintStream [49]\n" +
-		"    23  aload_2 [s]\n" +
-		"    24  invokevirtual java.io.PrintStream.print(java.lang.String) : void [55]\n" +
-		"    27  aload_3\n" +
-		"    28  invokeinterface java.util.Iterator.hasNext() : boolean [61] [nargs: 1]\n" +
-		"    33  ifne 10\n" +
-		"    36  return\n" +
-		"      Line numbers:\n" +
-		"        [pc: 0, line: 7]\n" +
-		"        [pc: 20, line: 8]\n" +
-		"        [pc: 27, line: 7]\n" +
-		"        [pc: 36, line: 9]\n" +
-		"      Local variable table:\n" +
-		"        [pc: 0, pc: 37] local: this index: 0 type: X\n" +
-		"        [pc: 0, pc: 37] local: t index: 1 type: java.lang.Runnable\n" +
-		"        [pc: 20, pc: 27] local: s index: 2 type: java.lang.String\n" +
-		"      Local variable type table:\n" +
-		"        [pc: 0, pc: 37] local: t index: 1 type: T\n";
+		"  // Method descriptor #37 (Ljava/lang/Runnable;)V\n" + 
+		"  // Signature: <T::Ljava/lang/Runnable;:Ljava/lang/Iterable<Ljava/lang/String;>;>(TT;)V\n" + 
+		"  // Stack: 2, Locals: 4\n" + 
+		"  public void foo(java.lang.Runnable t);\n" + 
+		"     0  aload_1 [t]\n" + 
+		"     1  checkcast java.lang.Iterable [5]\n" + 
+		"     4  invokeinterface java.lang.Iterable.iterator() : java.util.Iterator [39] [nargs: 1]\n" + 
+		"     9  astore_3\n" + 
+		"    10  goto 30\n" + 
+		"    13  aload_3\n" + 
+		"    14  invokeinterface java.util.Iterator.next() : java.lang.Object [43] [nargs: 1]\n" + 
+		"    19  checkcast java.lang.String [18]\n" + 
+		"    22  astore_2 [s]\n" + 
+		"    23  getstatic java.lang.System.out : java.io.PrintStream [49]\n" + 
+		"    26  aload_2 [s]\n" + 
+		"    27  invokevirtual java.io.PrintStream.print(java.lang.String) : void [55]\n" + 
+		"    30  aload_3\n" + 
+		"    31  invokeinterface java.util.Iterator.hasNext() : boolean [61] [nargs: 1]\n" + 
+		"    36  ifne 13\n" + 
+		"    39  return\n" + 
+		"      Line numbers:\n" + 
+		"        [pc: 0, line: 7]\n" + 
+		"        [pc: 23, line: 8]\n" + 
+		"        [pc: 30, line: 7]\n" + 
+		"        [pc: 39, line: 9]\n" + 
+		"      Local variable table:\n" + 
+		"        [pc: 0, pc: 40] local: this index: 0 type: X\n" + 
+		"        [pc: 0, pc: 40] local: t index: 1 type: java.lang.Runnable\n" + 
+		"        [pc: 23, pc: 30] local: s index: 2 type: java.lang.String\n" + 
+		"      Local variable type table:\n" + 
+		"        [pc: 0, pc: 40] local: t index: 1 type: T\n";
 
 	File f = new File(OUTPUT_DIR + File.separator + "X.class");
 	byte[] classFileBytes = org.eclipse.jdt.internal.compiler.util.Util.getFileByteContent(f);
@@ -2015,6 +2023,7 @@ public void test039() throws Exception {
 			"				System.out.println(\"remove\");\n" +
 			"				this.iterator.remove();\n" +
 			"			}\n" +
+			ITERATOR_IMPL_JRE8.replaceAll("\\*", "T") +
 			"		}\n" +
 			"		\n" +
 			"        static Set<Object> initForEach()        {\n" +
@@ -2111,6 +2120,7 @@ public void test040() throws Exception {
 			"				System.out.println(\"remove\");\n" +
 			"				this.iterator.remove();\n" +
 			"			}\n" +
+			ITERATOR_IMPL_JRE8.replaceAll("\\*", "T") +
 			"		}\n" +
 			"		\n" +
 			"        static Set<Object> initForEach()        {\n" +
@@ -2982,7 +2992,22 @@ public void test057() throws Exception {
 		assertEquals("Wrong contents", expectedOutput, result);
 	}
 }
-
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=425632, [1.8][compiler] Compiler gets the scope of enhanced for loop's expression wrong. 
+public void test425632() throws Exception {
+	this.runConformTest(
+			new String[] {
+				"X.java",
+				"public class X {\n" +
+				"	static int[] i = {1, 2, 3};\n" +
+				"	public static void main(String [] args) {\n" +
+				"		for (int i : i) {\n" +
+				"			System.out.println(i);\n" +
+				"		}\n" +
+				"	}\n" +
+				"}\n"
+			},
+			"1\n2\n3");
+}
 public static Class testClass() {
 	return ForeachStatementTest.class;
 }

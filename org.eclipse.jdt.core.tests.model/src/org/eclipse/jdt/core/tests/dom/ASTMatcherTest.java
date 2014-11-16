@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -22,11 +22,18 @@ import org.eclipse.jdt.core.dom.*;
 public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.TestCase {
 
 	/**
-	 * Internal synonynm for deprecated constant AST.JSL3
+	 * Internal synonym for deprecated constant AST.JSL3
 	 * to alleviate deprecation warnings.
 	 * @deprecated
 	 */
 	/*package*/ static final int JLS3_INTERNAL = AST.JLS3;
+	
+	/**
+	 * Internal synonym for deprecated constant AST.JSL4
+	 * to alleviate deprecation warnings.
+	 * @deprecated
+	 */
+	/*package*/ static final int JLS4_INTERNAL = AST.JLS4;
 	
 	/** @deprecated using deprecated code */
 	public static Test suite() {
@@ -39,6 +46,8 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 			if (methods[i].getName().startsWith("test")) { //$NON-NLS-1$
 				suite.addTest(new ASTMatcherTest(methods[i].getName(), AST.JLS2));
 				suite.addTest(new ASTMatcherTest(methods[i].getName(), JLS3_INTERNAL));
+				// https://bugs.eclipse.org/bugs/show_bug.cgi?id=391898
+				suite.addTest(new ASTMatcherTest(methods[i].getName(), AST.JLS8));
 			}
 		}
 		return suite;
@@ -62,6 +71,8 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 	Block B1;
 	SingleVariableDeclaration V1;
 	SingleVariableDeclaration V2;
+	AnnotatableType R1;
+	Name Q1;
 	VariableDeclarationFragment W1;
 	VariableDeclarationFragment W2;
 	FieldDeclaration FD1;
@@ -95,7 +106,8 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 	Modifier MOD2;
 	EnumConstantDeclaration EC1;
 	EnumConstantDeclaration EC2;
-
+	Type T3;
+	Type T4;
 	final StringBuffer b = new StringBuffer();
 
 	int API_LEVEL;
@@ -127,6 +139,10 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		this.S1 = this.ast.newContinueStatement();
 		this.S2 = this.ast.newBreakStatement();
 		this.B1 = this.ast.newBlock();
+		if (this.ast.apiLevel() >= AST.JLS8) {
+			this.R1 = this.ast.newSimpleType(this.ast.newSimpleName("XYZ"));
+			this.Q1 = this.ast.newSimpleName("XYZ");
+		}
 		this.V1 = this.ast.newSingleVariableDeclaration();
 		this.V1.setType(this.ast.newPrimitiveType(PrimitiveType.INT));
 		this.V1.setName(this.ast.newSimpleName("a")); //$NON-NLS-1$
@@ -225,7 +241,10 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 			this.EC2 = this.ast.newEnumConstantDeclaration();
 			this.EC2.setName(this.ast.newSimpleName("G")); //$NON-NLS-1$
 		}
-
+		if (this.ast.apiLevel() >= AST.JLS8) {
+			this.T3 = this.ast.newSimpleType(this.ast.newSimpleName("U")); //$NON-NLS-1$
+			this.T4 = this.ast.newSimpleType(this.ast.newSimpleName("V")); //$NON-NLS-1$
+		}
 	}
 
 	protected void tearDown() throws Exception {
@@ -430,6 +449,9 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		public boolean match(PackageDeclaration node, Object other) {
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
+		public boolean match(NameQualifiedType node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
 		public boolean match(ParameterizedType node, Object other) {
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
@@ -476,6 +498,9 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
 		public boolean match(SuperMethodInvocation node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(SuperMethodReference node, Object other) {
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
 		public boolean match(SwitchCase node, Object other) {
@@ -527,6 +552,27 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
 		public boolean match(WildcardType node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(Dimension node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(InstanceofExpression node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(LambdaExpression node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(CreationReference node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(ExpressionMethodReference node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(TypeMethodReference node, Object other) {
+			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
+		}
+		public boolean match(IntersectionType node, Object other) {
 			return standardBody(node, other, this.superMatch ? super.match(node, other) : false);
 		}
 	}
@@ -658,7 +704,7 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 	}
 
 	public void testUnionType() {
-		if (this.ast.apiLevel() < AST.JLS4) {
+		if (this.ast.apiLevel() < JLS4_INTERNAL) {
 			return;
 		}
 		UnionType x1 = this.ast.newUnionType();
@@ -669,6 +715,15 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 	public void testArrayType() {
 		Type x0 = this.ast.newPrimitiveType(PrimitiveType.CHAR);
 		Type x1 = this.ast.newArrayType(x0);
+		basicMatch(x1);
+	}
+
+	/** @deprecated using deprecated code */
+	public void testNameQualifiedType() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		Type x1 = this.ast.newNameQualifiedType(this.ast.newQualifiedName(this.N2, this.N3), this.N1);
 		basicMatch(x1);
 	}
 
@@ -823,6 +878,16 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		x1.setLabel(this.N1);
 		basicMatch(x1);
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399794
+	public void testCreationReference() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		CreationReference x1 = this.ast.newCreationReference();
+		x1.setType(this.T1);
+		basicMatch(x1);
+	}
+	
 	public void testDoStatement() {
 		DoStatement x1 = this.ast.newDoStatement();
 		x1.setExpression(this.E1);
@@ -878,6 +943,17 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		x1.bodyDeclarations().add(this.FD2);
 		basicMatch(x1);
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399794
+	public void testExpressionMethodReference() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		ExpressionMethodReference x1 = this.ast.newExpressionMethodReference();
+		x1.setExpression(this.E1);
+		x1.setName(this.N1);
+		basicMatch(x1);
+	}
+	
 	public void testExpressionStatement() {
 		ExpressionStatement x1 = this.ast.newExpressionStatement(this.E1);
 		basicMatch(x1);
@@ -986,12 +1062,20 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 			x1.typeParameters().add(this.TP1);
 			x1.typeParameters().add(this.TP2);
 			x1.setReturnType2(this.T1);
+			if (this.ast.apiLevel() >= AST.JLS8) {
+				x1.setReceiverType(this.R1);
+			}
 		}
 		x1.setName(this.N1);
 		x1.parameters().add(this.V1);
 		x1.parameters().add(this.V2);
-		x1.thrownExceptions().add(this.N2);
-		x1.thrownExceptions().add(this.N3);
+		if (this.ast.apiLevel() < AST.JLS8) {
+			x1.thrownExceptions().add(this.N2);
+			x1.thrownExceptions().add(this.N3);			
+		} else {
+			x1.thrownExceptionTypes().add(this.T3);
+			x1.thrownExceptionTypes().add(this.T4);			
+		}
 		x1.setBody(this.B1);
 		basicMatch(x1);
 	}
@@ -1102,6 +1186,15 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		x1.arguments().add(this.E2);
 		basicMatch(x1);
 	}
+	public void testSuperMethodReference() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		SuperMethodReference x1 = this.ast.newSuperMethodReference();
+		x1.setQualifier(this.N1);
+		x1.setName(this.N2);
+		basicMatch(x1);
+	}
 	public void testSwitchCase() {
 		SwitchCase x1 = this.ast.newSwitchCase();
 		x1.setExpression(this.E1);
@@ -1161,7 +1254,7 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		basicMatch(x1);
 	}
 	public void testTryStatementWithResources() {
-		if (this.ast.apiLevel() < AST.JLS4) {
+		if (this.ast.apiLevel() < JLS4_INTERNAL) {
 			return;
 		}
 		TryStatement x1 = this.ast.newTryStatement();
@@ -1320,4 +1413,285 @@ public class ASTMatcherTest extends org.eclipse.jdt.core.tests.junit.extension.T
 		basicMatch(x1);
 	}
 
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=391898
+	public void testSingleVariableDeclarationVarargsAnnotation() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		SingleVariableDeclaration x1 = this.ast.newSingleVariableDeclaration();
+		x1.setType(this.T1);
+		x1.setName(this.N1);
+		x1.setVarargs(true);
+		x1.varargsAnnotations().add(this.ANO1);
+		basicMatch(x1);
+	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=395886
+	public void testQualifiedTypeAnnotation() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		QualifiedType x1 = this.ast.newQualifiedType(this.T1, this.N1);
+		x1.annotations().add(this.ANO1);
+		x1 = this.ast.newQualifiedType(x1, this.N2);
+		x1.annotations().add(this.ANO2);
+		basicMatch(x1);
+	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=395886
+	public void testParameterizedQualifiedTypeAnnotation() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		QualifiedType qualifiedType = this.ast.newQualifiedType(this.T1, this.N1); 
+		qualifiedType.annotations().add(this.ANO1);
+		ParameterizedType x1 = this.ast.newParameterizedType(qualifiedType);
+		x1.typeArguments().add(this.ast.newSimpleType(this.ast.newSimpleName("SN1")));
+		qualifiedType = this.ast.newQualifiedType(x1, this.N2);
+		x1 = this.ast.newParameterizedType(qualifiedType);
+		SimpleType simpleType = this.ast.newSimpleType(this.ast.newSimpleName("SN2"));
+		simpleType.annotations().add(this.ANO2);
+		x1.typeArguments().add(simpleType);
+		basicMatch(x1);
+	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations1() {	
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// simpleType with Annotations
+		SimpleType x1 = this.ast.newSimpleType(this.N1);
+		x1.annotations().add(this.ANO1);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations2() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+  		// Type arguments at parameterized types
+		SimpleType x1 = this.ast.newSimpleType(this.N2);
+		ParameterizedType x2 = this.ast.newParameterizedType(x1);
+		x1 = this.ast.newSimpleType(this.ast.newSimpleName("SN1"));
+		x1.annotations().add(this.ANO1);
+		x1.annotations().add(this.ANO2);		
+		x2.typeArguments().add(x1);
+		basicMatch(x2);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations3() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// type arguments in constructor invocation
+		ConstructorInvocation x1 = this.ast.newConstructorInvocation();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x2.annotations().add(this.ANO1);
+		x1.typeArguments().add(x2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations4() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// annotated simple type at class inheritance
+		TypeDeclaration x1 = this.ast.newTypeDeclaration();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x2.annotations().add(this.ANO1);
+		x1.setSuperclassType(x2);
+		x1.setName(this.N2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations5() {	
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// constructor invocation results
+		ClassInstanceCreation x1 = this.ast.newClassInstanceCreation();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x2.annotations().add(this.ANO1);
+		x1.setType(x2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations6() {	
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// simple type in cast expression
+		CastExpression x1 = this.ast.newCastExpression();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x2.annotations().add(this.ANO1);
+		x1.setType(x2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations7() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// simple type type tests
+		InstanceofExpression x1 = this.ast.newInstanceofExpression();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x2.annotations().add(this.ANO1);
+		x1.setRightOperand(x2);
+		x1.setLeftOperand(this.E1);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations8() {	
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// annotations on wildcard type
+		WildcardType x1 = this.ast.newWildcardType();
+		SimpleType x2 = this.ast.newSimpleType(this.N1);
+		x1.setBound(x2);
+		x1.annotations().add(this.ANO1);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations9() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// annotations on constructor declaration - implying on the object returned.
+		MethodDeclaration x1 = this.ast.newMethodDeclaration();
+		x1.setConstructor(true);
+		x1.setName(this.N1);
+		x1.modifiers().add(this.ANO1);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations10() {		
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// annotations on constructor declaration - implying on the object returned.
+		MethodDeclaration x1 = this.ast.newMethodDeclaration();
+		x1.setConstructor(true);
+		x1.setName(this.N1);
+		SimpleType x2 = this.ast.newSimpleType(this.N2);
+		x2.annotations().add(this.ANO1);
+		x1.setReceiverType(x2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations11() {	
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		// annotated simple type at class inheritance
+		TypeDeclaration x1 = this.ast.newTypeDeclaration();
+		TypeParameter x2 = this.ast.newTypeParameter();
+		x2.setName(this.ast.newSimpleName("T"));
+		x2.modifiers().add(this.ANO1);
+		x1.typeParameters().add(x2);
+		x1.setName(this.N2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399768
+	public void testTypeAnnotations12() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		VariableDeclarationFragment x1 = this.ast.newVariableDeclarationFragment();
+		x1.setName(this.N1);
+		Dimension x2 = this.ast.newDimension();
+		Annotation Annot = this.ast.newMarkerAnnotation();
+		Annot.setTypeName(this.ast.newSimpleName("NewAnnot1"));
+		x2.annotations().add(Annot);
+		x1.extraDimensions().add(x2);
+		x2 = this.ast.newDimension();
+		Annot = this.ast.newMarkerAnnotation();
+		Annot.setTypeName(this.ast.newSimpleName("NewAnnot2"));
+		x2.annotations().add(Annot);
+		Annot = this.ast.newMarkerAnnotation();
+		Annot.setTypeName(this.ast.newSimpleName("NewAnnot3"));
+		x2.annotations().add(Annot);
+		x1.extraDimensions().add(x2);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399794
+	public void testTypeMethodReference() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		TypeMethodReference x1 = this.ast.newTypeMethodReference();
+		x1.setType(this.T1);
+		x1.setName(this.N1);
+		basicMatch(x1);
+	}
+	
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399793
+	public void testLambdaExpressions1() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		LambdaExpression x1 = this.ast.newLambdaExpression();
+		VariableDeclarationFragment x2 = this.ast.newVariableDeclarationFragment();
+		x2.setName(this.N1);
+		x1.parameters().add(x2);
+		x1.setBody(this.ast.newBlock());
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399793
+	public void testLambdaExpressions2() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		LambdaExpression x1 = this.ast.newLambdaExpression();
+		x1.setBody(this.ast.newBlock());
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399793
+	public void testLambdaExpressions3() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		LambdaExpression x1 = this.ast.newLambdaExpression();
+		x1.setBody(this.E1);
+		basicMatch(x1);
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=399793
+	public void testLambdaExpressions4() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		LambdaExpression x1 = this.ast.newLambdaExpression();
+		SingleVariableDeclaration x2 = this.ast.newSingleVariableDeclaration();
+		x2.modifiers().add(this.MOD1);
+		x2.modifiers().add(this.MOD2);
+		x2.setType(this.T1);
+		x2.setName(this.N1);
+		x1.parameters().add(x2);
+		x1.setBody(this.E1);
+		basicMatch(x1);
+	}
+	public void testIntersectionType() {
+		if (this.ast.apiLevel() < AST.JLS8) {
+			return;
+		}
+		IntersectionType x1 = this.ast.newIntersectionType();
+		x1.types().add(this.ast.newSimpleType(this.N1));
+		basicMatch(x1);
+	}
 }

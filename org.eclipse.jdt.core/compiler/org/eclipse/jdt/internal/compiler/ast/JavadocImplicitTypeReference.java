@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2008 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -24,10 +26,8 @@ public class JavadocImplicitTypeReference extends TypeReference {
 		this.sourceStart = pos;
 		this.sourceEnd = pos;
 	}
-	/* (non-Javadoc)
-	 * @see org.eclipse.jdt.internal.compiler.ast.TypeReference#copyDims(int)
-	 */
-	public TypeReference copyDims(int dim) {
+	
+	public TypeReference augmentTypeWithAdditionalDimensions(int additionalDimensions, Annotation[][] additionalAnnotations, boolean isVarargs) {
 		return null;
 	}
 
@@ -61,7 +61,7 @@ public class JavadocImplicitTypeReference extends TypeReference {
 	 * Resolves type on a Block, Class or CompilationUnit scope.
 	 * We need to modify resoling behavior to avoid raw type creation.
 	 */
-	protected TypeBinding internalResolveType(Scope scope) {
+	protected TypeBinding internalResolveType(Scope scope, int location) {
 		// handle the error here
 		this.constant = Constant.NotAConstant;
 		if (this.resolvedType != null) { // is a shared type reference which was already resolved

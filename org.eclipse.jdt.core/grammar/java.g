@@ -105,11 +105,21 @@ $Terminals
 	EQUAL
 	AT
 	ELLIPSIS
+	ARROW
+	COLON_COLON
+	BeginLambda
+	BeginIntersectionCast
+	BeginTypeArguments
+	ElidedSemicolonAndRightBrace
+	AT308
+	AT308DOTDOTDOT
 
 --    BodyMarker
 
 $Alias
 
+	'::'   ::= COLON_COLON
+	'->'   ::= ARROW
 	'++'   ::= PLUS_PLUS
 	'--'   ::= MINUS_MINUS
 	'=='   ::= EQUAL_EQUAL
@@ -158,6 +168,8 @@ $Alias
 	'='    ::= EQUAL
 	'@'	   ::= AT
 	'...'  ::= ELLIPSIS
+	'@308' ::= AT308
+	'@308...' ::= AT308DOTDOTDOT
 	
 $Start
 	Goal
@@ -192,10 +204,17 @@ Goal ::= '%' Expression
 Goal ::= '%' ArrayInitializer
 -- completion parser
 Goal ::= '~' BlockStatementsopt
+Goal ::= '{' BlockStatementopt
 -- source type converter
 Goal ::= '||' MemberValue
 -- syntax diagnosis
 Goal ::= '?' AnnotationTypeMemberDeclaration
+-- JSR 335 Reconnaissance missions.
+Goal ::= '->' ParenthesizedLambdaParameterList
+Goal ::= '(' ParenthesizedCastNameAndBounds
+Goal ::= '<' ReferenceExpressionTypeArgumentsAndTrunk
+-- JSR 308 Reconnaissance mission.
+Goal ::= '@' TypeAnnotations
 /:$readableName Goal:/
 
 Literal -> IntegerLiteral
@@ -216,14 +235,14 @@ Type ::= PrimitiveType
 Type -> ReferenceType
 /:$readableName Type:/
 
-PrimitiveType -> NumericType
+PrimitiveType -> TypeAnnotationsopt NumericType
 /:$readableName PrimitiveType:/
 NumericType -> IntegralType
 NumericType -> FloatingPointType
 /:$readableName NumericType:/
 
-PrimitiveType -> 'boolean'
-PrimitiveType -> 'void'
+PrimitiveType -> TypeAnnotationsopt 'boolean'
+PrimitiveType -> TypeAnnotationsopt 'void'
 IntegralType -> 'byte'
 IntegralType -> 'short'
 IntegralType -> 'int'
@@ -290,7 +309,10 @@ ClassType -> ClassOrInterfaceType
 --------------------------------------------------------------
 --------------------------------------------------------------
 
-Name -> SimpleName
+Name ::= SimpleName
+/.$putCase consumeZeroTypeAnnotations(); $break ./
+Name -> TypeAnnotations SimpleName
+/:$compliance 1.8:/
 Name -> QualifiedName
 /:$readableName Name:/
 /:$recovery_template Identifier:/
@@ -298,9 +320,81 @@ Name -> QualifiedName
 SimpleName -> 'Identifier'
 /:$readableName SimpleName:/
 
+UnannotatableName -> SimpleName
+UnannotatableName ::= UnannotatableName '.' SimpleName
+/.$putCase consumeUnannotatableQualifiedName(); $break ./
+/:$readableName UnannotatableQualifiedName:/
+
 QualifiedName ::= Name '.' SimpleName 
-/.$putCase consumeQualifiedName(); $break ./
+/.$putCase consumeQualifiedName(false); $break ./
+QualifiedName ::= Name '.' TypeAnnotations SimpleName 
+/.$putCase consumeQualifiedName(true); $break ./
+/:$compliance 1.8:/
 /:$readableName QualifiedName:/
+
+TypeAnnotationsopt ::= $empty
+/.$putCase consumeZeroTypeAnnotations(); $break ./
+TypeAnnotationsopt -> TypeAnnotations
+/:$compliance 1.8:/
+/:$readableName TypeAnnotationsopt:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> 
+TypeAnnotations ::= TypeAnnotations0
+/:$readableName TypeAnnotations:/
+
+TypeAnnotations0 -> TypeAnnotation
+/:$compliance 1.8:/
+TypeAnnotations0 ::= TypeAnnotations0 TypeAnnotation
+/. $putCase consumeOneMoreTypeAnnotation(); $break ./
+/:$compliance 1.8:/
+/:$readableName TypeAnnotations:/
+
+TypeAnnotation ::= NormalTypeAnnotation
+/. $putCase consumeTypeAnnotation(); $break ./
+/:$compliance 1.8:/
+TypeAnnotation ::= MarkerTypeAnnotation
+/. $putCase consumeTypeAnnotation(); $break ./
+/:$compliance 1.8:/
+TypeAnnotation ::= SingleMemberTypeAnnotation
+/. $putCase consumeTypeAnnotation(); $break ./
+/:$compliance 1.8:/
+/:$readableName TypeAnnotation:/
+
+TypeAnnotationName ::= @308 UnannotatableName
+/.$putCase consumeAnnotationName() ; $break ./
+/:$readableName AnnotationName:/
+/:$compliance 1.8:/
+/:$recovery_template @ Identifier:/
+NormalTypeAnnotation ::= TypeAnnotationName '(' MemberValuePairsopt ')'
+/.$putCase consumeNormalAnnotation(true) ; $break ./
+/:$readableName NormalAnnotation:/
+/:$compliance 1.8:/
+MarkerTypeAnnotation ::= TypeAnnotationName
+/.$putCase consumeMarkerAnnotation(true) ; $break ./
+/:$readableName MarkerAnnotation:/
+/:$compliance 1.8:/
+SingleMemberTypeAnnotation ::= TypeAnnotationName '(' SingleMemberAnnotationMemberValue ')'
+/.$putCase consumeSingleMemberAnnotation(true) ; $break ./
+/:$readableName SingleMemberAnnotation:/
+/:$compliance 1.8:/
+
+RejectTypeAnnotations ::= $empty
+/.$putCase consumeNonTypeUseName(); $break ./
+/:$readableName RejectTypeAnnotations:/
+
+PushZeroTypeAnnotations ::= $empty
+/.$putCase consumeZeroTypeAnnotations(); $break ./
+/:$readableName ZeroTypeAnnotations:/
+
+VariableDeclaratorIdOrThis ::= 'this'
+/.$putCase consumeExplicitThisParameter(false); $break ./
+/:$compliance 1.8:/
+VariableDeclaratorIdOrThis ::= UnannotatableName '.' 'this'
+/.$putCase consumeExplicitThisParameter(true); $break ./
+/:$compliance 1.8:/
+VariableDeclaratorIdOrThis ::= VariableDeclaratorId
+/.$putCase consumeVariableDeclaratorIdParameter(); $break ./
+/:$readableName VariableDeclaratorId:/
 
 CompilationUnit ::= EnterCompilationUnit InternalCompilationUnit
 /.$putCase consumeCompilationUnit(); $break ./
@@ -371,12 +465,12 @@ PackageDeclaration ::= PackageDeclarationName ';'
 /.$putCase consumePackageDeclaration(); $break ./
 /:$readableName PackageDeclaration:/
 
-PackageDeclarationName ::= Modifiers 'package' PushRealModifiers Name
+PackageDeclarationName ::= Modifiers 'package' PushRealModifiers Name RejectTypeAnnotations
 /.$putCase consumePackageDeclarationNameWithModifiers(); $break ./
 /:$readableName PackageDeclarationName:/
 /:$compliance 1.5:/
 
-PackageDeclarationName ::= PackageComment 'package' Name
+PackageDeclarationName ::= PackageComment 'package' Name RejectTypeAnnotations
 /.$putCase consumePackageDeclarationName(); $break ./
 /:$readableName PackageDeclarationName:/
 
@@ -397,7 +491,7 @@ SingleTypeImportDeclaration ::= SingleTypeImportDeclarationName ';'
 /.$putCase consumeImportDeclaration(); $break ./
 /:$readableName SingleTypeImportDeclaration:/
 
-SingleTypeImportDeclarationName ::= 'import' Name
+SingleTypeImportDeclarationName ::= 'import' Name RejectTypeAnnotations
 /.$putCase consumeSingleTypeImportDeclarationName(); $break ./
 /:$readableName SingleTypeImportDeclarationName:/
 
@@ -405,7 +499,7 @@ TypeImportOnDemandDeclaration ::= TypeImportOnDemandDeclarationName ';'
 /.$putCase consumeImportDeclaration(); $break ./
 /:$readableName TypeImportOnDemandDeclaration:/
 
-TypeImportOnDemandDeclarationName ::= 'import' Name '.' '*'
+TypeImportOnDemandDeclarationName ::= 'import' Name '.' RejectTypeAnnotations '*'
 /.$putCase consumeTypeImportOnDemandDeclarationName(); $break ./
 /:$readableName TypeImportOnDemandDeclarationName:/
 
@@ -559,6 +653,7 @@ VariableDeclarators -> VariableDeclarator
 VariableDeclarators ::= VariableDeclarators ',' VariableDeclarator
 /.$putCase consumeVariableDeclarators(); $break ./
 /:$readableName VariableDeclarators:/
+/:$recovery_template Identifier:/
 
 VariableDeclarator ::= VariableDeclaratorId EnterVariable ExitVariableWithoutInitialization
 VariableDeclarator ::= VariableDeclaratorId EnterVariable '=' ForceNoDiet VariableInitializer RestoreDiet ExitVariableWithInitialization
@@ -608,15 +703,24 @@ VariableInitializer -> ArrayInitializer
 MethodDeclaration -> AbstractMethodDeclaration
 MethodDeclaration ::= MethodHeader MethodBody 
 /.$putCase // set to true to consume a method with a body
- consumeMethodDeclaration(true); $break ./
+ consumeMethodDeclaration(true, false); $break ./
+/:$readableName MethodDeclaration:/
+
+MethodDeclaration ::= DefaultMethodHeader MethodBody 
+/.$putCase // set to true to consume a method with a body
+ consumeMethodDeclaration(true, true); $break ./
 /:$readableName MethodDeclaration:/
 
 AbstractMethodDeclaration ::= MethodHeader ';'
 /.$putCase // set to false to consume a method without body
- consumeMethodDeclaration(false); $break ./
+ consumeMethodDeclaration(false, false); $break ./
 /:$readableName MethodDeclaration:/
 
 MethodHeader ::= MethodHeaderName FormalParameterListopt MethodHeaderRightParen MethodHeaderExtendedDims MethodHeaderThrowsClauseopt
+/.$putCase consumeMethodHeader(); $break ./
+/:$readableName MethodDeclaration:/
+
+DefaultMethodHeader ::= DefaultMethodHeaderName FormalParameterListopt MethodHeaderRightParen MethodHeaderExtendedDims MethodHeaderThrowsClauseopt
 /.$putCase consumeMethodHeader(); $break ./
 /:$readableName MethodDeclaration:/
 
@@ -625,6 +729,17 @@ MethodHeaderName ::= Modifiersopt TypeParameters Type 'Identifier' '('
 MethodHeaderName ::= Modifiersopt Type 'Identifier' '('
 /.$putCase consumeMethodHeaderName(false); $break ./
 /:$readableName MethodHeaderName:/
+
+DefaultMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'Identifier' '('
+/.$putCase consumeMethodHeaderNameWithTypeParameters(false); $break ./
+DefaultMethodHeaderName ::= ModifiersWithDefault Type 'Identifier' '('
+/.$putCase consumeMethodHeaderName(false); $break ./
+/:$readableName MethodHeaderName:/
+
+ModifiersWithDefault ::= Modifiersopt 'default' Modifiersopt
+/.$putCase consumePushCombineModifiers(); $break ./
+/:$readableName Modifiers:/
+/:$compliance 1.8:/
 
 MethodHeaderRightParen ::= ')'
 /.$putCase consumeMethodHeaderRightParen(); $break ./
@@ -655,12 +770,15 @@ FormalParameterList ::= FormalParameterList ',' FormalParameter
 /:$readableName FormalParameterList:/
 
 --1.1 feature
-FormalParameter ::= Modifiersopt Type VariableDeclaratorId
+FormalParameter ::= Modifiersopt Type VariableDeclaratorIdOrThis
 /.$putCase consumeFormalParameter(false); $break ./
-FormalParameter ::= Modifiersopt Type '...' VariableDeclaratorId
+FormalParameter ::= Modifiersopt Type PushZeroTypeAnnotations '...' VariableDeclaratorIdOrThis
+/.$putCase consumeFormalParameter(true); $break ./
+/:$compliance 1.5:/
+FormalParameter ::= Modifiersopt Type @308... TypeAnnotations '...' VariableDeclaratorIdOrThis
 /.$putCase consumeFormalParameter(true); $break ./
 /:$readableName FormalParameter:/
-/:$compliance 1.5:/
+/:$compliance 1.8:/
 /:$recovery_template Identifier Identifier:/
 
 CatchFormalParameter ::= Modifiersopt CatchType VariableDeclaratorId
@@ -810,10 +928,18 @@ InterfaceMemberDeclaration ::= ';'
 /.$putCase consumeEmptyTypeDeclaration(); $break ./
 /:$readableName InterfaceMemberDeclaration:/
 
+
 InterfaceMemberDeclaration -> ConstantDeclaration
+InterfaceMemberDeclaration ::= DefaultMethodHeader MethodBody
+/:$compliance 1.8:/
+/.$putCase consumeInterfaceMethodDeclaration(false); $break ./
 InterfaceMemberDeclaration ::= MethodHeader MethodBody
-/.$putCase consumeInvalidMethodDeclaration(); $break ./
+/.$putCase consumeInterfaceMethodDeclaration(false); $break ./
 /:$readableName InterfaceMemberDeclaration:/
+-- the next rule is illegal but allows to give a more canonical error message from inside consumeInterfaceMethodDeclaration():
+InterfaceMemberDeclaration ::= DefaultMethodHeader ';'
+/:$compliance 1.8:/
+/.$putCase consumeInterfaceMethodDeclaration(true); $break ./
 
 -- These rules are added to be able to parse constructors inside interface and then report a relevent error message
 InvalidConstructorDeclaration ::= ConstructorHeader MethodBody
@@ -868,10 +994,19 @@ OpenBlock ::= $empty
 /.$putCase consumeOpenBlock() ; $break ./
 /:$readableName OpenBlock:/
 
-BlockStatements -> BlockStatement
+BlockStatements ::= BlockStatement
+/.$putCase consumeBlockStatement() ; $break ./
+/:$readableName BlockStatements:/
 BlockStatements ::= BlockStatements BlockStatement
 /.$putCase consumeBlockStatements() ; $break ./
 /:$readableName BlockStatements:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> 
+BlockStatementopt ::= BlockStatementopt0
+/:$readableName BlockStatementopt:/
+BlockStatementopt0 -> $empty
+BlockStatementopt0 -> BlockStatement
+/:$readableName BlockStatementopt0:/
 
 BlockStatement -> LocalVariableDeclarationStatement
 BlockStatement -> Statement
@@ -1223,7 +1358,119 @@ PrimaryNoNewArray ::= PrimitiveType '.' 'class'
 
 PrimaryNoNewArray -> MethodInvocation
 PrimaryNoNewArray -> ArrayAccess
+
+-----------------------------------------------------------------------
+--                   Start of rules for JSR 335
+-----------------------------------------------------------------------
+
+PrimaryNoNewArray -> LambdaExpression
+PrimaryNoNewArray -> ReferenceExpression
 /:$readableName Expression:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> 
+ReferenceExpressionTypeArgumentsAndTrunk ::= ReferenceExpressionTypeArgumentsAndTrunk0
+/:$readableName ReferenceExpressionTypeArgumentsAndTrunk:/
+
+ReferenceExpressionTypeArgumentsAndTrunk0 ::= OnlyTypeArguments Dimsopt 
+/.$putCase consumeReferenceExpressionTypeArgumentsAndTrunk(false); $break ./
+/:$compliance 1.8:/
+ReferenceExpressionTypeArgumentsAndTrunk0 ::= OnlyTypeArguments '.' ClassOrInterfaceType Dimsopt 
+/.$putCase consumeReferenceExpressionTypeArgumentsAndTrunk(true); $break ./
+/:$readableName ReferenceExpressionTypeArgumentsAndTrunk:/
+/:$compliance 1.8:/
+
+ReferenceExpression ::= PrimitiveType Dims '::' NonWildTypeArgumentsopt IdentifierOrNew
+/.$putCase consumeReferenceExpressionTypeForm(true); $break ./
+/:$compliance 1.8:/
+
+ReferenceExpression ::= Name Dimsopt '::' NonWildTypeArgumentsopt IdentifierOrNew
+/.$putCase consumeReferenceExpressionTypeForm(false); $break ./
+/:$compliance 1.8:/
+
+-- BeginTypeArguments is a synthetic token the scanner concocts to help disambiguate
+-- between '<' as an operator and '<' in '<' TypeArguments '>'
+ReferenceExpression ::= Name BeginTypeArguments ReferenceExpressionTypeArgumentsAndTrunk '::' NonWildTypeArgumentsopt IdentifierOrNew
+/.$putCase consumeReferenceExpressionGenericTypeForm(); $break ./
+/:$compliance 1.8:/
+
+ReferenceExpression ::= Primary '::' NonWildTypeArgumentsopt Identifier
+/.$putCase consumeReferenceExpressionPrimaryForm(); $break ./
+/:$compliance 1.8:/
+ReferenceExpression ::= 'super' '::' NonWildTypeArgumentsopt Identifier
+/.$putCase consumeReferenceExpressionSuperForm(); $break ./
+/:$readableName ReferenceExpression:/
+/:$compliance 1.8:/
+
+NonWildTypeArgumentsopt ::= $empty
+/.$putCase consumeEmptyTypeArguments(); $break ./
+NonWildTypeArgumentsopt -> OnlyTypeArguments
+/:$readableName NonWildTypeArgumentsopt:/
+/:$compliance 1.8:/
+
+IdentifierOrNew ::= 'Identifier'
+/.$putCase consumeIdentifierOrNew(false); $break ./
+IdentifierOrNew ::= 'new'
+/.$putCase consumeIdentifierOrNew(true); $break ./
+/:$readableName IdentifierOrNew:/
+/:$compliance 1.8:/
+
+LambdaExpression ::= LambdaParameters '->' LambdaBody
+/.$putCase consumeLambdaExpression(); $break ./
+/:$readableName LambdaExpression:/
+/:$compliance 1.8:/
+
+NestedLambda ::= $empty
+/.$putCase consumeNestedLambda(); $break ./
+/:$readableName NestedLambda:/
+
+LambdaParameters ::= Identifier NestedLambda
+/.$putCase consumeTypeElidedLambdaParameter(false); $break ./
+/:$readableName TypeElidedFormalParameter:/
+/:$compliance 1.8:/
+
+-- to make the grammar LALR(1), the scanner transforms the input string to
+-- contain synthetic tokens to signal start of lambda parameter list.
+LambdaParameters -> BeginLambda NestedLambda LambdaParameterList
+/:$readableName LambdaParameters:/
+/:$compliance 1.8:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> 
+ParenthesizedLambdaParameterList ::= LambdaParameterList
+/:$readableName ParenthesizedLambdaParameterList:/
+
+LambdaParameterList -> PushLPAREN FormalParameterListopt PushRPAREN
+LambdaParameterList -> PushLPAREN TypeElidedFormalParameterList PushRPAREN
+/:$readableName LambdaParameterList:/
+/:$compliance 1.8:/
+
+TypeElidedFormalParameterList -> TypeElidedFormalParameter
+TypeElidedFormalParameterList ::= TypeElidedFormalParameterList ',' TypeElidedFormalParameter
+/.$putCase consumeFormalParameterList(); $break ./
+/:$readableName TypeElidedFormalParameterList:/
+/:$compliance 1.8:/
+
+-- to work around a shift reduce conflict, we accept Modifiersopt prefixed
+-- identifier - downstream phases should reject input strings with modifiers.
+TypeElidedFormalParameter ::= Modifiersopt Identifier
+/.$putCase consumeTypeElidedLambdaParameter(true); $break ./
+/:$readableName TypeElidedFormalParameter:/
+/:$compliance 1.8:/
+
+-- A lambda body of the form x is really '{' return x; '}'
+LambdaBody -> ElidedLeftBraceAndReturn Expression ElidedSemicolonAndRightBrace
+LambdaBody -> Block
+/:$readableName LambdaBody:/
+/:$compliance 1.8:/
+
+ElidedLeftBraceAndReturn ::= $empty
+/.$putCase consumeElidedLeftBraceAndReturn(); $break ./
+/:$readableName ElidedLeftBraceAndReturn:/
+/:$compliance 1.8:/
+
+-----------------------------------------------------------------------
+--                   End of rules for JSR 335
+-----------------------------------------------------------------------
+
 --1.1 feature
 --
 -- In Java 1.0 a ClassBody could not appear at all in a
@@ -1315,8 +1562,8 @@ DimWithOrWithOutExprs ::= DimWithOrWithOutExprs DimWithOrWithOutExpr
 /.$putCase consumeDimWithOrWithOutExprs(); $break ./
 /:$readableName Dimensions:/
 
-DimWithOrWithOutExpr ::= '[' Expression ']'
-DimWithOrWithOutExpr ::= '[' ']'
+DimWithOrWithOutExpr ::= TypeAnnotationsopt '[' Expression ']'
+DimWithOrWithOutExpr ::= TypeAnnotationsopt '[' ']'
 /. $putCase consumeDimWithOrWithOutExpr(); $break ./
 /:$readableName Dimension:/
 -- -----------------------------------------------
@@ -1328,7 +1575,10 @@ DimsLoop -> OneDimLoop
 DimsLoop ::= DimsLoop OneDimLoop
 /:$readableName Dimensions:/
 OneDimLoop ::= '[' ']'
-/. $putCase consumeOneDimLoop(); $break ./
+/. $putCase consumeOneDimLoop(false); $break ./
+OneDimLoop ::= TypeAnnotations '[' ']'
+/:$compliance 1.8:/
+/. $putCase consumeOneDimLoop(true); $break ./
 /:$readableName Dimension:/
 
 FieldAccess ::= Primary '.' 'Identifier'
@@ -1410,17 +1660,34 @@ UnaryExpressionNotPlusMinus ::= '!' PushPosition UnaryExpression
 UnaryExpressionNotPlusMinus -> CastExpression
 /:$readableName Expression:/
 
-CastExpression ::= PushLPAREN PrimitiveType Dimsopt PushRPAREN InsideCastExpression UnaryExpression
+CastExpression ::= PushLPAREN PrimitiveType Dimsopt AdditionalBoundsListOpt PushRPAREN InsideCastExpression UnaryExpression
 /.$putCase consumeCastExpressionWithPrimitiveType(); $break ./
-CastExpression ::= PushLPAREN Name OnlyTypeArgumentsForCastExpression Dimsopt PushRPAREN InsideCastExpression UnaryExpressionNotPlusMinus
+CastExpression ::= PushLPAREN Name OnlyTypeArgumentsForCastExpression Dimsopt AdditionalBoundsListOpt PushRPAREN InsideCastExpression UnaryExpressionNotPlusMinus
 /.$putCase consumeCastExpressionWithGenericsArray(); $break ./
-CastExpression ::= PushLPAREN Name OnlyTypeArgumentsForCastExpression '.' ClassOrInterfaceType Dimsopt PushRPAREN InsideCastExpressionWithQualifiedGenerics UnaryExpressionNotPlusMinus
+CastExpression ::= PushLPAREN Name OnlyTypeArgumentsForCastExpression '.' ClassOrInterfaceType Dimsopt AdditionalBoundsListOpt PushRPAREN InsideCastExpressionWithQualifiedGenerics UnaryExpressionNotPlusMinus
 /.$putCase consumeCastExpressionWithQualifiedGenericsArray(); $break ./
 CastExpression ::= PushLPAREN Name PushRPAREN InsideCastExpressionLL1 UnaryExpressionNotPlusMinus
 /.$putCase consumeCastExpressionLL1(); $break ./
-CastExpression ::= PushLPAREN Name Dims PushRPAREN InsideCastExpression UnaryExpressionNotPlusMinus
+CastExpression ::=  BeginIntersectionCast PushLPAREN CastNameAndBounds PushRPAREN InsideCastExpressionLL1WithBounds UnaryExpressionNotPlusMinus
+/.$putCase consumeCastExpressionLL1WithBounds(); $break ./
+CastExpression ::= PushLPAREN Name Dims AdditionalBoundsListOpt PushRPAREN InsideCastExpression UnaryExpressionNotPlusMinus
 /.$putCase consumeCastExpressionWithNameArray(); $break ./
 /:$readableName CastExpression:/
+
+AdditionalBoundsListOpt ::= $empty
+/.$putCase consumeZeroAdditionalBounds(); $break ./
+/:$readableName AdditionalBoundsListOpt:/
+AdditionalBoundsListOpt -> AdditionalBoundList
+/:$compliance 1.8:/
+/:$readableName AdditionalBoundsListOpt:/
+
+-- Production name hardcoded in parser. Must be ::= and not -> 
+ParenthesizedCastNameAndBounds ::= '(' CastNameAndBounds ')'
+/:$readableName ParenthesizedCastNameAndBounds:/
+
+CastNameAndBounds -> Name AdditionalBoundList
+/:$compliance 1.8:/
+/:$readableName CastNameAndBounds:/
 
 OnlyTypeArgumentsForCastExpression ::= OnlyTypeArguments
 /.$putCase consumeOnlyTypeArgumentsForCastExpression(); $break ./
@@ -1431,6 +1698,9 @@ InsideCastExpression ::= $empty
 /:$readableName InsideCastExpression:/
 InsideCastExpressionLL1 ::= $empty
 /.$putCase consumeInsideCastExpressionLL1(); $break ./
+/:$readableName InsideCastExpression:/
+InsideCastExpressionLL1WithBounds ::= $empty
+/.$putCase consumeInsideCastExpressionLL1WithBounds (); $break ./
 /:$readableName InsideCastExpression:/
 InsideCastExpressionWithQualifiedGenerics ::= $empty
 /.$putCase consumeInsideCastExpressionWithQualifiedGenerics(); $break ./
@@ -1558,7 +1828,10 @@ AssignmentOperator ::= '|='
 /:$readableName AssignmentOperator:/
 /:$recovery_template =:/
 
-Expression -> AssignmentExpression
+-- For handling lambda expressions, we need to know when a full Expression
+-- has been reduced.
+Expression ::= AssignmentExpression
+/.$putCase consumeExpression(); $break ./
 /:$readableName Expression:/
 /:$recovery_template Identifier:/
 
@@ -1758,7 +2031,7 @@ SingleStaticImportDeclaration ::= SingleStaticImportDeclarationName ';'
 /.$putCase consumeImportDeclaration(); $break ./
 /:$readableName SingleStaticImportDeclaration:/
 
-SingleStaticImportDeclarationName ::= 'import' 'static' Name
+SingleStaticImportDeclarationName ::= 'import' 'static' Name RejectTypeAnnotations
 /.$putCase consumeSingleStaticImportDeclarationName(); $break ./
 /:$readableName SingleStaticImportDeclarationName:/
 /:$compliance 1.5:/
@@ -1767,7 +2040,7 @@ StaticImportOnDemandDeclaration ::= StaticImportOnDemandDeclarationName ';'
 /.$putCase consumeImportDeclaration(); $break ./
 /:$readableName StaticImportOnDemandDeclaration:/
 
-StaticImportOnDemandDeclarationName ::= 'import' 'static' Name '.' '*'
+StaticImportOnDemandDeclarationName ::= 'import' 'static' Name '.' RejectTypeAnnotations '*'
 /.$putCase consumeStaticImportOnDemandDeclarationName(); $break ./
 /:$readableName StaticImportOnDemandDeclarationName:/
 /:$compliance 1.5:/
@@ -1857,10 +2130,10 @@ ReferenceType3 ::= ReferenceType '>>>'
 /:$readableName ReferenceType3:/
 /:$compliance 1.5:/
 
-Wildcard ::= '?'
+Wildcard ::= TypeAnnotationsopt '?'
 /.$putCase consumeWildcard(); $break ./
 /:$compliance 1.5:/
-Wildcard ::= '?' WildcardBounds
+Wildcard ::= TypeAnnotationsopt '?' WildcardBounds
 /.$putCase consumeWildcardWithBounds(); $break ./
 /:$readableName Wildcard:/
 /:$compliance 1.5:/
@@ -1873,10 +2146,10 @@ WildcardBounds ::= 'super' ReferenceType
 /:$readableName WildcardBounds:/
 /:$compliance 1.5:/
 
-Wildcard1 ::= '?' '>'
+Wildcard1 ::= TypeAnnotationsopt '?' '>'
 /.$putCase consumeWildcard1(); $break ./
 /:$compliance 1.5:/
-Wildcard1 ::= '?' WildcardBounds1
+Wildcard1 ::= TypeAnnotationsopt '?' WildcardBounds1
 /.$putCase consumeWildcard1WithBounds(); $break ./
 /:$readableName Wildcard1:/
 /:$compliance 1.5:/
@@ -1889,10 +2162,10 @@ WildcardBounds1 ::= 'super' ReferenceType1
 /:$readableName WildcardBounds1:/
 /:$compliance 1.5:/
 
-Wildcard2 ::= '?' '>>'
+Wildcard2 ::= TypeAnnotationsopt '?' '>>'
 /.$putCase consumeWildcard2(); $break ./
 /:$compliance 1.5:/
-Wildcard2 ::= '?' WildcardBounds2
+Wildcard2 ::= TypeAnnotationsopt '?' WildcardBounds2
 /.$putCase consumeWildcard2WithBounds(); $break ./
 /:$readableName Wildcard2:/
 /:$compliance 1.5:/
@@ -1905,10 +2178,10 @@ WildcardBounds2 ::= 'super' ReferenceType2
 /:$readableName WildcardBounds2:/
 /:$compliance 1.5:/
 
-Wildcard3 ::= '?' '>>>'
+Wildcard3 ::= TypeAnnotationsopt '?' '>>>'
 /.$putCase consumeWildcard3(); $break ./
 /:$compliance 1.5:/
-Wildcard3 ::= '?' WildcardBounds3
+Wildcard3 ::= TypeAnnotationsopt '?' WildcardBounds3
 /.$putCase consumeWildcard3WithBounds(); $break ./
 /:$readableName Wildcard3:/
 /:$compliance 1.5:/
@@ -1921,7 +2194,7 @@ WildcardBounds3 ::= 'super' ReferenceType3
 /:$readableName WildcardBound3:/
 /:$compliance 1.5:/
 
-TypeParameterHeader ::= Identifier
+TypeParameterHeader ::= TypeAnnotationsopt Identifier
 /.$putCase consumeTypeParameterHeader(); $break ./
 /:$readableName TypeParameter:/
 /:$compliance 1.5:/
@@ -2233,13 +2506,14 @@ Annotation -> SingleMemberAnnotation
 /:$readableName Annotation:/
 /:$compliance 1.5:/
 
-AnnotationName ::= '@' Name
+AnnotationName ::= '@' UnannotatableName
 /.$putCase consumeAnnotationName() ; $break ./
 /:$readableName AnnotationName:/
 /:$compliance 1.5:/
+/:$recovery_template @ Identifier:/
 
 NormalAnnotation ::= AnnotationName '(' MemberValuePairsopt ')'
-/.$putCase consumeNormalAnnotation() ; $break ./
+/.$putCase consumeNormalAnnotation(false) ; $break ./
 /:$readableName NormalAnnotation:/
 /:$compliance 1.5:/
 
@@ -2311,7 +2585,7 @@ MemberValues ::= MemberValues ',' MemberValue
 /:$compliance 1.5:/
 
 MarkerAnnotation ::= AnnotationName
-/.$putCase consumeMarkerAnnotation() ; $break ./
+/.$putCase consumeMarkerAnnotation(false) ; $break ./
 /:$readableName MarkerAnnotation:/
 /:$compliance 1.5:/
 
@@ -2321,7 +2595,7 @@ SingleMemberAnnotationMemberValue ::= MemberValue
 /:$compliance 1.5:/
 
 SingleMemberAnnotation ::= AnnotationName '(' SingleMemberAnnotationMemberValue ')'
-/.$putCase consumeSingleMemberAnnotation() ; $break ./
+/.$putCase consumeSingleMemberAnnotation(false) ; $break ./
 /:$readableName SingleMemberAnnotation:/
 /:$compliance 1.5:/
 --------------------------------------
@@ -2335,6 +2609,12 @@ RecoveryMethodHeaderName ::= Modifiersopt TypeParameters Type 'Identifier' '('
 /.$putCase consumeRecoveryMethodHeaderNameWithTypeParameters(); $break ./
 /:$compliance 1.5:/
 RecoveryMethodHeaderName ::= Modifiersopt Type 'Identifier' '('
+/.$putCase consumeRecoveryMethodHeaderName(); $break ./
+/:$readableName MethodHeaderName:/
+RecoveryMethodHeaderName ::= ModifiersWithDefault TypeParameters Type 'Identifier' '('
+/.$putCase consumeRecoveryMethodHeaderNameWithTypeParameters(); $break ./
+/:$compliance 1.5:/
+RecoveryMethodHeaderName ::= ModifiersWithDefault Type 'Identifier' '('
 /.$putCase consumeRecoveryMethodHeaderName(); $break ./
 /:$readableName MethodHeaderName:/
 
@@ -2398,8 +2678,12 @@ COLON ::=    ':'
 COMMA ::=    ','    
 DOT ::=    '.'    
 EQUAL ::=    '='    
-AT ::=    '@'    
+AT ::=    '@'
+AT308 ::= '@'
+AT308DOTDOTDOT ::= '@'
 ELLIPSIS ::=    '...'    
+ARROW ::= '->'
+COLON_COLON ::= '::'
 
 $end
 -- need a carriage return after the $end

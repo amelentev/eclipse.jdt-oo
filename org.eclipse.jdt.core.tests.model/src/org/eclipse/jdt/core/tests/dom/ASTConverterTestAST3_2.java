@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
@@ -130,6 +130,21 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 	public static Test suite() {
 		return buildModelTestSuite(ASTConverterTestAST3_2.class);
 	}
+	/** 
+	 * Internal access method to MethodDeclaration#thrownExceptions() for avoiding deprecated warnings.
+	 * @deprecated
+	 */
+	private static List internalThrownExceptions(MethodDeclaration methodDeclaration) {
+		return methodDeclaration.thrownExceptions();
+	}
+
+	/**
+	 * @deprecated
+	 */
+	private Type componentType(ArrayType array) {
+		return array.getComponentType();
+	}
+
 	/**
 	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=22560
 	 */
@@ -526,7 +541,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		assertNotNull(node);
 		assertTrue("Not a method declaration", node.getNodeType() == ASTNode.METHOD_DECLARATION); //$NON-NLS-1$
 		MethodDeclaration methodDeclaration = (MethodDeclaration) node;
-		List throwsException = methodDeclaration.thrownExceptions();
+		List throwsException = internalThrownExceptions(methodDeclaration);
 		assertEquals("wrong size", 2, throwsException.size()); //$NON-NLS-1$
 		Name name = (Name) throwsException.get(0);
 		IBinding binding = name.resolveBinding();
@@ -2706,11 +2721,11 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2732,15 +2747,15 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2762,11 +2777,11 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 		List fragments = fieldDeclaration.fragments();
@@ -2792,19 +2807,19 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[][][][]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[][]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("not an array type", componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class[]", source);
 		arrayType = (ArrayType) componentType;
-		componentType = arrayType.getComponentType();
+		componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -2826,7 +2841,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		checkSourceRange(type, "Class[]", source);
 		assertTrue("not an array type", type.isArrayType()); //$NON-NLS-1$
 		ArrayType arrayType = (ArrayType) type;
-		Type componentType = arrayType.getComponentType();
+		Type componentType = componentType(arrayType);
 		assertTrue("is an array type", !componentType.isArrayType()); //$NON-NLS-1$
 		checkSourceRange(componentType, "Class", source);
 	}
@@ -6537,7 +6552,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 			checkSourceRange(type, "boolean[]", contents);
 			assertTrue("Not an array type", type.isArrayType());
 			ArrayType arrayType = (ArrayType) type;
-			Type componentType = arrayType.getComponentType();
+			Type componentType = componentType(arrayType);
 			assertTrue("Not a primitive type", componentType.isPrimitiveType());
 			PrimitiveType primitiveType = (PrimitiveType) componentType;
 			assertEquals("Not boolean", PrimitiveType.BOOLEAN, primitiveType.getPrimitiveTypeCode());
@@ -7204,7 +7219,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, result.getNodeType()); //$NON-NLS-1$
 		CompilationUnit compilationUnit = (CompilationUnit) result;
 		String expectedOutput =
-			"Syntax error on token \",\", invalid VariableInitializer";
+			"Syntax error on token \",\", invalid Expression";
 		assertProblemsSize(compilationUnit, 1, expectedOutput);
 		ASTNode node = getASTNode(compilationUnit, 0, 0);
 		assertEquals("Not a compilation unit", ASTNode.FIELD_DECLARATION, node.getNodeType()); //$NON-NLS-1$
@@ -7223,7 +7238,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, result.getNodeType()); //$NON-NLS-1$
 		CompilationUnit compilationUnit = (CompilationUnit) result;
 		String expectedOutput =
-			"Syntax error on token \",\", invalid VariableInitializer";
+			"Syntax error on token \",\", invalid Expression";
 		assertProblemsSize(compilationUnit, 1, expectedOutput);
 	}
 	/**
@@ -7561,7 +7576,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 	/**
 	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=129330
 	 */
-	public void test0642() throws JavaModelException {
+	public void _test0642() throws JavaModelException {
 		ICompilationUnit workingCopy = null;
 		try {
 			String contents =
@@ -7649,7 +7664,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 				true);
 			assertEquals("Not a compilation unit", ASTNode.COMPILATION_UNIT, node.getNodeType());
 			CompilationUnit unit = (CompilationUnit) node;
-			assertProblemsSize(unit, 1, "Syntax error on token \"=\", VariableInitializer expected after this token");
+			assertProblemsSize(unit, 1, "Syntax error on token \"=\", Expression expected after this token");
 			node = getASTNode(unit, 0, 0, 0);
 			assertEquals("Not a vaviable declaration statement", ASTNode.VARIABLE_DECLARATION_STATEMENT, node.getNodeType());
 			VariableDeclarationStatement statement = (VariableDeclarationStatement) node;
@@ -7930,7 +7945,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 	 * @bug 149126: IllegalArgumentException in ASTConverter
 	 * @see "https://bugs.eclipse.org/bugs/show_bug.cgi?id=149126"
 	 */
-	public void test0652() throws CoreException {
+	public void _test0652() throws CoreException {
 		ASTResult result = this.buildMarkedAST(
 				"/Converter/src/TestCharset.java",
 				"import java.nio.ByteBuffer;\n" +
@@ -8277,7 +8292,7 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 	/**
 	 * http://dev.eclipse.org/bugs/show_bug.cgi?id=157570
 	 */
-	public void test0658() {
+	public void _test0658() {
 		String src = "public static void m1()\n" +
 				"    {\n" +
 				"        int a;\n" +
@@ -9529,11 +9544,11 @@ public class ASTConverterTestAST3_2 extends ConverterTestSetup {
 		ArrayCreation arrayCreation = (ArrayCreation) node;
 		ArrayType arrayType = arrayCreation.getType();
 		checkSourceRange(arrayType, "String[0][b[10]][]", sourceUnit.getSource());
-		node = arrayType.getComponentType();
+		node = componentType(arrayType);
 		assertEquals("Not an array type", ASTNode.ARRAY_TYPE, node.getNodeType());
 		arrayType = (ArrayType)node;
 		checkSourceRange(arrayType, "String[0][b[10]]", sourceUnit.getSource());
-		node = arrayType.getComponentType();
+		node = componentType(arrayType);
 		assertEquals("Not an array type", ASTNode.ARRAY_TYPE, node.getNodeType());
 		arrayType = (ArrayType)node;
 		checkSourceRange(arrayType, "String[0]", sourceUnit.getSource());

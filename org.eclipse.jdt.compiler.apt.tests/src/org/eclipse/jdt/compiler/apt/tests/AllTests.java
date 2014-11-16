@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2011 BEA Systems, Inc. 
+ * Copyright (c) 2006, 2013 BEA Systems, Inc. and others
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *    wharley@bea.com - initial API and implementation
+ *    IBM Corporation - Java 8 support
  *    
  *******************************************************************************/
 package org.eclipse.jdt.compiler.apt.tests;
@@ -29,6 +30,7 @@ public class AllTests extends TestCase {
 		suite.addTestSuite(FilerTests.class);
 		suite.addTestSuite(ModelUtilTests.class);
 		suite.addTestSuite(NegativeTests.class);
+		suite.addTestSuite(Java8ElementsTests.class);
 		return suite;
 	}
 }

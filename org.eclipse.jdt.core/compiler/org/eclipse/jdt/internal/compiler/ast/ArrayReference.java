@@ -9,6 +9,7 @@
  *     IBM Corporation - initial API and implementation
  *     Stephan Herrmann - Contribution for
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
+ *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
  *								bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
  *******************************************************************************/
@@ -21,6 +22,7 @@ import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
+import org.eclipse.jdt.internal.compiler.lookup.TagBits;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 import org.eclipse.jdt.internal.compiler.lookup.TypeIds;
 
@@ -42,12 +44,19 @@ public FlowInfo analyseAssignment(BlockScope currentScope, FlowContext flowConte
 	if (assignment.expression == null) {
 		return analyseCode(currentScope, flowContext, flowInfo);
 	}
-	return assignment
+	flowInfo = assignment
 		.expression
 		.analyseCode(
 			currentScope,
 			flowContext,
 			analyseCode(currentScope, flowContext, flowInfo).unconditionalInits());
+	if ((this.resolvedType.tagBits & TagBits.AnnotationNonNull) != 0) {
+		int nullStatus = assignment.expression.nullStatus(flowInfo, flowContext);
+		if (nullStatus != FlowInfo.NON_NULL) {
+			currentScope.problemReporter().nullityMismatch(this, assignment.expression.resolvedType, this.resolvedType, nullStatus, currentScope.environment().getNonNullAnnotationName());
+		}
+	}
+	return flowInfo;
 }
 
 public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo) {
@@ -58,6 +67,15 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 	// account for potential ArrayIndexOutOfBoundsException:
 	flowContext.recordAbruptExit();
 	return flowInfo;
+}
+
+public boolean checkNPE(BlockScope scope, FlowContext flowContext, FlowInfo flowInfo) {
+	if ((this.resolvedType.tagBits & TagBits.AnnotationNullable) != 0) {
+		scope.problemReporter().arrayReferencePotentialNullReference(this);
+		return true;
+	} else {
+		return super.checkNPE(scope, flowContext, flowInfo);
+	}
 }
 
 public void generateAssignment(BlockScope currentScope, CodeStream codeStream, Assignment assignment, boolean valueRequired) {
@@ -177,10 +195,6 @@ public void generatePostIncrement(BlockScope currentScope, CodeStream codeStream
 	codeStream.generateImplicitConversion(
 		postIncrement.preAssignImplicitConversion);
 	codeStream.arrayAtPut(this.resolvedType.id, false);
-}
-
-public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
-	return FlowInfo.UNKNOWN;
 }
 
 public StringBuffer printExpression(int indent, StringBuffer output) {

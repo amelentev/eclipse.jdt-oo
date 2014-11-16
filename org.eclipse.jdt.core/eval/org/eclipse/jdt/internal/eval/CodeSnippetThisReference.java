@@ -9,6 +9,8 @@
  *     IBM Corporation - initial API and implementation
  *     Jesper S Moller - Contributions for
  *								Bug 378674 - "The method can be declared as static" is wrong
+ *     Stephan Herrmann - Contribution for
+ *							Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.internal.eval;
 
@@ -18,9 +20,11 @@ import org.eclipse.jdt.internal.compiler.codegen.Opcodes;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.FieldBinding;
+import org.eclipse.jdt.internal.compiler.lookup.InferenceContext18;
 import org.eclipse.jdt.internal.compiler.lookup.InvocationSite;
 import org.eclipse.jdt.internal.compiler.lookup.MethodScope;
 import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.Scope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 /**
@@ -44,8 +48,9 @@ public class CodeSnippetThisReference extends ThisReference implements Evaluatio
 		this.isImplicit = isImplicit;
 	}
 	
-	public boolean checkAccess(MethodScope methodScope) {
+	public boolean checkAccess(BlockScope scope, ReferenceBinding thisType) {
 		// this/super cannot be used in constructor call
+		MethodScope methodScope = scope.methodScope();
 		if (this.evaluationContext.isConstructorCall) {
 			methodScope.problemReporter().fieldsOrThisBeforeConstructorInvocation(this);
 			return false;
@@ -56,7 +61,7 @@ public class CodeSnippetThisReference extends ThisReference implements Evaluatio
 			methodScope.problemReporter().errorThisSuperInStatic(this);
 			return false;
 		}
-		methodScope.resetEnclosingMethodStaticFlag();
+		scope.tagAsAccessingEnclosingInstanceStateOf(thisType, false /* type variable access */);
 		return true;
 	}
 	
@@ -76,6 +81,10 @@ public class CodeSnippetThisReference extends ThisReference implements Evaluatio
 		return null;
 	}
 	
+	public InferenceContext18 freshInferenceContext(Scope scope) {
+		return null;
+	}
+
 	public boolean isSuperAccess(){
 		return false;
 	}
@@ -98,12 +107,11 @@ public class CodeSnippetThisReference extends ThisReference implements Evaluatio
 	public TypeBinding resolveType(BlockScope scope) {
 		// implicit this
 		this.constant = Constant.NotAConstant;
-		TypeBinding snippetType = null;
+		ReferenceBinding snippetType = scope.enclosingSourceType();
 		MethodScope methodScope = scope.methodScope();
-		if (!this.isImplicit && !checkAccess(methodScope)) {
+		if (!this.isImplicit && !checkAccess(scope, snippetType)) {
 			return null;
 		}
-		snippetType = scope.enclosingSourceType();
 
 		this.delegateThis = scope.getField(snippetType, DELEGATE_THIS, this);
 		if (this.delegateThis == null || !this.delegateThis.isValidBinding()) {

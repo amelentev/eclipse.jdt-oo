@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2012 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -1262,6 +1262,8 @@ public int getNextToken() throws InvalidInputException {
 							return TokenNameMINUS_MINUS;
 						if (test > 0)
 							return TokenNameMINUS_EQUAL;
+						if (getNextChar('>'))
+							return TokenNameARROW;
 						return TokenNameMINUS;
 					}
 				case '~' :
@@ -1339,6 +1341,8 @@ public int getNextToken() throws InvalidInputException {
 				case '?' :
 					return TokenNameQUESTION;
 				case ':' :
+					if (getNextChar(':'))
+						return TokenNameCOLON_COLON;
 					return TokenNameCOLON;
 				case '\'' :
 					{
@@ -3952,6 +3956,8 @@ public String toStringAction(int act) {
 			return "+="; //$NON-NLS-1$
 		case TokenNameMINUS_EQUAL :
 			return "-="; //$NON-NLS-1$
+		case TokenNameARROW :
+			return "->"; //$NON-NLS-1$
 		case TokenNameMULTIPLY_EQUAL :
 			return "*="; //$NON-NLS-1$
 		case TokenNameDIVIDE_EQUAL :
@@ -4016,6 +4022,8 @@ public String toStringAction(int act) {
 			return "?"; //$NON-NLS-1$
 		case TokenNameCOLON :
 			return ":"; //$NON-NLS-1$
+		case TokenNameCOLON_COLON :
+			return "::"; //$NON-NLS-1$
 		case TokenNameCOMMA :
 			return ","; //$NON-NLS-1$
 		case TokenNameDOT :

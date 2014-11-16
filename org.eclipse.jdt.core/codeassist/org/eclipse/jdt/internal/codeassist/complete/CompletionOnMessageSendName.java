@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2006, 2008 IBM Corporation and others.
+ * Copyright (c) 2006, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -11,6 +11,7 @@
 package org.eclipse.jdt.internal.codeassist.complete;
 
 import org.eclipse.jdt.internal.compiler.ast.MessageSend;
+import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.BlockScope;
 import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
@@ -25,6 +26,8 @@ public class CompletionOnMessageSendName extends MessageSend {
 
 	public TypeBinding resolveType(BlockScope scope) {
 
+		this.constant = Constant.NotAConstant;
+		
 		if (this.receiver.isImplicitThis())
 			throw new CompletionNodeFound();
 

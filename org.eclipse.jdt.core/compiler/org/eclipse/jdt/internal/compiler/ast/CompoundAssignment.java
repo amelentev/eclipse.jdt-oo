@@ -11,6 +11,8 @@
  *								bug 345305 - [compiler][null] Compiler misidentifies a case of "variable can only be null"
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
  *								bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
+ *     Jesper S Moller - Contributions for
+ *								bug 382721 - [1.8][compiler] Effectively final variables needs special treatment
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
@@ -130,10 +132,6 @@ public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 		TypeBinding originalExpressionType = this.expression.resolveType(scope);
 		if (originalLhsType == null || originalExpressionType == null)
 			return null;
-		LocalVariableBinding localVariableBinding = this.lhs.localVariableBinding();
-		if (localVariableBinding != null) {
-			localVariableBinding.tagBits &= ~TagBits.IsEffectivelyFinal;
-		}
 		// autoboxing support
 		LookupEnvironment env = scope.environment();
 		TypeBinding lhsType = originalLhsType, expressionType = originalExpressionType;
@@ -142,7 +140,7 @@ public int nullStatus(FlowInfo flowInfo, FlowContext flowContext) {
 		if (use15specifics) {
 			if (!lhsType.isBaseType() && expressionType.id != T_JavaLangString && expressionType.id != T_null) {
 				TypeBinding unboxedType = env.computeBoxingType(lhsType);
-				if (unboxedType != lhsType) {
+				if (TypeBinding.notEquals(unboxedType, lhsType)) {
 					lhsType = unboxedType;
 					unboxedLhs = true;
 				}

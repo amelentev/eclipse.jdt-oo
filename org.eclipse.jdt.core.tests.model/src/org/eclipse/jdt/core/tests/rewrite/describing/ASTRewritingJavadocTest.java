@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2009 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -13,35 +13,24 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.List;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 public class ASTRewritingJavadocTest extends ASTRewritingTest {
 
-	private static final Class THIS= ASTRewritingJavadocTest.class;
-
 	public ASTRewritingJavadocTest(String name) {
 		super(name);
 	}
-
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
+	public ASTRewritingJavadocTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingJavadocTest.class);
 	}
 
 	public void testParamName() throws Exception {
@@ -712,7 +701,7 @@ public class ASTRewritingJavadocTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testTagRemove4() throws Exception {
+	public void testTagRemove4_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("/**\n");
@@ -721,7 +710,7 @@ public class ASTRewritingJavadocTest extends ASTRewritingTest {
 		buf.append("package test1;\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("package-info.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
@@ -792,7 +781,7 @@ public class ASTRewritingJavadocTest extends ASTRewritingTest {
 
 	}
 
-	public void testAddJavadoc() throws Exception {
+	public void testAddJavadoc_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");

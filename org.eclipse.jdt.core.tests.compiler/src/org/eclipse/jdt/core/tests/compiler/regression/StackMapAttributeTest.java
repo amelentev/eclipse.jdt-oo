@@ -7,8 +7,10 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - contribution for
+ *     Stephan Herrmann - Contribution for
+ *								bug 388800 - [1.8] adjust tests to 1.8 JRE
  *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -845,9 +847,13 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"        [pc: 5, pc: 24] local: bar index: 2 type: java.lang.String\n" +
 					"      Stack map table: number of frames 2\n" +
 					"        [pc: 19, full, stack: {java.io.PrintStream}, locals: {java.lang.String[], int, java.lang.String}]\n" +
-					"        [pc: 20, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {java.lang.String[], int, java.lang.String}]\n" +
+					(this.complianceLevel >= ClassFileConstants.JDK1_8 ? // in 1.8 the ternary is resolved to its target type j.l.Object
+					"        [pc: 20, full, stack: {java.io.PrintStream, java.lang.Object}, locals: {java.lang.String[], int, java.lang.String}]\n" :
+					"        [pc: 20, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {java.lang.String[], int, java.lang.String}]\n") +
 					"  \n" +
-					"  // Method descriptor #48 (Ljava/lang/Comparable;)V\n" +
+					(this.complianceLevel >= ClassFileConstants.JDK1_8 ?
+					"  // Method descriptor #46 (Ljava/lang/Comparable;)V\n" :
+					"  // Method descriptor #48 (Ljava/lang/Comparable;)V\n") +
 					"  // Signature: <T::Ljava/lang/Comparable<*>;>(TT;)V\n" +
 					"  // Stack: 2, Locals: 3\n" +
 					"  void foo(java.lang.Comparable foo);\n" +
@@ -874,7 +880,11 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"        [pc: 2, pc: 18] local: bar index: 2 type: T\n" +
 					"      Stack map table: number of frames 2\n" +
 					"        [pc: 13, full, stack: {java.io.PrintStream}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n" +
-					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n";
+					(this.complianceLevel < ClassFileConstants.JDK1_8 ?
+					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Comparable}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n"
+					: // in 1.8 the ternary is resolved to its target type j.l.Object
+					"        [pc: 14, full, stack: {java.io.PrintStream, java.lang.Object}, locals: {X, java.lang.Comparable, java.lang.Comparable}]\n"
+					);
 
 			int index = actualOutput.indexOf(expectedOutput);
 			if (index == -1 || expectedOutput.length() == 0) {
@@ -1778,6 +1788,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
             		"    public Iterator<Value_Type> iterator() {\n" +
             		"        return null;\n" +
             		"    }\n" +
+            		ITERABLE_IMPL_JRE8.replaceAll("\\*", "Value_Type") +
             		"}\n" +
             		"\n" +
             		"class BirBlock {\n" +
@@ -8202,8 +8213,8 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 			"StartingDone");
 	}
 	
-	// https://bugs.eclipse.org/412076
-	public void testBug412076_a() throws Exception {
+	// https://bugs.eclipse.org/412203
+	public void testBug412203_a() throws Exception {
 		if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // using <>
 		Map options = getCompilerOptions();
 		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
@@ -8270,7 +8281,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"}\n",
 				},
 				"",
-				getLibsWithNullAnnotations(),
+				getLibsWithNullAnnotations(ClassFileConstants.JDK1_7),
 				true/*flush*/,
 				null/*vmArgs*/,
 				options,
@@ -8359,9 +8370,9 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 			}
 	}
 
-	// https://bugs.eclipse.org/412076
+	// https://bugs.eclipse.org/412203
 	// yet simplified version - using FieldReference
-	public void testBug412076_b() throws Exception {
+	public void testBug412203_b() throws Exception {
 		Map options = getCompilerOptions();
 		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
 		options.put(JavaCore.COMPILER_PB_NULL_REFERENCE, JavaCore.ERROR);
@@ -8392,7 +8403,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"}\n",
 				},
 				"",
-				getLibsWithNullAnnotations(),
+				getLibsWithNullAnnotations(ClassFileConstants.JDK1_7),
 				true/*flush*/,
 				null/*vmArgs*/,
 				options,
@@ -8476,9 +8487,9 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 			}
 	}
 
-	// https://bugs.eclipse.org/412076
+	// https://bugs.eclipse.org/412203
 	// yet simplified version - using SingleNameReference
-	public void testBug412076_c() throws Exception {
+	public void testBug412203_c() throws Exception {
 		Map options = getCompilerOptions();
 		options.put(JavaCore.COMPILER_ANNOTATION_NULL_ANALYSIS, JavaCore.ENABLED);
 		options.put(JavaCore.COMPILER_PB_NULL_REFERENCE, JavaCore.ERROR);
@@ -8509,7 +8520,7 @@ public class StackMapAttributeTest extends AbstractRegressionTest {
 					"}\n",
 				},
 				"",
-				getLibsWithNullAnnotations(),
+				getLibsWithNullAnnotations(ClassFileConstants.JDK1_7),
 				true/*flush*/,
 				null/*vmArgs*/,
 				options,

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,9 +7,15 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contributions for
+ *     Stephan Herrmann - Contribution for
  *								bug 335093 - [compiler][null] minimal hook for future null annotation support
+ *								bug 388800 - [1.8] adjust tests to 1.8 JRE
+ *								bug 402237 - [1.8][compiler] investigate differences between compilers re MethodVerifyTest
+ *								bug 391376 - [1.8] check interaction of default methods with bridge methods and generics
  *								Bug 412203 - [compiler] Internal compiler error: java.lang.IllegalArgumentException: info cannot be null
+ *								Bug 422051 - [1.8][compiler][tests] cleanup excuses (JavacHasABug) in InterfaceMethodTests
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 425721 - [1.8][compiler] Nondeterministic results in GenericsRegressionTest_1_8.testBug424195a
  *     Jesper S Moller - Contributions for bug 378674 - "The method can be declared as static" is wrong
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
@@ -65,8 +71,159 @@ import org.eclipse.jdt.internal.compiler.lookup.TypeConstants;
 import org.eclipse.jdt.internal.compiler.problem.DefaultProblemFactory;
 import org.eclipse.jdt.internal.core.search.JavaSearchParticipant;
 import org.eclipse.jdt.internal.core.search.indexing.BinaryIndexer;
+import org.osgi.framework.Bundle;
 
 public abstract class AbstractRegressionTest extends AbstractCompilerTest implements StopableTestCase {
+
+	// for compiling against JRE 8:
+	static final boolean IS_JRE_8;
+	static final String COMPARATOR_IMPL_JRE8;
+	static final String COMPARATOR_RAW_IMPL_JRE8;
+	static final String COLLECTION_IMPL_JRE8;
+	static final String COLLECTION_RAW_IMPL_JRE8;
+	static final String LIST_IMPL_JRE8;
+	static final String COLLECTION_AND_LIST_IMPL_JRE8;
+	static final String COLLECTION_AND_LIST_RAW_IMPL_JRE8;
+	static final String LIST_RAW_IMPL_JRE8;
+	static final String ITERABLE_IMPL_JRE8;
+	static final String ITERABLE_RAW_IMPL_JRE8;
+	static final String ITERATOR_IMPL_JRE8;
+	static final String ITERATOR_RAW_IMPL_JRE8;
+	static final String MAP_IMPL_JRE8;
+	static final String MAP_RAW_IMPL_JRE8;
+			
+	static {
+		String javaVersion = System.getProperty("java.specification.version");
+		IS_JRE_8 = "1.8".equals(javaVersion);
+		if (IS_JRE_8) { // TODO(stephan) accommodate future versions ...
+			COMPARATOR_IMPL_JRE8 = // replace '*' with T, '%' with U, $ with S
+				"	public java.util.Comparator<*> reverseOrder() { return null;}\n" +
+				"	public java.util.Comparator<*> reversed() { return null;}\n" +
+				"	public java.util.Comparator<*> thenComparing(java.util.Comparator<? super *> other) { return null;}\n" +
+				"	public <%> java.util.Comparator<*> thenComparing(java.util.function.Function<? super *, ? extends %> keyExtractor, java.util.Comparator<? super %> keyComparator) { return null;}\n" +
+				"	public <% extends java.lang.Comparable<? super %>> java.util.Comparator<*> thenComparing(java.util.function.Function<? super *, ? extends %> keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator<*> thenComparingInt(java.util.function.ToIntFunction<? super *> keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator<*> thenComparingLong(java.util.function.ToLongFunction<? super *> keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator<*> thenComparingDouble(java.util.function.ToDoubleFunction<? super *> keyExtractor) { return null;}\n";
+			COMPARATOR_RAW_IMPL_JRE8 =
+				"	public java.util.Comparator reverseOrder() { return null;}\n" +
+				"	public java.util.Comparator reversed() { return null;}\n" +
+				"	public java.util.Comparator thenComparing(java.util.Comparator other) { return null;}\n" +
+				"	public java.util.Comparator thenComparing(java.util.function.Function keyExtractor, java.util.Comparator keyComparator) { return null;}\n" +
+				"	public java.util.Comparator thenComparing(java.util.function.Function keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator thenComparingInt(java.util.function.ToIntFunction keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator thenComparingLong(java.util.function.ToLongFunction keyExtractor) { return null;}\n" +
+				"	public java.util.Comparator thenComparingDouble(java.util.function.ToDoubleFunction keyExtractor) { return null;}\n";
+			COLLECTION_IMPL_JRE8 =
+				"	public boolean removeAll(java.util.function.Predicate<? super *> filter) { return false;}\n" +
+				"	public boolean removeIf(java.util.function.Predicate<? super *> filter) { return false;}\n" +
+				"	public java.util.stream.Stream<*> stream() { return null;}\n" +
+				"	public java.util.stream.Stream<*> parallelStream() { return null;}\n";
+			COLLECTION_AND_LIST_IMPL_JRE8 =
+				"	public boolean removeAll(java.util.function.Predicate<? super *> filter) { return false;}\n" +
+				"	public boolean removeIf(java.util.function.Predicate<? super *> filter) { return false;}\n" +
+				"	public java.util.stream.Stream<*> stream() { return null;}\n" +
+				"	public java.util.stream.Stream<*> parallelStream() { return null;}\n" +
+				"	public void sort(java.util.Comparator<? super *> comparator) {}\n" +
+				"	public void parallelSort(java.util.Comparator<? super *> comparator) {}\n" +
+				"	public void replaceAll(java.util.function.UnaryOperator<*> operator) {}\n";
+			COLLECTION_RAW_IMPL_JRE8 =
+				"	public @SuppressWarnings(\"rawtypes\") boolean removeAll(java.util.function.Predicate filter) { return false;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") boolean removeIf(java.util.function.Predicate filter) { return false;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") java.util.stream.Stream stream() { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") java.util.stream.Stream parallelStream() { return null;}\n";
+			LIST_IMPL_JRE8 = // replace '*' with your concrete type argument
+				"	public void sort(java.util.Comparator<? super *> comparator) {}\n" +
+				"	public void parallelSort(java.util.Comparator<? super *> comparator) {}\n" +
+				"	public void replaceAll(java.util.function.UnaryOperator<*> operator) {}\n";
+			LIST_RAW_IMPL_JRE8 =
+				"	public @SuppressWarnings(\"rawtypes\") void sort(java.util.Comparator comparator) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void parallelSort(java.util.Comparator comparator) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void replaceAll(java.util.function.UnaryOperator operator) {}\n";
+			COLLECTION_AND_LIST_RAW_IMPL_JRE8 =
+				"	public @SuppressWarnings(\"rawtypes\") boolean removeAll(java.util.function.Predicate filter) { return false;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") boolean removeIf(java.util.function.Predicate filter) { return false;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") java.util.stream.Stream stream() { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") java.util.stream.Stream parallelStream() { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void sort(java.util.Comparator comparator) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void parallelSort(java.util.Comparator comparator) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void replaceAll(java.util.function.UnaryOperator operator) {}\n";
+			ITERABLE_IMPL_JRE8 = // replace '*' with your concrete type argument
+				"	public void forEach(java.util.function.Consumer<? super *> block){}\n" +
+				"	public void forEachRemaining(java.util.function.Consumer<? super *> action) {}\n" +
+				"	public java.util.Spliterator<*> spliterator() {return null;}\n";
+			ITERABLE_RAW_IMPL_JRE8 =
+				"	public @SuppressWarnings(\"rawtypes\") void forEach(java.util.function.Consumer action) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void forEachRemaining(java.util.function.Consumer action) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") java.util.Spliterator spliterator() {return null;}\n";
+			ITERATOR_IMPL_JRE8 = // replace '*' with your concrete type argument
+					"public void forEach(java.util.function.Consumer<? super *> action) {}\n" +
+					"public void forEachRemaining(java.util.function.Consumer<? super *> action) {}\n";
+			ITERATOR_RAW_IMPL_JRE8 =
+				"	public @SuppressWarnings(\"rawtypes\") void forEach(java.util.function.Consumer block) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void forEachRemaining(java.util.function.Consumer action) {}\n";
+			MAP_IMPL_JRE8 = // '*' for 'K', '%' for 'V'
+				"	public boolean remove(Object key, Object value) { return false;}\n" +
+				"	public % getOrDefault(Object key, % defaultValue) {return defaultValue;}\n" +
+				"	public void forEach(java.util.function.BiConsumer<? super *, ? super %> block) {}\n" +
+				"	public void replaceAll(java.util.function.BiFunction<? super *, ? super %, ? extends %> function) {}\n" +
+				"	public % putIfAbsent(* key, % value) { return null;}\n" +
+				"	public boolean replace(* key, % oldValue, % newValue) { return false;}\n" +
+				"	public % replace(* key, % value) { return null;}\n" +
+				"	public % computeIfAbsent(* key, java.util.function.Function<? super *, ? extends %> mappingFunction) { return null;}\n" +
+				"	public % computeIfPresent(* key, java.util.function.BiFunction<? super *, ? super %, ? extends %> remappingFunction) { return null;}\n" +
+				"	public % compute(* key, java.util.function.BiFunction<? super *, ? super %, ? extends %> remappingFunction) { return null;}\n" +
+				"	public % merge(* key, % value, java.util.function.BiFunction<? super %, ? super %, ? extends %> remappingFunction) { return null;}\n";
+			MAP_RAW_IMPL_JRE8 =
+				"	public boolean remove(Object key, Object value) { return false;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") Object getOrDefault(Object key, Object defaultValue) { return defaultValue;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void forEach(java.util.function.BiConsumer block) {}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") void replaceAll(java.util.function.BiFunction function) {}\n" +
+				"	public Object putIfAbsent(Object key, Object value) { return null;}\n" +
+				"	public boolean replace(Object key, Object oldValue, Object newValue) { return false;}\n" +
+				"	public Object replace(Object key, Object value) { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") Object computeIfAbsent(Object key, java.util.function.Function mappingFunction) { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") Object computeIfPresent(Object key, java.util.function.BiFunction remappingFunction) { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") Object compute(Object key, java.util.function.BiFunction remappingFunction) { return null;}\n" +
+				"	public @SuppressWarnings(\"rawtypes\") Object merge(Object key, Object value, java.util.function.BiFunction remappingFunction) { return null;}\n";
+		} else {
+			COMPARATOR_IMPL_JRE8 = "";			
+			COMPARATOR_RAW_IMPL_JRE8 = "";
+			COLLECTION_IMPL_JRE8 = "";
+			COLLECTION_RAW_IMPL_JRE8 = "";
+			LIST_IMPL_JRE8 = "";
+			COLLECTION_AND_LIST_IMPL_JRE8 = "";
+			COLLECTION_AND_LIST_RAW_IMPL_JRE8 = "";
+			LIST_RAW_IMPL_JRE8 = "";
+			ITERABLE_IMPL_JRE8 = "";
+			ITERABLE_RAW_IMPL_JRE8 = "";
+			ITERATOR_IMPL_JRE8 = "\n\n";
+			ITERATOR_RAW_IMPL_JRE8 = "\n\n";
+			MAP_IMPL_JRE8 = "";
+			MAP_RAW_IMPL_JRE8 = "";
+		}
+	}
+	String getCollectionAndListRawImplJRE8() {
+		if (this.complianceLevel < ClassFileConstants.JDK1_5)
+			return COLLECTION_AND_LIST_RAW_IMPL_JRE8.replaceAll("@SuppressWarnings\\(\"rawtypes\"\\)", "");
+		return COLLECTION_AND_LIST_RAW_IMPL_JRE8;
+	} 
+	String getListRawImplJRE8() {
+		if (this.complianceLevel < ClassFileConstants.JDK1_5)
+			return LIST_RAW_IMPL_JRE8.replaceAll("@SuppressWarnings\\(\"rawtypes\"\\)", "");
+		return LIST_RAW_IMPL_JRE8;
+	}
+	String getIterableRawImplJRE8() {
+		if (this.complianceLevel < ClassFileConstants.JDK1_5)
+			return ITERABLE_RAW_IMPL_JRE8.replaceAll("@SuppressWarnings\\(\"rawtypes\"\\)", "");
+		return ITERABLE_RAW_IMPL_JRE8;
+	}
+	String getCollectionRawImplJRE8() {
+		if (this.complianceLevel < ClassFileConstants.JDK1_5)
+			return COLLECTION_RAW_IMPL_JRE8.replaceAll("@SuppressWarnings\\(\"rawtypes\"\\)", "");
+		return COLLECTION_RAW_IMPL_JRE8;
+	}
+
 	// javac comparison related types, fields and methods - see runJavac for
 	// details
 static class JavacCompiler {
@@ -129,6 +286,8 @@ static class JavacCompiler {
 			this.version = JavaCore.VERSION_1_6;
 		} else if (rawVersion.indexOf("1.7") != -1) {
 			this.version = JavaCore.VERSION_1_7;
+		} else if (rawVersion.indexOf("1.8") != -1) {
+			this.version = JavaCore.VERSION_1_8;
 		} else {
 			throw new RuntimeException("unknown javac version: " + rawVersion);
 		}
@@ -166,6 +325,17 @@ static class JavacCompiler {
 		}
 		if (version == JavaCore.VERSION_1_7) {
 			if ("1.7.0-ea".equals(rawVersion)) {
+				return 0000;
+			}
+			if ("1.7.0_10".equals(rawVersion)) {
+				return 1000;
+			}
+			if ("1.7.0_25".equals(rawVersion)) {
+				return 2500;
+			}
+		}
+		if (version == JavaCore.VERSION_1_8) {
+			if ("1.8.0-ea".equals(rawVersion) || ("1.8.0".equals(rawVersion))) {
 				return 0000;
 			}
 		}
@@ -289,6 +459,9 @@ protected static class JavacTestOptions {
 	String getCompilerOptions() {
 		return this.compilerOptions;
 	}
+	public void setCompilerOptions(String options) {
+		this.compilerOptions = options;
+	}
 	boolean skip(JavacCompiler compiler) {
 		return false;
 	}
@@ -334,7 +507,11 @@ protected static class JavacTestOptions {
 		}
 		public static EclipseHasABug
 			EclipseBug159851 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=159851
-				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) : null,
+				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) {
+					Excuse excuseFor(JavacCompiler compiler) {
+						return compiler.compliance < ClassFileConstants.JDK1_7 ? this : null;
+					}
+				} : null,
 			EclipseBug177715 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=177715
 				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) : null,
 			EclipseBug207935 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=207935
@@ -346,7 +523,11 @@ protected static class JavacTestOptions {
 			EclipseBug235809 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=235809
 				new EclipseHasABug(MismatchType.StandardOutputMismatch) : null,
 			EclipseBug236217 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=236217
-				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) : null,
+				new EclipseHasABug(MismatchType.JavacErrorsEclipseNone) {
+					Excuse excuseFor(JavacCompiler compiler) {
+						return compiler.compliance < ClassFileConstants.JDK1_8 ? this : null; // in 1.8 accepted by both compilers
+					}
+				} : null,
 			EclipseBug236236 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=236236
 				new EclipseHasABug(MismatchType.EclipseErrorsJavacNone) {
 					Excuse excuseFor(JavacCompiler compiler) {
@@ -356,7 +537,7 @@ protected static class JavacTestOptions {
 			EclipseBug236242 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=236242
 				new EclipseHasABug(MismatchType.EclipseErrorsJavacWarnings) {
 					Excuse excuseFor(JavacCompiler compiler) {
-						return compiler.compliance > ClassFileConstants.JDK1_6 ? this : null;
+						return compiler.compliance == ClassFileConstants.JDK1_7 ? this : null;
 					}
 				}: null,
 			EclipseBug236243 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=236243
@@ -405,7 +586,7 @@ protected static class JavacTestOptions {
 			EclipseBug95021 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=95021
 				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) {
 					Excuse excuseFor(JavacCompiler compiler) {
-						return compiler.compliance > ClassFileConstants.JDK1_6 ? this : null;
+						return compiler.compliance == ClassFileConstants.JDK1_7 ? this : null;
 					}
 					// WORK consider adding reversed pivots
 				} : null,
@@ -420,14 +601,16 @@ protected static class JavacTestOptions {
 				} : null,
 			EclipseBug126744 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=126744
 				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) : null,
-			EclipseBug148061 = 	RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=148061
-				new EclipseJustification(MismatchType.EclipseErrorsJavacWarnings) : null,
 			EclipseBug151275 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=151275
-				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) : null,
+				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) {
+					Excuse excuseFor(JavacCompiler compiler) { 
+						return compiler.compliance < ClassFileConstants.JDK1_7 ? this : null;
+					}
+				} : null,
 			EclipseBug159214 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=159214
 				new EclipseJustification(MismatchType.EclipseErrorsJavacNone) {
 					Excuse excuseFor(JavacCompiler compiler) {
-						return compiler.compliance > ClassFileConstants.JDK1_5 ? this : null;
+						return compiler.compliance == ClassFileConstants.JDK1_6 ? this : null;
 					}
 					// WORK consider adding reversed pivots
 				} : null,
@@ -458,7 +641,11 @@ protected static class JavacTestOptions {
 					// WORK consider adding reversed pivots
 				} : null,
 			EclipseBug234815 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=234815
-				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) : null,
+				new EclipseJustification(MismatchType.JavacErrorsEclipseNone) {
+					Excuse excuseFor(JavacCompiler compiler) {
+						return compiler.compliance < ClassFileConstants.JDK1_7 ? this : null;
+					}
+				}: null,
 			EclipseBug235543 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=235543
 				new EclipseJustification(MismatchType.EclipseErrorsJavacNone) : null,
 			EclipseBug235546 = RUN_JAVAC ? // https://bugs.eclipse.org/bugs/show_bug.cgi?id=235546
@@ -492,7 +679,10 @@ protected static class JavacTestOptions {
 		}
 		Excuse excuseFor(JavacCompiler compiler) {
 			if (this.minorsFixed != null) {
-				if (compiler.compliance == ClassFileConstants.JDK1_7) {
+				if (compiler.compliance == ClassFileConstants.JDK1_8) {
+					return this.minorsFixed[5] > compiler.minor || this.minorsFixed[5] < 0 ?
+							this : null;
+				} else if (compiler.compliance == ClassFileConstants.JDK1_7) {
 					return this.minorsFixed[4] > compiler.minor || this.minorsFixed[4] < 0 ?
 							this : null;
 				} else if (compiler.compliance == ClassFileConstants.JDK1_6) {
@@ -542,27 +732,33 @@ protected static class JavacTestOptions {
 				new JavacHasABug(
 					MismatchType.EclipseErrorsJavacNone,
 					ClassFileConstants.JDK1_7, 0 /* 1.7.0 b03 */) : null,
-			JavacBug6294779 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6294779
-				new JavacHasABug(
-					MismatchType.JavacErrorsEclipseNone) : null,
 			JavacBug6302954 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6302954 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=98379
 				new JavacHasABug(
 					MismatchType.JavacErrorsEclipseNone,
 					ClassFileConstants.JDK1_7, 0 /* 1.7.0 b03 */) : null,
 			JavacBug6400189 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6400189 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=106744 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=167952
 				new JavacHasABug(
-					MismatchType.EclipseErrorsJavacNone) : null,
+					MismatchType.EclipseErrorsJavacNone) {
+						Excuse excuseFor(JavacCompiler compiler) {
+							return compiler.compliance == ClassFileConstants.JDK1_6 ? this : null;
+						}
+					} : null,
 			JavacBug6500701 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6500701 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=209779
 				new JavacHasABug(
-					MismatchType.StandardOutputMismatch) : null,
+					MismatchType.StandardOutputMismatch,
+					ClassFileConstants.JDK1_7, 0) : null,
 			JavacBug6531075 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6531075
 				new JavacHasABug(
 					MismatchType.StandardOutputMismatch,
 					ClassFileConstants.JDK1_7, 0) : null, // fixed in jdk7 b27; unfortunately, we do not have a distinct minor for this, hence former jdk7s will report an unused excuse
 			JavacBug6569404 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6569404
 				new JavacHasABug(
-					MismatchType.JavacErrorsEclipseNone,
-					-ClassFileConstants.JDK1_6, 10 /* 1.6.0_10_b08 or later */) : null,
+					MismatchType.JavacErrorsEclipseNone) {
+						Excuse excuseFor(JavacCompiler compiler) {
+							// present only in javac6 between 1.6.0_10_b08 and EOL
+							return (compiler.compliance == ClassFileConstants.JDK1_6 && compiler.minor >= 10) ? this : null;
+						}
+					} : null,
 			JavacBug6557661 = RUN_JAVAC ? // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6557661 & https://bugs.eclipse.org/bugs/show_bug.cgi?id=129261
 				new JavacHasABug(
 					MismatchType.EclipseErrorsJavacNone) : null,
@@ -844,6 +1040,8 @@ protected static class JavacTestOptions {
 			buffer.append("\" -1.6 -proc:none");
 		} else if (this.complianceLevel == ClassFileConstants.JDK1_7) {
 			buffer.append("\" -1.7 -proc:none");
+		} else if (this.complianceLevel == ClassFileConstants.JDK1_8) {
+			buffer.append("\" -1.8 -proc:none");
 		}
 		buffer
 			.append(" -preserveAllLocals -nowarn -g -classpath \"")
@@ -862,15 +1060,18 @@ protected static class JavacTestOptions {
 	 * Fail if exception is non null.
 	 */
 	protected void checkCompilerLog(String[] testFiles, Requestor requestor,
-			String platformIndependantExpectedLog, Throwable exception) {
+			String[] alternatePlatformIndependantExpectedLogs, Throwable exception) {
 		String computedProblemLog = Util.convertToIndependantLineDelimiter(requestor.problemLog.toString());
-		if (!platformIndependantExpectedLog.equals(computedProblemLog)) {
-			logTestTitle();
-			System.out.println(Util.displayString(computedProblemLog, INDENT, SHIFT));
-			logTestFiles(false, testFiles);
+		int i;
+		for (i = 0; i < alternatePlatformIndependantExpectedLogs.length; i++) {
+			if (alternatePlatformIndependantExpectedLogs[i].equals(computedProblemLog))
+				return; // OK
 		}
+		logTestTitle();
+		System.out.println(Util.displayString(computedProblemLog, INDENT, SHIFT));
+		logTestFiles(false, testFiles);
 		if (exception == null) {
-			assertEquals("Invalid problem log ", platformIndependantExpectedLog, computedProblemLog);
+			assertEquals("Invalid problem log ", alternatePlatformIndependantExpectedLogs[i-1], computedProblemLog);
 		}
     }
 
@@ -1020,12 +1221,14 @@ protected static class JavacTestOptions {
 		return DefaultJavaRuntimeEnvironment.getDefaultClassPaths();
 	}
 	/** Get class library paths built from default class paths plus the JDT null annotations. */
-	protected String[] getLibsWithNullAnnotations() throws IOException {
+	protected String[] getLibsWithNullAnnotations(long sourceLevel) throws IOException {
 		String[] defaultLibs = getDefaultClassPaths();
 		int len = defaultLibs.length;
 		String[] libs = new String[len+1];
 		System.arraycopy(defaultLibs, 0, libs, 0, len);
-		File bundleFile = FileLocator.getBundleFile(Platform.getBundle("org.eclipse.jdt.annotation"));
+		String version = sourceLevel < ClassFileConstants.JDK1_8 ? "[1.1.0,2.0.0)" : "[2.0.0,3.0.0)";
+		Bundle[] bundles = Platform.getBundles("org.eclipse.jdt.annotation", version);
+		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		if (bundleFile.isDirectory())
 			libs[len] = bundleFile.getPath()+"/bin";
 		else
@@ -1039,6 +1242,9 @@ protected static class JavacTestOptions {
 			}
 			public boolean proceedOnErrors() {
 				return true;
+			}
+			public boolean ignoreAllErrors() {
+				return false;
 			}
 		};
 	}
@@ -1176,6 +1382,7 @@ protected static class JavacTestOptions {
 			// compiler results
 			false /* expecting no compiler errors */,
 			null /* do not check compiler log */,
+			null /* no alternate compiler logs */,
 			// runtime options
 			false /* do not force execution */,
 			null /* no vm arguments */,
@@ -1231,6 +1438,28 @@ protected static class JavacTestOptions {
 			// javac options
 			JavacTestOptions.DEFAULT /* default javac test options */);
 	}
+	protected void runConformTest(String[] testFiles, String expectedOutput, Map customOptions) {
+		runTest(
+			// test directory preparation
+			true /* flush output directory */,
+			testFiles /* test files */,
+			// compiler options
+			null /* no class libraries */,
+			customOptions /* no custom options */,
+			false /* do not perform statements recovery */,
+			null /* no custom requestor */,
+			// compiler results
+			false /* expecting no compiler errors */,
+			null /* do not check compiler log */,
+			// runtime options
+			false /* do not force execution */,
+			null /* no vm arguments */,
+			// runtime results
+			expectedOutput /* expected output string */,
+			null /* do not check error string */,
+			// javac options
+			JavacTestOptions.DEFAULT /* default javac test options */);
+	}
 	protected void runConformTest(
 			String[] testFiles,
 			String[] dependantFiles,
@@ -1244,6 +1473,7 @@ protected static class JavacTestOptions {
 				false,
 				null,
 				false,
+				null,
 				null,
 				false,
 				null,
@@ -1624,6 +1854,13 @@ protected void runJavac(
 	if (options == JavacTestOptions.SKIP) {
 		return;
 	}
+	if (options == null) {
+		options = JavacTestOptions.DEFAULT;
+	}
+	String newOptions = options.getCompilerOptions();
+	if (newOptions.indexOf(" -d ") < 0) {
+		options.setCompilerOptions(newOptions.concat(" -d ."));
+	}
 	String testName = testName();
 	Iterator compilers = javacCompilers.iterator();
 	while (compilers.hasNext()) {
@@ -1742,7 +1979,8 @@ protected void runJavac(
 						err = stderr.toString().trim();
 						if (!expectedErrorString.equals(err) && // special case: command-line java does not like missing main methods
 								!(expectedErrorString.length() == 0 &&
-									err.indexOf("java.lang.NoSuchMethodError: main") != -1)) {
+									(err.indexOf("java.lang.NoSuchMethodError: main") != -1)
+									|| err.indexOf("Error: Main method not found in class") != -1)) {
 							mismatch = JavacTestOptions.MismatchType.ErrorOutputMismatch;
 						}
 					}
@@ -1848,6 +2086,33 @@ protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 			// javac options
 			JavacTestOptions.DEFAULT /* default javac test options */);
 	}
+protected void runNegativeTest(String[] testFiles, String expectedCompilerLog, boolean performStatementRecovery) {
+	runTest(
+ 		// test directory preparation
+		true /* flush output directory */,
+		testFiles /* test files */,
+		// compiler options
+		null /* no class libraries */,
+		null /* no custom options */,
+		performStatementRecovery,
+		new Requestor( /* custom requestor */
+				false,
+				null /* no custom requestor */,
+				false,
+				false),
+		// compiler results
+		expectedCompilerLog == null || /* expecting compiler errors */
+			expectedCompilerLog.indexOf("ERROR") != -1,
+		expectedCompilerLog /* expected compiler log */,
+		// runtime options
+		false /* do not force execution */,
+		null /* no vm arguments */,
+		// runtime results
+		null /* do not check output string */,
+		null /* do not check error string */,
+		// javac options
+		JavacTestOptions.DEFAULT /* default javac test options */);
+}
 	// WORK potential elimination candidate (24 calls) - else clean up inline
 	protected void runNegativeTest(
 		String[] testFiles,
@@ -2024,6 +2289,46 @@ protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 					JavacTestOptions.SKIP :
 					JavacTestOptions.DEFAULT /* javac test options */);
 	}
+	protected void runNegativeTest(
+			String[] testFiles,
+			String expectedCompilerLog,
+			String[] classLibraries,
+			boolean shouldFlushOutputDirectory,
+			Map customOptions,
+			boolean generateOutput,
+			boolean showCategory,
+			boolean showWarningToken,
+			boolean skipJavac,
+			JavacTestOptions javacOptions,
+			boolean performStatementsRecovery) {
+			runTest(
+		 		// test directory preparation
+				shouldFlushOutputDirectory /* should flush output directory */,
+				testFiles /* test files */,
+				// compiler options
+				classLibraries /* class libraries */,
+				customOptions /* custom options */,
+				performStatementsRecovery /* perform statements recovery */,
+				new Requestor( /* custom requestor */
+						generateOutput,
+						null /* no custom requestor */,
+						showCategory,
+						showWarningToken),
+				// compiler results
+				expectedCompilerLog == null || /* expecting compiler errors */
+					expectedCompilerLog.indexOf("ERROR") != -1,
+				expectedCompilerLog /* expected compiler log */,
+				// runtime options
+				false /* do not force execution */,
+				null /* no vm arguments */,
+				// runtime results
+				null /* do not check output string */,
+				null /* do not check error string */,
+				// javac options
+				skipJavac ?
+						JavacTestOptions.SKIP :
+						 javacOptions/* javac test options */);
+		}
 	protected void runTest(
 			String[] testFiles,
 			boolean expectingCompilerErrors,
@@ -2127,12 +2432,37 @@ protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 			customRequestor,
 			expectingCompilerErrors,
 			expectedCompilerLog,
+			null, // alternate compile errors
 			forceExecution,
 			vmArguments,
 			expectedOutputString,
 			expectedErrorString,
 			null,
 			javacTestOptions);
+	}
+	/** Call this if the compiler randomly produces different error logs. */
+	protected void runNegativeTestMultiResult(String[] testFiles, Map options, String[] alternateCompilerErrorLogs) {
+		runTest(
+			false,
+			testFiles,
+			new String[] {},
+			null,
+			options,
+			false,
+			new Requestor( /* custom requestor */
+					false,
+					null /* no custom requestor */,
+					false,
+					false),
+			true,
+			null,
+			alternateCompilerErrorLogs,
+			false,
+			null,
+			null,
+			null,
+			null,
+			JavacTestOptions.DEFAULT);
 	}
 // This is a worker method to support regression tests. To ease policy changes,
 // it should not be called directly, but through the runConformTest and
@@ -2219,6 +2549,7 @@ protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 			// compiler results
 			boolean expectingCompilerErrors,
 			String expectedCompilerLog,
+			String[] alternateCompilerLogs,
 			// runtime options
 			boolean forceExecution,
 			String[] vmArguments,
@@ -2281,9 +2612,16 @@ protected void runNegativeTest(String[] testFiles, String expectedCompilerLog) {
 			throw e;
 		} finally {
 			nameEnvironment.cleanup();
+			String[] alternatePlatformIndepentLogs = null;
 			if (expectedCompilerLog != null) {
-				checkCompilerLog(testFiles, requestor,
-						Util.convertToIndependantLineDelimiter(expectedCompilerLog), exception);
+				alternatePlatformIndepentLogs = new String[] {Util.convertToIndependantLineDelimiter(expectedCompilerLog)};
+			} else if (alternateCompilerLogs != null) {
+				alternatePlatformIndepentLogs = new String[alternateCompilerLogs.length];
+				for (int i = 0; i < alternateCompilerLogs.length; i++)
+					alternatePlatformIndepentLogs[i] = Util.convertToIndependantLineDelimiter(alternateCompilerLogs[i]);
+			}
+			if (alternatePlatformIndepentLogs != null) {
+				checkCompilerLog(testFiles, requestor, alternatePlatformIndepentLogs, exception);
 			}
 			if (exception == null) {
 				if (expectingCompilerErrors) {
@@ -2611,7 +2949,8 @@ protected void runNegativeTest(
 		false /* do not perform statements recovery */,
 		null /* no custom requestor */,
 		// compiler results
-		true /* expecting compiler errors */,
+		expectedCompilerLog == null || /* expecting compiler errors */
+		expectedCompilerLog.indexOf("ERROR") != -1,
 		expectedCompilerLog /* expected compiler log */,
 		// runtime options
 		false /* do not force execution */,

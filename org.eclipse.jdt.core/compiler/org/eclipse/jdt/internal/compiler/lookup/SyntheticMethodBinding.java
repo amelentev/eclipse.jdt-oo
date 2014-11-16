@@ -1,18 +1,23 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
- *     IBM Corporation - initial API and implementation
+ *		IBM Corporation - initial API and implementation
+ *		Stephan Herrmann - Contribution for
+ *								bug 400710 - [1.8][compiler] synthetic access to default method generates wrong code
+ *      Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *                          	Bug 405104 - [1.8][compiler][codegen] Implement support for serializeable lambdas
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.FieldDeclaration;
+import org.eclipse.jdt.internal.compiler.ast.LambdaExpression;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 
 public class SyntheticMethodBinding extends MethodBinding {
@@ -21,6 +26,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public FieldBinding targetWriteField;		// write access to a field
 	public MethodBinding targetMethod;			// method or constructor
 	public TypeBinding targetEnumType; 			// enum type
+	public LambdaExpression lambda;
 	
 	public int purpose;
 
@@ -40,9 +46,15 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public final static int EnumValueOf = 10; // enum #valueOf(String)
 	public final static int SwitchTable = 11; // switch table method
 	public final static int TooManyEnumsConstants = 12; // too many enum constants
-
+	public static final int LambdaMethod = 13; // Lambda body emitted as a method.
+	public final static int ArrayConstructor = 14; // X[]::new
+	public static final int ArrayClone = 15; // X[]::clone
+    public static final int FactoryMethod = 16; // for indy call to private constructor.
+    public static final int DeserializeLambda = 17; // For supporting lambda deserialization.
+    
 	public int sourceStart = 0; // start position of the matching declaration
 	public int index; // used for sorting access methods in the class file
+	public int fakePaddedParameters = 0; // added in synthetic constructor to avoid name clash.
 
 	public SyntheticMethodBinding(FieldBinding targetField, boolean isReadAccess, boolean isSuperAccess, ReferenceBinding declaringClass) {
 
@@ -94,7 +106,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 						if (method.parameters.length == paramCount) {
 							TypeBinding[] toMatch = method.parameters;
 							for (int i = 0; i < paramCount; i++) {
-								if (toMatch[i] != this.parameters[i]) {
+								if (TypeBinding.notEquals(toMatch[i], this.parameters[i])) {
 									continue nextMethod;
 								}
 							}
@@ -150,7 +162,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 	}
 
 	public SyntheticMethodBinding(FieldBinding targetField, ReferenceBinding declaringClass, TypeBinding enumBinding, char[] selector) {
-		this.modifiers = ClassFileConstants.AccDefault | ClassFileConstants.AccStatic | ClassFileConstants.AccSynthetic;
+		this.modifiers = (declaringClass.isInterface() ? ClassFileConstants.AccPublic : ClassFileConstants.AccDefault) | ClassFileConstants.AccStatic | ClassFileConstants.AccSynthetic;
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) declaringClass;
 		SyntheticMethodBinding[] knownAccessMethods = declaringSourceType.syntheticMethods();
@@ -183,7 +195,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 						if (method.parameters.length == paramCount) {
 							TypeBinding[] toMatch = method.parameters;
 							for (int i = 0; i < paramCount; i++) {
-								if (toMatch[i] != this.parameters[i]) {
+								if (TypeBinding.notEquals(toMatch[i], this.parameters[i])) {
 									continue nextMethod;
 								}
 							}
@@ -271,6 +283,23 @@ public class SyntheticMethodBinding extends MethodBinding {
 	}
 	
 	/**
+	 * Construct $deserializeLambda$ method
+	 */
+	public SyntheticMethodBinding(SourceTypeBinding declaringClass) {
+		this.declaringClass = declaringClass;
+		this.selector = TypeConstants.DESERIALIZE_LAMBDA;
+		this.modifiers = ClassFileConstants.AccPrivate | ClassFileConstants.AccStatic | ClassFileConstants.AccSynthetic;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+		this.thrownExceptions = Binding.NO_EXCEPTIONS;
+		this.returnType = declaringClass.scope.getJavaLangObject();
+	    this.parameters = new TypeBinding[]{declaringClass.scope.getJavaLangInvokeSerializedLambda()};
+	    this.purpose = SyntheticMethodBinding.DeserializeLambda;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+	
+	/**
 	 * Construct enum special methods: values or valueOf methods
 	 */
 	public SyntheticMethodBinding(SourceTypeBinding declaringEnum, int startIndex, int endIndex) {
@@ -293,12 +322,13 @@ public class SyntheticMethodBinding extends MethodBinding {
 	// Create a synthetic method that will simply call the super classes method.
 	// Used when a public method is inherited from a non-public class into a public class.
 	// See https://bugs.eclipse.org/bugs/show_bug.cgi?id=288658
+	// Also applies for inherited default methods with the same visibility issue.
+	// See https://bugs.eclipse.org/400710
 	public SyntheticMethodBinding(MethodBinding overridenMethodToBridge, SourceTypeBinding declaringClass) {
 
 	    this.declaringClass = declaringClass;
 	    this.selector = overridenMethodToBridge.selector;
 	    // amongst other, clear the AccGenericSignature, so as to ensure no remains of original inherited persist (101794)
-	    // also use the modifiers from the target method, as opposed to inherited one (147690)
 	    this.modifiers = (overridenMethodToBridge.modifiers | ClassFileConstants.AccBridge | ClassFileConstants.AccSynthetic) & ~(ClassFileConstants.AccSynchronized | ClassFileConstants.AccAbstract | ClassFileConstants.AccNative  | ClassFileConstants.AccFinal | ExtraCompilerModifiers.AccGenericSignature);
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 	    this.returnType = overridenMethodToBridge.returnType;
@@ -306,6 +336,58 @@ public class SyntheticMethodBinding extends MethodBinding {
 	    this.thrownExceptions = overridenMethodToBridge.thrownExceptions;
 	    this.targetMethod = overridenMethodToBridge;
 	    this.purpose = SyntheticMethodBinding.SuperMethodAccess;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
+	public SyntheticMethodBinding(int purpose, ArrayBinding arrayType, char [] selector, SourceTypeBinding declaringClass) {
+	    this.declaringClass = declaringClass;
+	    this.selector = selector;
+	    this.modifiers = ClassFileConstants.AccSynthetic | ClassFileConstants.AccPrivate | ClassFileConstants.AccStatic;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+	    this.returnType = arrayType;
+	    this.parameters = new TypeBinding[] { purpose == SyntheticMethodBinding.ArrayConstructor ? TypeBinding.INT : (TypeBinding) arrayType};
+	    this.thrownExceptions = Binding.NO_EXCEPTIONS;
+	    this.purpose = purpose;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
+	public SyntheticMethodBinding(LambdaExpression lambda, char [] lambdaName, SourceTypeBinding declaringClass) {
+		this.lambda = lambda;
+	    this.declaringClass = declaringClass;
+	    this.selector = lambdaName;
+	    this.modifiers = lambda.binding.modifiers;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved) | (lambda.binding.tagBits & TagBits.HasParameterAnnotations);
+	    this.returnType = lambda.binding.returnType;
+	    this.parameters = lambda.binding.parameters;
+	    this.thrownExceptions = lambda.binding.thrownExceptions;
+	    this.purpose = SyntheticMethodBinding.LambdaMethod;
+		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
+		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
+		this.index = methodId;
+	}
+
+	public SyntheticMethodBinding(MethodBinding privateConstructor, MethodBinding publicConstructor, char[] selector, TypeBinding[] enclosingInstances, SourceTypeBinding declaringClass) {
+	    this.declaringClass = declaringClass;
+	    this.selector = selector;
+	    this.modifiers = ClassFileConstants.AccSynthetic | ClassFileConstants.AccPrivate | ClassFileConstants.AccStatic;
+		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
+	    this.returnType = publicConstructor.declaringClass;
+	
+	    int realParametersLength = privateConstructor.parameters.length;
+	    int enclosingInstancesLength = enclosingInstances.length;
+	    int parametersLength =  enclosingInstancesLength + realParametersLength;
+	    this.parameters = new TypeBinding[parametersLength];
+	    System.arraycopy(enclosingInstances, 0, this.parameters, 0, enclosingInstancesLength);
+	    System.arraycopy(privateConstructor.parameters, 0, this.parameters, enclosingInstancesLength, realParametersLength);
+	    this.fakePaddedParameters = publicConstructor.parameters.length - realParametersLength;
+	    
+	    this.thrownExceptions = publicConstructor.thrownExceptions;
+	    this.purpose = SyntheticMethodBinding.FactoryMethod;
+	    this.targetMethod = publicConstructor;
 		SyntheticMethodBinding[] knownAccessMethods = declaringClass.syntheticMethods();
 		int methodId = knownAccessMethods == null ? 0 : knownAccessMethods.length;
 		this.index = methodId;
@@ -396,7 +478,10 @@ public class SyntheticMethodBinding extends MethodBinding {
 	public void initializeMethodAccessor(MethodBinding accessedMethod, boolean isSuperAccess, ReferenceBinding receiverType) {
 
 		this.targetMethod = accessedMethod;
-		this.modifiers = ClassFileConstants.AccDefault | ClassFileConstants.AccStatic | ClassFileConstants.AccSynthetic;
+		if (isSuperAccess && receiverType.isInterface() && !accessedMethod.isStatic())
+			this.modifiers = ClassFileConstants.AccPrivate | ClassFileConstants.AccSynthetic;
+		else
+			this.modifiers = ClassFileConstants.AccDefault | ClassFileConstants.AccStatic | ClassFileConstants.AccSynthetic;
 		this.tagBits |= (TagBits.AnnotationResolved | TagBits.DeprecatedAnnotationResolved);
 		SourceTypeBinding declaringSourceType = (SourceTypeBinding) receiverType;
 		SyntheticMethodBinding[] knownAccessMethods = declaringSourceType.syntheticMethods();
@@ -407,7 +492,7 @@ public class SyntheticMethodBinding extends MethodBinding {
 		this.returnType = accessedMethod.returnType;
 		this.purpose = isSuperAccess ? SyntheticMethodBinding.SuperMethodAccess : SyntheticMethodBinding.MethodAccess;
 
-		if (accessedMethod.isStatic()) {
+		if (accessedMethod.isStatic() || (isSuperAccess && receiverType.isInterface())) {
 			this.parameters = accessedMethod.parameters;
 		} else {
 			this.parameters = new TypeBinding[accessedMethod.parameters.length + 1];
@@ -460,5 +545,9 @@ public class SyntheticMethodBinding extends MethodBinding {
 
 	protected boolean isConstructorRelated() {
 		return this.purpose == SyntheticMethodBinding.ConstructorAccess;
+	}
+	
+	public LambdaExpression sourceLambda() {
+		return this.lambda;
 	}
 }

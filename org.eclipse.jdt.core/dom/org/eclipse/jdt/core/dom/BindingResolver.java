@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -573,6 +573,49 @@ class BindingResolver {
 	 *    <code>null</code> if no binding is available
 	 */
 	IMethodBinding resolveMethod(MethodDeclaration method) {
+		return null;
+	}
+
+	/**
+	 * Resolves the given  method reference and returns the binding for it.
+	 * <p>
+	 * The implementation of <code>MethodReference.resolveMethodBinding</code>
+	 * forwards to this method. How the method resolves is often a function of
+	 * the context in which the method reference node is embedded as well as
+	 * the method reference subtree itself.
+	 * </p>
+	 * <p>
+	 * The default implementation of this method returns <code>null</code>.
+	 * Subclasses may reimplement.
+	 * </p>
+	 *
+	 * @param methodReference the  method reference of interest
+	 * @return the binding for the given  method reference, or
+	 *    <code>null</code> if no binding is available
+	 * @since 3.10
+	 */
+	IMethodBinding resolveMethod(MethodReference methodReference) {
+		return null;
+	}
+
+	/**
+	 * Resolves the given Lambda Expression and returns the binding for it.
+	 * <p>
+	 * The implementation of <code>LambdaExpression.resolveMethodBinding</code>
+	 * forwards to this method. How the method resolves is often a function of
+	 * the context in which the method declaration node is embedded as well as
+	 * the method declaration subtree itself.
+	 * </p>
+	 * <p>
+	 * The default implementation of this method returns <code>null</code>.
+	 * Subclasses may re-implement.
+	 * </p>
+	 *
+	 * @param lambda LambdaExpression of interest
+	 * @return the binding for the given lambda expression, or
+	 *    <code>null</code> if no binding is available
+	 */
+	IMethodBinding resolveMethod(LambdaExpression lambda) {
 		return null;
 	}
 

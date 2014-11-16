@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -39,6 +39,11 @@ public class SuperReference extends ThisReference {
 
 		return true;
 	}
+	
+	@Override
+	public boolean isUnqualifiedSuper() {
+		return true;
+	}
 
 	public boolean isThis() {
 
@@ -54,9 +59,9 @@ public class SuperReference extends ThisReference {
 	public TypeBinding resolveType(BlockScope scope) {
 
 		this.constant = Constant.NotAConstant;
-		if (!checkAccess(scope.methodScope()))
-			return null;
 		ReferenceBinding enclosingReceiverType = scope.enclosingReceiverType();
+		if (!checkAccess(scope, enclosingReceiverType))
+			return null;
 		if (enclosingReceiverType.id == T_JavaLangObject) {
 			scope.problemReporter().cannotUseSuperInJavaLangObject(this);
 			return null;

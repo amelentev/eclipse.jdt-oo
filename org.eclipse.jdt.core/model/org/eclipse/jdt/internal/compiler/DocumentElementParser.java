@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -18,10 +18,10 @@ import org.eclipse.jdt.core.compiler.*;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.parser.*;
 import org.eclipse.jdt.internal.compiler.problem.*;
+import org.eclipse.jdt.internal.compiler.util.Util;
 
 public class DocumentElementParser extends Parser {
 	IDocumentElementRequestor requestor;
-	private int localIntPtr;
 	private int lastFieldEndPosition;
 	private int lastFieldBodyEndPosition;
 	private int typeStartPosition;
@@ -450,6 +450,9 @@ protected void consumeEnterVariable() {
 	char[] varName = this.identifierStack[this.identifierPtr];
 	long namePosition = this.identifierPositionStack[this.identifierPtr--];
 	int extendedTypeDimension = this.intStack[this.intPtr--];
+	// pop any annotations on extended dimensions now, so they don't pollute the base dimensions.
+	Annotation [][] annotationsOnExtendedDimensions = extendedTypeDimension == 0 ? null : getAnnotationsOnDimensions(extendedTypeDimension);
+
 
 	AbstractVariableDeclaration declaration;
 	if (this.nestedMethod[this.nestedType] != 0) {
@@ -464,7 +467,6 @@ protected void consumeEnterVariable() {
 	this.identifierLengthPtr--;
 	TypeReference type;
 	int variableIndex = this.variablesCounter[this.nestedType];
-	int typeDim = 0;
 	if (variableIndex == 0) {
 		// first variable of the declaration (FieldDeclaration or LocalDeclaration)
 		if (this.nestedMethod[this.nestedType] != 0) {
@@ -472,11 +474,11 @@ protected void consumeEnterVariable() {
 			declaration.declarationSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiersSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiers = this.intStack[this.intPtr--];
-			type = getTypeReference(typeDim = this.intStack[this.intPtr--]); // type dimension
+			type = getTypeReference(this.intStack[this.intPtr--]); // type dimension
 			pushOnAstStack(type);
 		} else {
 			// field declaration
-			type = getTypeReference(typeDim = this.intStack[this.intPtr--]); // type dimension
+			type = getTypeReference(this.intStack[this.intPtr--]); // type dimension
 			pushOnAstStack(type);
 			declaration.declarationSourceStart = this.intStack[this.intPtr--];
 			declaration.modifiersSourceStart = this.intStack[this.intPtr--];
@@ -494,7 +496,6 @@ protected void consumeEnterVariable() {
 		}
 	} else {
 		type = (TypeReference) this.astStack[this.astPtr - variableIndex];
-		typeDim = type.dimensions();
 		AbstractVariableDeclaration previousVariable =
 			(AbstractVariableDeclaration) this.astStack[this.astPtr];
 		declaration.declarationSourceStart = previousVariable.declarationSourceStart;
@@ -507,14 +508,9 @@ protected void consumeEnterVariable() {
 		}
 	}
 
-	this.localIntPtr = this.intPtr;
-
-	if (extendedTypeDimension == 0) {
-		declaration.type = type;
-	} else {
-		int dimension = typeDim + extendedTypeDimension;
-		declaration.type = copyDims(type, dimension);
-	}
+	declaration.type = extendedTypeDimension != 0 ? augmentTypeWithAdditionalDimensions(type, extendedTypeDimension, annotationsOnExtendedDimensions, false) : type;
+	declaration.bits |= (type.bits & ASTNode.HasTypeAnnotations);
+	
 	this.variablesCounter[this.nestedType]++;
 	this.nestedMethod[this.nestedType]++;
 	pushOnAstStack(declaration);
@@ -536,6 +532,129 @@ protected void consumeEnterVariable() {
 				(int) namePosition,
 				extendedTypeDimension,
 				extendedTypeDimension == 0 ? -1 : this.endPosition);
+	}
+}
+protected void consumeEnhancedForStatementHeaderInit(boolean hasModifiers) {
+	TypeReference type;
+
+	char[] identifierName = this.identifierStack[this.identifierPtr];
+	long namePosition = this.identifierPositionStack[this.identifierPtr];
+
+	LocalDeclaration localDeclaration = createLocalDeclaration(identifierName, (int) (namePosition >>> 32), (int) namePosition);
+	localDeclaration.declarationSourceEnd = localDeclaration.declarationEnd;
+
+	int extraDims = this.intStack[this.intPtr--];
+	this.identifierPtr--;
+	this.identifierLengthPtr--;
+	// remove fake modifiers/modifiers start
+	int declarationSourceStart1 = 0;
+	int modifiersSourceStart1 = 0;
+	int modifiersValue  = 0;
+	if (hasModifiers) {
+		declarationSourceStart1 = this.intStack[this.intPtr--];
+		modifiersSourceStart1 = this.intStack[this.intPtr--];
+		modifiersValue = this.intStack[this.intPtr--];
+	} else {
+		this.intPtr-=3;
+	}
+
+	type = getTypeReference(this.intStack[this.intPtr--] + extraDims); // type dimension
+
+	// consume annotations
+	int length;
+	if ((length = this.expressionLengthStack[this.expressionLengthPtr--])!= 0) {
+		System.arraycopy(
+			this.expressionStack,
+			(this.expressionPtr -= length) + 1,
+			localDeclaration.annotations = new Annotation[length],
+			0,
+			length);
+		localDeclaration.bits |= ASTNode.HasTypeAnnotations;
+	}
+	if (hasModifiers) {
+		localDeclaration.declarationSourceStart = declarationSourceStart1;
+		localDeclaration.modifiersSourceStart = modifiersSourceStart1;
+		localDeclaration.modifiers = modifiersValue;
+	} else {
+		localDeclaration.declarationSourceStart = type.sourceStart;
+	}
+	localDeclaration.type = type;
+	localDeclaration.bits |= (type.bits & ASTNode.HasTypeAnnotations);
+	ForeachStatement iteratorForStatement =
+		new ForeachStatement(
+			localDeclaration,
+			this.intStack[this.intPtr--]);
+	pushOnAstStack(iteratorForStatement);
+
+	iteratorForStatement.sourceEnd = localDeclaration.declarationSourceEnd;
+}
+protected void consumeMethodHeaderNameWithTypeParameters(boolean isAnnotationMethod) {
+	// MethodHeaderName ::= Modifiersopt TypeParameters Type 'Identifier' '('
+	// AnnotationMethodHeaderName ::= Modifiersopt TypeParameters Type 'Identifier' '('
+	// RecoveryMethodHeaderName ::= Modifiersopt TypeParameters Type 'Identifier' '('
+	MethodDeclaration md = null;
+	if(isAnnotationMethod) {
+		md = new AnnotationMethodDeclaration(this.compilationUnit.compilationResult);
+		this.recordStringLiterals = false;
+	} else {
+		md = new MethodDeclaration(this.compilationUnit.compilationResult);
+	}
+
+	//name
+	md.selector = this.identifierStack[this.identifierPtr];
+	long selectorSource = this.identifierPositionStack[this.identifierPtr--];
+	this.identifierLengthPtr--;
+	//type
+	md.returnType = getTypeReference(this.intStack[this.intPtr--]);
+	if (isAnnotationMethod)
+		rejectIllegalLeadingTypeAnnotations(md.returnType);
+	md.bits |= (md.returnType.bits & ASTNode.HasTypeAnnotations);
+	// consume type parameters
+	int length = this.genericsLengthStack[this.genericsLengthPtr--];
+	this.genericsPtr -= length;
+	System.arraycopy(this.genericsStack, this.genericsPtr + 1, md.typeParameters = new TypeParameter[length], 0, length);
+
+	//modifiers
+	md.declarationSourceStart = this.intStack[this.intPtr--];
+	md.modifiersSourceStart = this.intStack[this.intPtr--];
+	md.modifiers = this.intStack[this.intPtr--];
+	// consume annotations
+	if ((length = this.expressionLengthStack[this.expressionLengthPtr--]) != 0) {
+		System.arraycopy(
+			this.expressionStack,
+			(this.expressionPtr -= length) + 1,
+			md.annotations = new Annotation[length],
+			0,
+			length);
+	}
+	// javadoc
+	md.javadoc = this.javadoc;
+	this.javadoc = null;
+
+	//highlight starts at selector start
+	md.sourceStart = (int) (selectorSource >>> 32);
+	pushOnAstStack(md);
+	md.sourceEnd = this.lParenPos;
+	md.bodyStart = this.lParenPos+1;
+	this.listLength = 0; // initialize this.listLength before reading parameters/throws
+
+	// recovery
+	if (this.currentElement != null){
+		boolean isType;
+		if ((isType = this.currentElement instanceof RecoveredType)
+			//|| md.modifiers != 0
+			|| (Util.getLineNumber(md.returnType.sourceStart, this.scanner.lineEnds, 0, this.scanner.linePtr)
+					== Util.getLineNumber(md.sourceStart, this.scanner.lineEnds, 0, this.scanner.linePtr))){
+			if(isType) {
+				((RecoveredType) this.currentElement).pendingTypeParameters = null;
+			}
+			this.lastCheckPoint = md.bodyStart;
+			this.currentElement = this.currentElement.add(md, 0);
+			this.lastIgnoredToken = -1;
+		} else {
+			this.lastCheckPoint = md.sourceStart;
+			this.restartRecovery = true;
+		}
 	}
 }
 /*
@@ -582,40 +701,72 @@ protected void consumeFormalParameter(boolean isVarArgs) {
 	/*
 	astStack :
 	identifierStack : type identifier
-	intStack : dim dim
+	intStack : dim dim 1||0  // 1 => normal parameter, 0 => this parameter
 	 ==>
 	astStack : Argument
 	identifierStack :
 	intStack :
 	*/
-
+	NameReference qualifyingNameReference = null;
+    boolean isReceiver = this.intStack[this.intPtr--] == 0;
+    if (isReceiver) {
+    	qualifyingNameReference = (NameReference) this.expressionStack[this.expressionPtr--];
+    	this.expressionLengthPtr --;
+    }
 	this.identifierLengthPtr--;
 	char[] parameterName = this.identifierStack[this.identifierPtr];
 	long namePositions = this.identifierPositionStack[this.identifierPtr--];
 	int extendedDimensions = this.intStack[this.intPtr--];
+	Annotation [][] annotationsOnExtendedDimensions = extendedDimensions == 0 ? null : getAnnotationsOnDimensions(extendedDimensions);
 	int endOfEllipsis = 0;
+	int length;
+	Annotation [] varArgsAnnotations = null;
 	if (isVarArgs) {
 		endOfEllipsis = this.intStack[this.intPtr--];
+		if ((length = this.typeAnnotationLengthStack[this.typeAnnotationLengthPtr--]) != 0) {
+			System.arraycopy(
+				this.typeAnnotationStack,
+				(this.typeAnnotationPtr -= length) + 1,
+				varArgsAnnotations = new Annotation[length],
+				0,
+				length);
+		} 
 	}
 	int firstDimensions = this.intStack[this.intPtr--];
-	final int typeDimensions = firstDimensions + extendedDimensions;
-	TypeReference type = getTypeReference(typeDimensions);
+	TypeReference type = getTypeReference(firstDimensions);
+
+	if (isVarArgs || extendedDimensions != 0) {
+		if (isVarArgs) {
+			type = augmentTypeWithAdditionalDimensions(type, 1, varArgsAnnotations != null ? new Annotation[][] { varArgsAnnotations } : null, true);	
+		} 
+		if (extendedDimensions != 0) { // combination illegal.
+			type = augmentTypeWithAdditionalDimensions(type, extendedDimensions, annotationsOnExtendedDimensions, false);
+		}
+		type.sourceEnd = type.isParameterizedTypeReference() ? this.endStatementPosition : this.endPosition;
+	}
 	if (isVarArgs) {
-		type = copyDims(type, typeDimensions + 1);
 		if (extendedDimensions == 0) {
 			type.sourceEnd = endOfEllipsis;
 		}
 		type.bits |= ASTNode.IsVarArgs; // set isVarArgs
 	}
 	this.intPtr -= 3;
-	Argument arg =
-		new Argument(
+	Argument arg;
+	if (isReceiver) {
+		arg = new Receiver(
+				parameterName, 
+				namePositions, 
+				type,
+				qualifyingNameReference,
+				this.intStack[this.intPtr + 1] & ~ClassFileConstants.AccDeprecated);
+	} else {
+		arg = new Argument(
 			parameterName,
 			namePositions,
 			type,
 			this.intStack[this.intPtr + 1]);// modifiers
+	}
 	// consume annotations
-	int length;
 	if ((length = this.expressionLengthStack[this.expressionLengthPtr--]) != 0) {
 		System.arraycopy(
 			this.expressionStack,
@@ -772,10 +923,10 @@ protected void consumeLocalVariableDeclaration() {
  *
  * INTERNAL USE-ONLY
  */
-protected void consumeMethodDeclaration(boolean isNotAbstract) {
+protected void consumeMethodDeclaration(boolean isNotAbstract, boolean isDefaultMethod) {
 	// MethodDeclaration ::= MethodHeader MethodBody
 	// AbstractMethodDeclaration ::= MethodHeader ';'
-	super.consumeMethodDeclaration(isNotAbstract);
+	super.consumeMethodDeclaration(isNotAbstract, isDefaultMethod);
 	if (isLocalDeclaration()) {
 		// we ignore the local variable declarations
 		return;
@@ -875,10 +1026,9 @@ protected void consumeMethodHeaderExtendedDims() {
 	int extendedDims = this.intStack[this.intPtr--];
 	this.extendsDim = extendedDims;
 	if (extendedDims != 0) {
-		TypeReference returnType = md.returnType;
 		md.sourceEnd = this.endPosition;
-		int dims = returnType.dimensions() + extendedDims;
-		md.returnType = copyDims(returnType, dims);
+		md.returnType = augmentTypeWithAdditionalDimensions(md.returnType, extendedDims, getAnnotationsOnDimensions(extendedDims), false);
+		md.bits |= (md.returnType.bits & ASTNode.HasTypeAnnotations);
 		if (this.currentToken == TokenNameLBRACE) {
 			md.bodyStart = this.endPosition + 1;
 		}
@@ -898,6 +1048,7 @@ protected void consumeMethodHeaderName(boolean isAnnotationMethod) {
 	this.identifierLengthPtr--;
 	//type
 	md.returnType = getTypeReference(this.typeDims = this.intStack[this.intPtr--]);
+	md.bits |= (md.returnType.bits & ASTNode.HasTypeAnnotations);
 	//modifiers
 	md.declarationSourceStart = this.intStack[this.intPtr--];
 	md.modifiersSourceStart = this.intStack[this.intPtr--];
@@ -1129,10 +1280,10 @@ public CompilationUnitDeclaration endParse(int act) {
 	}
 	return super.endParse(act);
 }
-public void initialize(boolean initializeNLS) {
+public void initialize(boolean parsingCompilationUnit) {
 	//positionning the parser for a new compilation unit
 	//avoiding stack reallocation and all that....
-	super.initialize(initializeNLS);
+	super.initialize(parsingCompilationUnit);
 	this.intArrayPtr = -1;
 }
 public void initialize() {
@@ -1358,8 +1509,8 @@ protected void resetModifiers() {
  * Syntax error was detected. Will attempt to perform some recovery action in order
  * to resume to the regular parse loop.
  */
-protected boolean resumeOnSyntaxError() {
-	return false;
+protected int resumeOnSyntaxError() {
+	return HALT;
 }
 /*
  * Answer a char array representation of the type name formatted like:
@@ -1387,63 +1538,5 @@ public String toString() {
 	buffer.append("intArrayPtr = " + this.intArrayPtr + "\n"); //$NON-NLS-1$ //$NON-NLS-2$
 	buffer.append(super.toString());
 	return buffer.toString();
-}
-/**
- * INTERNAL USE ONLY
- */
-protected TypeReference typeReference(
-	int dim,
-	int localIdentifierPtr,
-	int localIdentifierLengthPtr) {
-	/* build a Reference on a variable that may be qualified or not
-	 * This variable is a type reference and dim will be its dimensions.
-	 * We don't have any side effect on the stacks' pointers.
-	 */
-
-	int length;
-	TypeReference ref;
-	if ((length = this.identifierLengthStack[localIdentifierLengthPtr]) == 1) {
-		// single variable reference
-		if (dim == 0) {
-			ref =
-				new SingleTypeReference(
-					this.identifierStack[localIdentifierPtr],
-					this.identifierPositionStack[localIdentifierPtr--]);
-		} else {
-			ref =
-				new ArrayTypeReference(
-					this.identifierStack[localIdentifierPtr],
-					dim,
-					this.identifierPositionStack[localIdentifierPtr--]);
-			ref.sourceEnd = this.endPosition;
-		}
-	} else {
-		if (length < 0) { //flag for precompiled type reference on base types
-			ref = TypeReference.baseTypeReference(-length, dim);
-			ref.sourceStart = this.intStack[this.localIntPtr--];
-			if (dim == 0) {
-				ref.sourceEnd = this.intStack[this.localIntPtr--];
-			} else {
-				this.localIntPtr--;
-				ref.sourceEnd = this.endPosition;
-			}
-		} else { //Qualified variable reference
-			char[][] tokens = new char[length][];
-			localIdentifierPtr -= length;
-			long[] positions = new long[length];
-			System.arraycopy(this.identifierStack, localIdentifierPtr + 1, tokens, 0, length);
-			System.arraycopy(
-				this.identifierPositionStack,
-				localIdentifierPtr + 1,
-				positions,
-				0,
-				length);
-			if (dim == 0)
-				ref = new QualifiedTypeReference(tokens, positions);
-			else
-				ref = new ArrayQualifiedTypeReference(tokens, dim, positions);
-		}
-	}
-	return ref;
 }
 }

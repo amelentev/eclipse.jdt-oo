@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -17,29 +17,77 @@ import junit.framework.Test;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaCore;
-import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.Annotation;
+import org.eclipse.jdt.core.dom.AnnotationTypeDeclaration;
+import org.eclipse.jdt.core.dom.AnnotationTypeMemberDeclaration;
+import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
+import org.eclipse.jdt.core.dom.ArrayType;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.ChildListPropertyDescriptor;
+import org.eclipse.jdt.core.dom.ChildPropertyDescriptor;
+import org.eclipse.jdt.core.dom.ClassInstanceCreation;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
+import org.eclipse.jdt.core.dom.EnumDeclaration;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.ExpressionStatement;
+import org.eclipse.jdt.core.dom.Dimension;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.ImportDeclaration;
+import org.eclipse.jdt.core.dom.MarkerAnnotation;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.Modifier;
+import org.eclipse.jdt.core.dom.Name;
+import org.eclipse.jdt.core.dom.PackageDeclaration;
+import org.eclipse.jdt.core.dom.ParameterizedType;
+import org.eclipse.jdt.core.dom.PrimitiveType;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.SimplePropertyDescriptor;
+import org.eclipse.jdt.core.dom.SingleMemberAnnotation;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.StringLiteral;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.TypeParameter;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.WildcardType;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
+import org.eclipse.jdt.core.dom.ITypeBinding;
 
 public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
-	private static final Class THIS= ASTRewritingTypeDeclTest.class;
-
+	/** @deprecated using deprecated code */
+	private static final SimplePropertyDescriptor INTERNAL_TYPE_MODIFIERS_PROPERTY = TypeDeclaration.MODIFIERS_PROPERTY;
+	/** @deprecated using deprecated code */
+	private static final ChildPropertyDescriptor INTERNAL_TYPE_SUPERCLASS_PROPERTY = TypeDeclaration.SUPERCLASS_PROPERTY;
+	/** @deprecated using deprecated code */
+	private static final ChildListPropertyDescriptor INTERNAL_TYPE_SUPER_INTERFACES_PROPERTY = TypeDeclaration.SUPER_INTERFACES_PROPERTY;
+	/** @deprecated using deprecated code */
+	private static final SimplePropertyDescriptor INTERNAL_FRAGMENT_EXTRA_DIMENSIONS_PROPERTY = VariableDeclarationFragment.EXTRA_DIMENSIONS_PROPERTY;
+	/** @deprecated using deprecated code */
+	private static final SimplePropertyDescriptor INTERNAL_VARIABLE_MODIFIERS_PROPERTY = SingleVariableDeclaration.MODIFIERS_PROPERTY;
+	/** @deprecated using deprecated code */
+	private static final SimplePropertyDescriptor INTERNAL_VARIABLE_EXTRA_DIMENSIONS_PROPERTY = SingleVariableDeclaration.EXTRA_DIMENSIONS_PROPERTY;
+	
+	
 	public ASTRewritingTypeDeclTest(String name) {
 		super(name);
 	}
-
-	public static Test allTests() {
-		return new Suite(THIS);
+	public ASTRewritingTypeDeclTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingTypeDeclTest.class);
 	}
 
 	/** @deprecated using deprecated code */
-	public void testTypeDeclChanges() throws Exception {
+	public void testTypeDeclChanges_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -100,7 +148,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 			// change flags
 			int newModifiers= 0;
-			rewrite.set(type, TypeDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(type, INTERNAL_TYPE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			// change to interface
 			rewrite.set(type, TypeDeclaration.INTERFACE_PROPERTY, Boolean.TRUE, null);
@@ -118,14 +166,14 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 			// change flags
 			int newModifiers= 0;
-			rewrite.set(type, TypeDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(type, INTERNAL_TYPE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			// change to class
 			rewrite.set(type, TypeDeclaration.INTERFACE_PROPERTY, Boolean.FALSE, null);
 
 
 			SimpleName newSuperclass= ast.newSimpleName("Object");
-			rewrite.set(type, TypeDeclaration.SUPERCLASS_PROPERTY, newSuperclass, null);
+			rewrite.set(type, INTERNAL_TYPE_SUPERCLASS_PROPERTY, newSuperclass, null);
 		}
 
 
@@ -178,14 +226,14 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=308754
-	public void testTypeDeclarationChange2() throws Exception {
+	public void testTypeDeclarationChange2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
 		buf.append("@A(X.class) public class C {}");
 		ICompilationUnit cu= pack1.createCompilationUnit("C.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		{
 			// change to interface
@@ -202,7 +250,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("@A(X.class) public interface C {}");
 		assertEqualString(preview, buf.toString());
 	}
-	public void testTypeDeclChanges2() throws Exception {
+	public void testTypeDeclChanges2_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -228,7 +276,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -313,7 +361,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 	/** @deprecated using deprecated code */
-	public void testTypeDeclRemoves() throws Exception {
+	public void testTypeDeclRemoves_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -346,7 +394,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 			// change flags
 			int newModifiers= 0;
-			rewrite.set(type, TypeDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(type, INTERNAL_TYPE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			// change to interface
 			rewrite.set(type, TypeDeclaration.INTERFACE_PROPERTY, Boolean.TRUE, null);
@@ -374,7 +422,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 			// change flags
 			int newModifiers= Modifier.FINAL;
-			rewrite.set(type, TypeDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(type, INTERNAL_TYPE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			// change to interface
 			rewrite.set(type, TypeDeclaration.INTERFACE_PROPERTY, Boolean.TRUE, null);
@@ -414,7 +462,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testTypeDeclInserts() throws Exception {
+	public void testTypeDeclInserts_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -449,11 +497,11 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 			// change flags
 			int newModifiers= Modifier.PUBLIC | Modifier.FINAL;
-			rewrite.set(type, TypeDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(type, INTERNAL_TYPE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			SimpleName newSuperinterface= ast.newSimpleName("Cloneable");
 
-			rewrite.getListRewrite(type, TypeDeclaration.SUPER_INTERFACES_PROPERTY).insertFirst(newSuperinterface, null);
+			rewrite.getListRewrite(type, INTERNAL_TYPE_SUPER_INTERFACES_PROPERTY).insertFirst(newSuperinterface, null);
 
 			List members= type.bodyDeclarations();
 			assertTrue("Has declarations", !members.isEmpty());
@@ -478,7 +526,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			TypeDeclaration type= findTypeDeclaration(astRoot, "F");
 
 			SimpleName newSuperclass= ast.newSimpleName("Exception");
-			rewrite.set(type, TypeDeclaration.SUPERCLASS_PROPERTY, newSuperclass, null);
+			rewrite.set(type, INTERNAL_TYPE_SUPERCLASS_PROPERTY, newSuperclass, null);
 
 			MethodDeclaration newMethodDecl= createNewMethod(ast, "newMethod", false);
 			rewrite.getListRewrite(type, TypeDeclaration.BODY_DECLARATIONS_PROPERTY).insertLast(newMethodDecl, null);
@@ -487,7 +535,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			TypeDeclaration type= findTypeDeclaration(astRoot, "G");
 
 			SimpleName newInterface= ast.newSimpleName("Runnable");
-			rewrite.getListRewrite(type, TypeDeclaration.SUPER_INTERFACES_PROPERTY).insertLast(newInterface, null);
+			rewrite.getListRewrite(type, INTERNAL_TYPE_SUPER_INTERFACES_PROPERTY).insertLast(newInterface, null);
 
 			MethodDeclaration newMethodDecl= createNewMethod(ast, "newMethod", true);
 			rewrite.getListRewrite(type, TypeDeclaration.BODY_DECLARATIONS_PROPERTY).insertLast(newMethodDecl,  null);
@@ -530,7 +578,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testTypeDeclInsertFields1() throws Exception {
+	public void testTypeDeclInsertFields1_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -594,7 +642,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 
-	public void testTypeParameters() throws Exception {
+	public void testTypeParameters_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -606,7 +654,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("class J<T>extends A {}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 		List types= astRoot.types();
@@ -668,7 +716,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testAnonymousClassDeclaration() throws Exception {
+	public void testAnonymousClassDeclaration_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -758,7 +806,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testImportDeclaration() throws Exception {
+	public void testImportDeclaration_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -772,7 +820,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("Z.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -925,7 +973,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 	
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=262517
-	public void testSingleMemberAnnotation1() throws Exception {
+	public void testSingleMemberAnnotation1_since_3() throws Exception {
 		String previousValue = null;
 		try {
 			previousValue = this.project1.getOption(DefaultCodeFormatterConstants.FORMATTER_INSERT_SPACE_BEFORE_OPENING_PAREN_IN_ANNOTATION, false);
@@ -939,7 +987,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			buf.append("}\n");
 			ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 	
-			CompilationUnit astRoot= createAST3(cu);
+			CompilationUnit astRoot= createAST(cu);
 			ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 			AST ast= astRoot.getAST();
 	
@@ -973,7 +1021,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		}
 	}
 
-	public void testSingleVariableDeclaration() throws Exception {
+	public void testSingleVariableDeclaration_only_2() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -997,9 +1045,9 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(0);
 
 			int newModifiers= Modifier.FINAL;
-			rewrite.set(decl, SingleVariableDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(decl, INTERNAL_VARIABLE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
-			rewrite.set(decl, SingleVariableDeclaration.EXTRA_DIMENSIONS_PROPERTY, new Integer(1), null);
+			rewrite.set(decl, INTERNAL_VARIABLE_EXTRA_DIMENSIONS_PROPERTY, new Integer(1), null);
 
 			ArrayType newVarType= ast.newArrayType(ast.newPrimitiveType(PrimitiveType.FLOAT), 2);
 			rewrite.replace(decl.getType(), newVarType, null);
@@ -1011,7 +1059,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(1);
 
 			int newModifiers= 0;
-			rewrite.set(decl, SingleVariableDeclaration.MODIFIERS_PROPERTY, new Integer(newModifiers), null);
+			rewrite.set(decl, INTERNAL_VARIABLE_MODIFIERS_PROPERTY, new Integer(newModifiers), null);
 
 			Type newVarType= ast.newPrimitiveType(PrimitiveType.FLOAT);
 			rewrite.replace(decl.getType(), newVarType, null);
@@ -1019,7 +1067,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		{ // remove extra dim
 			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(2);
 
-			rewrite.set(decl, SingleVariableDeclaration.EXTRA_DIMENSIONS_PROPERTY, new Integer(0), null);
+			rewrite.set(decl, INTERNAL_VARIABLE_EXTRA_DIMENSIONS_PROPERTY, new Integer(0), null);
 		}
 
 		String preview= evaluateRewrite(cu, rewrite);
@@ -1034,7 +1082,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testVariableDeclarationFragment() throws Exception {
+	public void testVariableDeclarationFragment_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1068,7 +1116,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 			ASTNode name= ast.newSimpleName("a");
 			rewrite.replace(fragment.getName(), name, null);
 
-			rewrite.set(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS_PROPERTY, new Integer(2), null);
+			rewrite.set(fragment, INTERNAL_FRAGMENT_EXTRA_DIMENSIONS_PROPERTY, new Integer(2), null);
 		}
 
 		{ // add initializer
@@ -1089,7 +1137,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		{ // add dimension, add initializer
 			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(3);
 
-			rewrite.set(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS_PROPERTY, new Integer(4), null);
+			rewrite.set(fragment, INTERNAL_FRAGMENT_EXTRA_DIMENSIONS_PROPERTY, new Integer(4), null);
 
 			assertTrue("Has initializer", fragment.getInitializer() == null);
 
@@ -1099,7 +1147,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		{ // remove dimension
 			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(4);
 
-			rewrite.set(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS_PROPERTY, new Integer(0), null);
+			rewrite.set(fragment, INTERNAL_FRAGMENT_EXTRA_DIMENSIONS_PROPERTY, new Integer(0), null);
 		}
 
 		String preview= evaluateRewrite(cu, rewrite);
@@ -1115,7 +1163,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testTypeDeclSpacingMethods1() throws Exception {
+	public void testTypeDeclSpacingMethods1_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1159,7 +1207,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testTypeDeclSpacingMethods2() throws Exception {
+	public void testTypeDeclSpacingMethods2_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1206,7 +1254,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testTypeDeclSpacingFields() throws Exception {
+	public void testTypeDeclSpacingFields_only_2_3_4() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1256,7 +1304,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testEnumDeclaration() throws Exception {
+	public void testEnumDeclaration_since_3() throws Exception {
 		// test the creation of an enum declaration
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -1266,7 +1314,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1310,7 +1358,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 
-	public void testEnumDeclaration1() throws Exception {
+	public void testEnumDeclaration1_since_3() throws Exception {
 		// test the creation of an enum declaration
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -1320,7 +1368,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1347,7 +1395,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 
-	public void testEnumDeclaration2() throws Exception {
+	public void testEnumDeclaration2_since_3() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1357,7 +1405,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1392,7 +1440,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testEnumDeclaration3() throws Exception {
+	public void testEnumDeclaration3_since_3() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1402,7 +1450,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1437,7 +1485,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testEnumDeclaration4() throws Exception {
+	public void testEnumDeclaration4_since_3() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1449,7 +1497,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		EnumDeclaration declaration= (EnumDeclaration) findAbstractTypeDeclaration(astRoot, "E");
@@ -1468,7 +1516,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testEnumDeclaration5() throws Exception {
+	public void testEnumDeclaration5_since_3() throws Exception {
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
@@ -1483,7 +1531,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 
 		EnumDeclaration declaration= (EnumDeclaration) findAbstractTypeDeclaration(astRoot, "E");
@@ -1511,7 +1559,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testEnumDeclaration6() throws Exception {
+	public void testEnumDeclaration6_since_3() throws Exception {
 		// test the creation of an enum declaration
 
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
@@ -1522,7 +1570,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		EnumDeclaration declaration= (EnumDeclaration) findAbstractTypeDeclaration(astRoot, "E");
 
@@ -1541,7 +1589,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 	}
 
-	public void testEnumDeclaration7() throws Exception {
+	public void testEnumDeclaration7_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1549,7 +1597,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		EnumDeclaration declaration= (EnumDeclaration) findAbstractTypeDeclaration(astRoot, "E");
 
@@ -1572,7 +1620,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 	}
 
 
-	public void testAnnotationTypeDeclaration1() throws Exception {
+	public void testAnnotationTypeDeclaration1_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1583,7 +1631,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1621,7 +1669,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 
 	}
 
-	public void testWildcardType() throws Exception {
+	public void testWildcardType_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -1630,7 +1678,7 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu);
+		CompilationUnit astRoot= createAST(cu);
 		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
 		AST ast= astRoot.getAST();
 
@@ -1678,7 +1726,292 @@ public class ASTRewritingTypeDeclTest extends ASTRewritingTest {
 		assertEqualString(preview, buf.toString());
 
 	}
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=396576
+	public void testVariableDeclarationFragmentWithAnnot_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        int i, j, k = 0, x, y[][][], z @Annot1 [], zz @Annot2 @Annot2[] = {0, 1};\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+		AST ast= astRoot.getAST();
 
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED)== 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "E");
 
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		Block block= methodDecl.getBody();
+		List statements= block.statements();
+		assertTrue("Number of statements not 1", statements.size()== 1);
+
+		VariableDeclarationStatement variableDeclStatement= (VariableDeclarationStatement) statements.get(0);
+		List fragments= variableDeclStatement.fragments();
+		assertTrue("Number of fragments not 7", fragments.size()== 7);
+
+		{ // rename var, add dimension with annotations
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(0);
+			ASTNode name= ast.newSimpleName("a");
+			rewrite.replace(fragment.getName(), name, null);
+
+			ListRewrite listRewrite= rewrite.getListRewrite(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS2_PROPERTY);
+			Dimension dim= ast.newDimension();
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			dim.annotations().add(markerAnnotation);
+
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			dim.annotations().add(markerAnnotation);
+			listRewrite.insertAt(dim, 0, null);
+		}
+		{ // add initializer
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(1);
+			assertTrue("Has initializer", fragment.getInitializer()== null);
+			Expression initializer= ast.newNumberLiteral("1");
+			rewrite.set(fragment, VariableDeclarationFragment.INITIALIZER_PROPERTY, initializer, null);
+		}
+		{ // remove initializer and add extra dimensions with annotations
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(2);
+			assertTrue("Has no initializer", fragment.getInitializer() != null);
+			rewrite.remove(fragment.getInitializer(), null);
+
+			ListRewrite listRewrite= rewrite.getListRewrite(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS2_PROPERTY);
+			Dimension dim= ast.newDimension();
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			dim.annotations().add(markerAnnotation);
+			
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			dim.annotations().add(markerAnnotation);
+			listRewrite.insertAt(dim, 0, null);
+		}
+		{ // add dimension, add initializer
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(3);
+			assertTrue("Has initializer", fragment.getInitializer()== null);
+			Expression initializer= ast.newNullLiteral();
+			rewrite.set(fragment, VariableDeclarationFragment.INITIALIZER_PROPERTY, initializer, null);
+
+			ListRewrite listRewrite= rewrite.getListRewrite(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS2_PROPERTY);
+
+			Dimension dim= ast.newDimension();
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			dim.annotations().add(markerAnnotation);
+
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			dim.annotations().add(markerAnnotation);
+			listRewrite.insertAt(dim, 0, null);
+		}
+		{ // remove one dimension and add annotations for the rest of the dimensions
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(4);
+
+			Dimension dim= (Dimension) fragment.extraDimensions().get(1);
+			ListRewrite listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			MarkerAnnotation markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot1"));
+			listRewrite.insertAt(markerAnnotation, 0, null);
+
+			dim= (Dimension) fragment.extraDimensions().get(2);
+			markerAnnotation= ast.newMarkerAnnotation();
+			markerAnnotation.setTypeName(ast.newSimpleName("Annot2"));
+			listRewrite= rewrite.getListRewrite(dim, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.insertAt(markerAnnotation, 0, null);
+
+			listRewrite= rewrite.getListRewrite(fragment, VariableDeclarationFragment.EXTRA_DIMENSIONS2_PROPERTY);
+			listRewrite.remove((Dimension) fragment.extraDimensions().get(0), null);
+		}
+		{ // remove a fragment
+			ListRewrite listRewrite= rewrite.getListRewrite(variableDeclStatement, VariableDeclarationStatement.FRAGMENTS_PROPERTY);
+			VariableDeclarationFragment fragment= (VariableDeclarationFragment) fragments.get(5);
+			listRewrite.remove(fragment, null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo() {\n");
+		buf.append("        int a @Annot1 @Annot2 [], j = 1, k @Annot1 @Annot2 [], x @Annot1 @Annot2 [] = null, y @Annot1 [] @Annot2 [], zz @Annot2 @Annot2[] = {0, 1};\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=396576
+	public void testSingleVariableDeclarationWithAnnotations_since_8() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo(int i, final int[] j @Annot1 @Annot2 [], int[] k @Annot1 @Annot3 [] @Annot2 @Annot3 [], int l []) {\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+		AST ast= astRoot.getAST();
+
+		assertTrue("Parse errors", (astRoot.getFlags() & ASTNode.MALFORMED)== 0);
+		TypeDeclaration type= findTypeDeclaration(astRoot, "E");
+		MethodDeclaration methodDecl= findMethodDeclaration(type, "foo");
+		List arguments= methodDecl.parameters();
+
+		{ // add modifier, move extra dimensions from one variable to another
+			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(0);
+			SingleVariableDeclaration decl2= (SingleVariableDeclaration) arguments.get(1);
+			Dimension dim= (Dimension) decl2.extraDimensions().get(0);
+			ListRewrite listRewrite= rewrite.getListRewrite(decl, SingleVariableDeclaration.MODIFIERS2_PROPERTY);
+			listRewrite.insertFirst(ast.newModifier(Modifier.ModifierKeyword.FINAL_KEYWORD), null);
+
+			listRewrite= rewrite.getListRewrite(decl2, SingleVariableDeclaration.EXTRA_DIMENSIONS2_PROPERTY);
+			listRewrite.remove(dim, null);
+			listRewrite= rewrite.getListRewrite(decl, SingleVariableDeclaration.EXTRA_DIMENSIONS2_PROPERTY);
+			listRewrite.insertAt(dim, 0, null);
+		}
+		{ // move annotations from one dim to another
+			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(2);
+			Dimension dim1= (Dimension) decl.extraDimensions().get(0);
+			Dimension dim2= (Dimension) decl.extraDimensions().get(1);
+			Annotation annot1= (Annotation) dim1.annotations().get(0);
+			Annotation annot2= (Annotation) dim2.annotations().get(0);
+
+			ListRewrite listRewrite= rewrite.getListRewrite(dim1, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.replace(annot1, annot2, null);
+
+			listRewrite= rewrite.getListRewrite(dim2, Dimension.ANNOTATIONS_PROPERTY);
+			listRewrite.replace(annot2, annot1, null);
+		}
+		{ // remove extra dim
+			SingleVariableDeclaration decl= (SingleVariableDeclaration) arguments.get(3);
+			ListRewrite listRewrite= rewrite.getListRewrite(decl, SingleVariableDeclaration.EXTRA_DIMENSIONS2_PROPERTY);
+			listRewrite.remove((Dimension) decl.extraDimensions().get(0), null);
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("import java.lang.annotation.ElementType;\n");
+		buf.append("public class E {\n");
+		buf.append("    public void foo(final int i @Annot1 @Annot2 [], final int[] j, int[] k @Annot2 @Annot3 [] @Annot1 @Annot3 [], int l) {\n");
+		buf.append("    }\n");
+		buf.append("}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot1 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		buf.append("@java.lang.annotation.Target(value= {ElementType.TYPE_USE})\n");
+		buf.append("@interface Annot2 {}\n");
+		assertEqualString(preview, buf.toString());
+	}
+
+	// Bug 419057 - ITypeBinding#getModifiers() misses implicit "static" for class member interface 
+	// https://bugs.eclipse.org/bugs/show_bug.cgi?id=419057
+	public void testBug419057a() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class C {\n");
+		buf.append("    interface IC {}\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+		CompilationUnit astRoot= createAST(AST.JLS8, cu, true, false);
+		List types = astRoot.types();
+		TypeDeclaration typeDeclaration = (((TypeDeclaration) types.get(0)).getTypes())[0];
+		ITypeBinding iTypeBinding = typeDeclaration.resolveBinding();
+		assertTrue((iTypeBinding.getModifiers() & Modifier.STATIC) != 0);
+	}
+	public void testBug419057b() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public interface C {\n");
+		buf.append("    interface IC {}\n");
+		buf.append("}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("C.java", buf.toString(), false, null);
+		CompilationUnit astRoot= createAST(AST.JLS8, cu, true, false);
+		List types = astRoot.types();
+		TypeDeclaration outerTypeDeclaration = (TypeDeclaration) types.get(0);
+		TypeDeclaration memberTypeDeclaration = (outerTypeDeclaration.getTypes())[0];
+		ITypeBinding outerTypeBinding = outerTypeDeclaration.resolveBinding();
+		assertTrue((outerTypeBinding.getModifiers() & Modifier.STATIC) == 0);
+		ITypeBinding memberTypeBinding = memberTypeDeclaration.resolveBinding();
+		assertTrue((memberTypeBinding.getModifiers() & Modifier.STATIC) != 0);
+	}
+	
+	public void test401848_since_3() throws Exception {
+		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
+		StringBuffer buf= new StringBuffer();
+		buf.append("package test1;\n");
+		buf.append("public class E {\n");
+		buf.append("    public int i;\n");
+		buf.append("    public F f;\n");
+		buf.append("}\n");
+		buf.append("class F {}\n");
+		buf.append("@Target (Element.FIELD);\n");
+		buf.append("@interface Marker {}\n");
+		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
+
+		CompilationUnit astRoot= createAST(cu);
+		ASTRewrite rewrite= ASTRewrite.create(astRoot.getAST());
+		AST ast= astRoot.getAST();
+
+		{  // Add an annotation to fields
+			TypeDeclaration type= findTypeDeclaration(astRoot, "E");
+			FieldDeclaration[] fields = type.getFields();
+			{
+				FieldDeclaration field = fields[0];
+				MarkerAnnotation annot = ast.newMarkerAnnotation();
+				annot.setTypeName(ast.newSimpleName("Marker"));
+				ListRewrite listRewrite = rewrite.getListRewrite(field, FieldDeclaration.MODIFIERS2_PROPERTY);
+				listRewrite.insertFirst(annot, null);
+			}
+			{
+				FieldDeclaration field = fields[1];
+				MarkerAnnotation annot = ast.newMarkerAnnotation();
+				annot.setTypeName(ast.newQualifiedName(ast.newName("test1"), ast.newSimpleName("Marker")));
+				ListRewrite listRewrite = rewrite.getListRewrite(field, FieldDeclaration.MODIFIERS2_PROPERTY);
+				listRewrite.insertFirst(annot, null);
+			}
+		}
+
+		String preview= evaluateRewrite(cu, rewrite);
+		String expected = "package test1;\n" +
+			"public class E {\n" +
+			"    @Marker\n"+ 
+			"    public int i;\n" +
+			"    @test1.Marker\n" +
+			"    public F f;\n" +
+			"}\n" +
+			"class F {}\n" +
+			"@Target (Element.FIELD);\n" +
+			"@interface Marker {}\n";
+		assertEqualString(preview, expected);
+
+	}
 
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2010 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,13 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								bug 392384 - [1.8][compiler][null] Restore nullness info from type annotations in class files
+ *								Bug 416174 - [1.8][compiler][null] Bogus name clash error with null annotations
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 423504 - [1.8] Implement "18.5.3 Functional Interface Parameterization Inference"
+ *								Bug 425783 - An internal error occurred during: "Requesting Java AST from selection". java.lang.StackOverflowError
+ *								Bug 438458 - [1.8][null] clean up handling of null type annotations wrt type variables
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
@@ -68,6 +75,23 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		sig.getChars(0, sigLength, uniqueKey, 0);
 		return uniqueKey;
    	}
+	
+	public TypeBinding clone(TypeBinding outerType) {
+		return new RawTypeBinding(this.actualType(), (ReferenceBinding) outerType, this.environment);
+	}
+
+	public TypeBinding unannotated(boolean removeOnlyNullAnnotations) {
+		if (!hasTypeAnnotations())
+			return this;
+		if (removeOnlyNullAnnotations && !hasNullTypeAnnotations())
+			return this;
+		if (removeOnlyNullAnnotations) {
+			ReferenceBinding unannotatedGenericType = (ReferenceBinding) this.environment.getUnannotatedType(this.genericType());
+			AnnotationBinding[] newAnnotations = this.environment.filterNullTypeAnnotations(this.typeAnnotations);
+			return this.environment.createRawType(unannotatedGenericType, this.enclosingType(), newAnnotations);
+		}
+		return this.environment.getUnannotatedType(this);
+	}
 
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.ParameterizedTypeBinding#createParameterizedMethod(org.eclipse.jdt.internal.compiler.lookup.MethodBinding)
@@ -79,6 +103,10 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		return this.environment.createParameterizedGenericMethod(originalMethod, this);
 	}
 
+	public boolean isParameterizedType() {
+		return false;
+	}
+
 	public int kind() {
 		return RAW_TYPE;
 	}
@@ -87,11 +115,17 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	 * @see org.eclipse.jdt.internal.compiler.lookup.TypeBinding#debugName()
 	 */
 	public String debugName() {
-	    StringBuffer nameBuffer = new StringBuffer(10);
+		if (this.hasTypeAnnotations())
+			return annotatedDebugName();
+		StringBuffer nameBuffer = new StringBuffer(10);
 		nameBuffer.append(actualType().sourceName()).append("#RAW"); //$NON-NLS-1$
 	    return nameBuffer.toString();
 	}
-
+	public String annotatedDebugName() {
+		StringBuffer buffer = new StringBuffer(super.annotatedDebugName());
+		buffer.append("#RAW"); //$NON-NLS-1$
+		return buffer.toString();
+	}
 	/**
 	 * Ltype<param1 ... paramN>;
 	 * LY<TT;>;
@@ -126,7 +160,7 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	}
 
     public boolean isEquivalentTo(TypeBinding otherType) {
-		if (this == otherType || erasure() == otherType)
+		if (equalsEquals(this, otherType) || equalsEquals(erasure(), otherType))
 		    return true;
 	    if (otherType == null)
 	        return false;
@@ -139,13 +173,13 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	    	case Binding.GENERIC_TYPE :
 	    	case Binding.PARAMETERIZED_TYPE :
 	    	case Binding.RAW_TYPE :
-	            return erasure() == otherType.erasure();
+	            return TypeBinding.equalsEquals(erasure(), otherType.erasure());
 	    }
         return false;
 	}
 
     public boolean isProvablyDistinct(TypeBinding otherType) {
-		if (this == otherType || erasure() == otherType) // https://bugs.eclipse.org/bugs/show_bug.cgi?id=329588
+		if (TypeBinding.equalsEquals(this, otherType) || TypeBinding.equalsEquals(erasure(), otherType)) // https://bugs.eclipse.org/bugs/show_bug.cgi?id=329588
 		    return false;
 	    if (otherType == null)
 	        return true;
@@ -154,10 +188,15 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 	    	case Binding.GENERIC_TYPE :
 	    	case Binding.PARAMETERIZED_TYPE :
 	    	case Binding.RAW_TYPE :
-	            return erasure() != otherType.erasure();
+	            return TypeBinding.notEquals(erasure(), otherType.erasure());
 	    }
         return true;
 	}
+
+    public boolean isProperType(boolean admitCapture18) {
+    	TypeBinding actualType = actualType();
+    	return actualType != null && actualType.isProperType(admitCapture18);
+    }
 
 	protected void initializeArguments() {
 		TypeVariableBinding[] typeVariables = genericType().typeVariables();
@@ -168,6 +207,40 @@ public class RawTypeBinding extends ParameterizedTypeBinding {
 		    typeArguments[i] = this.environment.convertToRawType(typeVariables[i].erasure(), false /*do not force conversion of enclosing types*/);
 		}
 		this.arguments = typeArguments;
+	}
+	
+	@Override
+	TypeBinding substituteInferenceVariable(InferenceVariable var, TypeBinding substituteType) {
+		// NEVER substitute the type arguments of a raw type
+		return this;
+	}
+
+	public MethodBinding getSingleAbstractMethod(Scope scope, boolean replaceWildcards) {
+		int index = replaceWildcards ? 0 : 1;
+		if (this.singleAbstractMethod != null) {
+			if (this.singleAbstractMethod[index] != null)
+			return this.singleAbstractMethod[index];
+		} else {
+			this.singleAbstractMethod = new MethodBinding[2];
+		}
+		final ReferenceBinding genericType = genericType();
+		MethodBinding theAbstractMethod = genericType.getSingleAbstractMethod(scope, replaceWildcards);
+		if (theAbstractMethod == null || !theAbstractMethod.isValidBinding())
+			return this.singleAbstractMethod[index] = theAbstractMethod;
+		
+		ReferenceBinding declaringType = (ReferenceBinding) scope.environment().convertToRawType(genericType, true);
+		declaringType = (ReferenceBinding) declaringType.findSuperTypeOriginatingFrom(theAbstractMethod.declaringClass);
+		MethodBinding [] choices = declaringType.getMethods(theAbstractMethod.selector);
+		for (int i = 0, length = choices.length; i < length; i++) {
+			MethodBinding method = choices[i];
+			if (!method.isAbstract() || method.redeclaresPublicObjectMethod(scope)) continue; // (re)skip statics, defaults, public object methods ...
+			this.singleAbstractMethod[index] = method;
+			break;
+		}
+		return this.singleAbstractMethod[index];
+	}
+	public boolean mentionsAny(TypeBinding[] parameters, int idx) {
+		return false;
 	}
 	/**
 	 * @see org.eclipse.jdt.internal.compiler.lookup.Binding#readableName()

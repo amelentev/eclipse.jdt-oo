@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2007 BEA Systems, Inc. 
+ * Copyright (c) 2007, 2013 BEA Systems, Inc. and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,17 +7,24 @@
  *
  * Contributors:
  *    wharley@bea.com - initial API and implementation
- *    
+ *    IBM Corporation - Java 8 support
  *******************************************************************************/
 
 package org.eclipse.jdt.internal.compiler.apt.model;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
+import java.util.List;
+
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVisitor;
 
 import org.eclipse.jdt.internal.compiler.apt.dispatch.BaseProcessingEnvImpl;
+import org.eclipse.jdt.internal.compiler.lookup.AnnotationBinding;
 import org.eclipse.jdt.internal.compiler.lookup.Binding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 /**
  * Implementation of a TypeMirror.  TypeMirror represents a type, including
@@ -26,7 +33,7 @@ import org.eclipse.jdt.internal.compiler.lookup.Binding;
  */
 public class TypeMirrorImpl implements TypeMirror {
 
-	// Caution: _env will be NULL for PrimitiveTypeImpl.
+	// Caution: _env will be NULL for unannotated primitive types (PrimitiveTypeImpl).
 	protected final BaseProcessingEnvImpl _env;
 	protected final Binding _binding;
 	
@@ -106,5 +113,32 @@ public class TypeMirrorImpl implements TypeMirror {
 		return _binding == other._binding;
 	}
 
+	/* Package any repeating annotations into containers, return others as is.
+	   In the compiler bindings repeating annotations are left in as is, hence
+	   this step. The return value would match what one would expect to see in
+	   a class file.
+	*/
+	public final AnnotationBinding [] getPackedAnnotationBindings() {
+		return Factory.getPackedAnnotationBindings(getAnnotationBindings());
+	}
 	
+	protected AnnotationBinding[] getAnnotationBindings() {
+		return ((TypeBinding)_binding).getTypeAnnotations();
+	}
+
+	public List<? extends AnnotationMirror> getAnnotationMirrors() {
+		return _env == null ? Factory.EMPTY_ANNOTATION_MIRRORS : 
+								_env.getFactory().getAnnotationMirrors(getPackedAnnotationBindings());
+	}
+
+	public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+		return _env == null ? null : _env.getFactory().getAnnotation(getPackedAnnotationBindings(), annotationType);
+	}
+
+	@SuppressWarnings("unchecked")
+	public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
+		if (_env == null)
+			return (A[]) Array.newInstance(annotationType, 0);
+		return _env.getFactory().getAnnotationsByType(Factory.getUnpackedAnnotationBindings(getPackedAnnotationBindings()), annotationType);
+	}
 }

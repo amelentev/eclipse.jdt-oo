@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -30,6 +30,7 @@ import org.eclipse.jdt.internal.compiler.parser.TerminalTokens;
  * @since 2.0
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings("rawtypes")
 public class SimpleName extends Name {
 
 	/**
@@ -191,14 +192,16 @@ public class SimpleName extends Name {
 			try {
 				int tokenType = scanner.scanIdentifier();
 				if (tokenType != TerminalTokens.TokenNameIdentifier) {
-					throw new IllegalArgumentException();
+					throw new IllegalArgumentException("Invalid identifier : >" + identifier + "<");  //$NON-NLS-1$//$NON-NLS-2$
 				}
 				if (scanner.currentPosition != length) {
 					// this is the case when there is only one identifier see 87849
-					throw new IllegalArgumentException();
+					throw new IllegalArgumentException("Invalid identifier : >" + identifier + "<");  //$NON-NLS-1$//$NON-NLS-2$
 				}
-			} catch(InvalidInputException e) {
-				throw new IllegalArgumentException();
+			} catch (InvalidInputException e) {
+				IllegalArgumentException iae = new IllegalArgumentException("Invalid identifier : >" + identifier + "<"); //$NON-NLS-1$//$NON-NLS-2$
+				iae.initCause(e);
+				throw iae; 
 			}
 		} finally {
 			this.ast.scanner.sourceLevel = sourceLevel;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -33,6 +33,7 @@ import org.eclipse.text.edits.TextEditGroup;
  * @since 2.1
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings("rawtypes")
 public final class CompilationUnitSorter {
 
  	/**
@@ -50,6 +51,7 @@ public final class CompilationUnitSorter {
         case AST.JLS2 :
         case AST.JLS3 :
         case AST.JLS4 :
+        case AST.JLS8 :
             break;
         default :
             throw new IllegalArgumentException();
@@ -451,7 +453,7 @@ public final class CompilationUnitSorter {
 		if (unit == null || comparator == null) {
 			throw new IllegalArgumentException();
 		}
-		SortElementsOperation operation = new SortElementsOperation(AST.JLS4, new IJavaElement[] { unit.getJavaElement() }, null, comparator);
+		SortElementsOperation operation = new SortElementsOperation(unit.getAST().apiLevel(), new IJavaElement[] { unit.getJavaElement() }, null, comparator);
 		return operation.calculateEdit(unit, group);
 	}
 }

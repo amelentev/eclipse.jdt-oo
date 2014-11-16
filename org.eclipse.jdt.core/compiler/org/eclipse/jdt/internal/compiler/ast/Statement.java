@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,13 +15,30 @@
  *								bug 368546 - [compiler][resource] Avoid remaining false positives found when compiling the Eclipse SDK
  *								bug 370930 - NonNull annotation not considered for enhanced for loops
  *								bug 365859 - [compiler][null] distinguish warnings based on flow analysis vs. null annotations
+ *								bug 392862 - [1.8][compiler][null] Evaluate null annotations on array types
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 383368 - [compiler][null] syntactic null analysis for field references
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *								Bug 415043 - [1.8][null] Follow-up re null type annotations after bug 392099
+ *								Bug 415291 - [1.8][null] differentiate type incompatibilities due to null annotations
+ *								Bug 392238 - [1.8][compiler][null] Detect semantically invalid null type annotations
+ *								Bug 416307 - [1.8][compiler][null] subclass with type parameter substitution confuses null checking
+ *								Bug 417758 - [1.8][null] Null safety compromise during array creation.
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *								Bug 424415 - [1.8][compiler] Eventual resolution of ReferenceExpression is not seen to be happening.
+ *								Bug 418537 - [1.8][null] Fix null type annotation analysis for poly conditional expressions
+ *								Bug 428352 - [1.8][compiler] Resolution errors don't always surface
+ *								Bug 429430 - [1.8] Lambdas and method reference infer wrong exception type with generics (RuntimeException instead of IOException)
+ *        Andy Clement - Contributions for
+ *                          Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *                          Bug 409250 - [1.8][compiler] Various loose ends in 308 code generation
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
+import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 import org.eclipse.jdt.internal.compiler.impl.Constant;
 import org.eclipse.jdt.internal.compiler.lookup.*;
 
@@ -69,51 +86,113 @@ public abstract FlowInfo analyseCode(BlockScope currentScope, FlowContext flowCo
 protected void analyseArguments(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo, MethodBinding methodBinding, Expression[] arguments)
 {
 	// compare actual null-status against parameter annotations of the called method:
-	if (arguments != null && methodBinding.parameterNonNullness != null) {
-
-		// check if varargs need special treatment:
+	if (arguments != null) {
+		CompilerOptions compilerOptions = currentScope.compilerOptions();
+		if (compilerOptions.sourceLevel >= ClassFileConstants.JDK1_7 && methodBinding.isPolymorphic())
+			return;
+		boolean considerTypeAnnotations = compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8
+				&& compilerOptions.isAnnotationBasedNullAnalysisEnabled;
+		boolean hasJDK15NullAnnotations = methodBinding.parameterNonNullness != null;
 		int numParamsToCheck = methodBinding.parameters.length;
+		int varArgPos = -1;
+		TypeBinding varArgsType = null;
 		boolean passThrough = false;
-		if (methodBinding.isVarargs()) {
-			int varArgPos = numParamsToCheck-1;
-			// this if-block essentially copied from generateArguments(..):
-			if (numParamsToCheck == arguments.length) {
-				TypeBinding varArgsType = methodBinding.parameters[varArgPos];
-				TypeBinding lastType = arguments[varArgPos].resolvedType;
-				if (lastType == TypeBinding.NULL
-						|| (varArgsType.dimensions() == lastType.dimensions()
-						&& lastType.isCompatibleWith(varArgsType)))
-					passThrough = true; // pass directly as-is
+		if (considerTypeAnnotations || hasJDK15NullAnnotations) {
+			// check if varargs need special treatment:
+			if (methodBinding.isVarargs()) {
+				varArgPos = numParamsToCheck-1;
+				// this if-block essentially copied from generateArguments(..):
+				if (numParamsToCheck == arguments.length) {
+					varArgsType = methodBinding.parameters[varArgPos];
+					TypeBinding lastType = arguments[varArgPos].resolvedType;
+					if (lastType == TypeBinding.NULL
+							|| (varArgsType.dimensions() == lastType.dimensions()
+							&& lastType.isCompatibleWith(varArgsType)))
+						passThrough = true; // pass directly as-is
+				}
+				if (!passThrough)
+					numParamsToCheck--; // with non-passthrough varargs last param is fed from individual args -> don't check
 			}
-			if (!passThrough)
-				numParamsToCheck--; // with non-passthrough varargs last param is fed from individual args -> don't check
 		}
-
-		for (int i = 0; i < numParamsToCheck; i++) {
-			if (methodBinding.parameterNonNullness[i] == Boolean.TRUE) {
+		if (considerTypeAnnotations) {
+			for (int i=0; i<numParamsToCheck; i++) {
 				TypeBinding expectedType = methodBinding.parameters[i];
-				Expression argument = arguments[i];
-				int nullStatus = argument.nullStatus(flowInfo, flowContext); // slight loss of precision: should also use the null info from the receiver.
-				if (nullStatus != FlowInfo.NON_NULL) // if required non-null is not provided
-					flowContext.recordNullityMismatch(currentScope, argument, argument.resolvedType, expectedType, nullStatus);
+				Boolean specialCaseNonNullness = hasJDK15NullAnnotations ? methodBinding.parameterNonNullness[i] : null;
+				analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i],
+						specialCaseNonNullness, methodBinding.original().parameters[i]);
 			}
-		}
+			if (!passThrough && varArgsType instanceof ArrayBinding) {
+				TypeBinding expectedType = ((ArrayBinding) varArgsType).elementsType();
+				Boolean specialCaseNonNullness = hasJDK15NullAnnotations ? methodBinding.parameterNonNullness[varArgPos] : null;
+				for (int i = numParamsToCheck; i < arguments.length; i++) {
+					analyseOneArgument18(currentScope, flowContext, flowInfo, expectedType, arguments[i],
+							specialCaseNonNullness, methodBinding.original().parameters[varArgPos]);
+				}
+			}
+		} else if (hasJDK15NullAnnotations) {
+			for (int i = 0; i < numParamsToCheck; i++) {
+				if (methodBinding.parameterNonNullness[i] == Boolean.TRUE) {
+					TypeBinding expectedType = methodBinding.parameters[i];
+					Expression argument = arguments[i];
+					int nullStatus = argument.nullStatus(flowInfo, flowContext); // slight loss of precision: should also use the null info from the receiver.
+					if (nullStatus != FlowInfo.NON_NULL) // if required non-null is not provided
+						flowContext.recordNullityMismatch(currentScope, argument, argument.resolvedType, expectedType, nullStatus);
+				}
+			}
+		} 
+	}
+}
+void analyseOneArgument18(BlockScope currentScope, FlowContext flowContext, FlowInfo flowInfo,
+		TypeBinding expectedType, Expression argument, Boolean expectedNonNullness, TypeBinding originalExpected) {
+	if (argument instanceof ConditionalExpression && argument.isPolyExpression()) {
+		// drill into both branches using existing nullStatus per branch:
+		ConditionalExpression ce = (ConditionalExpression) argument;
+		ce.internalAnalyseOneArgument18(currentScope, flowContext, expectedType, ce.valueIfTrue, ce.ifTrueNullStatus, expectedNonNullness, originalExpected);
+		ce.internalAnalyseOneArgument18(currentScope, flowContext, expectedType, ce.valueIfFalse, ce.ifFalseNullStatus, expectedNonNullness, originalExpected);
+		return;
+	}
+	int nullStatus = argument.nullStatus(flowInfo, flowContext);
+	internalAnalyseOneArgument18(currentScope, flowContext, expectedType, argument, nullStatus,
+									expectedNonNullness, originalExpected);
+}
+void internalAnalyseOneArgument18(BlockScope currentScope, FlowContext flowContext, TypeBinding expectedType,
+		Expression argument, int nullStatus, Boolean expectedNonNullness, TypeBinding originalExpected) 
+{
+	// here we consume special case information generated in the ctor of ParameterizedGenericMethodBinding (see there):
+	int statusFromAnnotatedNull = expectedNonNullness == Boolean.TRUE ? nullStatus : 0;  
+	
+	NullAnnotationMatching annotationStatus = NullAnnotationMatching.analyse(expectedType, argument.resolvedType, nullStatus);
+	
+	if (!annotationStatus.isAnyMismatch() && statusFromAnnotatedNull != 0)
+		expectedType = originalExpected; // to avoid reports mentioning '@NonNull null'!
+	
+	if (annotationStatus.isDefiniteMismatch() || statusFromAnnotatedNull == FlowInfo.NULL) {
+		// immediate reporting:
+		currentScope.problemReporter().nullityMismatchingTypeAnnotation(argument, argument.resolvedType, expectedType, annotationStatus);
+	} else if (annotationStatus.isUnchecked() || (statusFromAnnotatedNull & FlowInfo.POTENTIALLY_NULL) != 0) {
+		flowContext.recordNullityMismatch(currentScope, argument, argument.resolvedType, expectedType, nullStatus);
 	}
 }
 
-/** Check null-ness of 'var' against a possible null annotation */
-protected int checkAssignmentAgainstNullAnnotation(BlockScope currentScope, FlowContext flowContext,
-												   VariableBinding var, int nullStatus, Expression expression, TypeBinding providedType)
-{
-	if ((var.tagBits & TagBits.AnnotationNonNull) != 0
-			&& nullStatus != FlowInfo.NON_NULL) {
-		flowContext.recordNullityMismatch(currentScope, expression, providedType, var.type, nullStatus);
-		return FlowInfo.NON_NULL;
-	} else if ((var.tagBits & TagBits.AnnotationNullable) != 0
-			&& nullStatus == FlowInfo.UNKNOWN) {	// provided a legacy type?
-		return FlowInfo.POTENTIALLY_NULL;			// -> use more specific info from the annotation
+protected void checkAgainstNullTypeAnnotation(BlockScope scope, TypeBinding requiredType, Expression expression, FlowContext flowContext, FlowInfo flowInfo) {
+	if (expression instanceof ConditionalExpression && expression.isPolyExpression()) {
+		// drill into both branches using existing nullStatus per branch:
+		ConditionalExpression ce = (ConditionalExpression) expression;
+		internalCheckAgainstNullTypeAnnotation(scope, requiredType, ce.valueIfTrue, ce.ifTrueNullStatus, flowContext);
+		internalCheckAgainstNullTypeAnnotation(scope, requiredType, ce.valueIfFalse, ce.ifFalseNullStatus, flowContext);
+		return;
 	}
-	return nullStatus;
+	int nullStatus = expression.nullStatus(flowInfo, flowContext);
+	internalCheckAgainstNullTypeAnnotation(scope, requiredType, expression, nullStatus, flowContext);
+}
+private void internalCheckAgainstNullTypeAnnotation(BlockScope scope, TypeBinding requiredType, Expression expression,
+		int nullStatus, FlowContext flowContext) {
+	NullAnnotationMatching annotationStatus = NullAnnotationMatching.analyse(requiredType, expression.resolvedType, nullStatus);
+	if (annotationStatus.isDefiniteMismatch()) {
+		scope.problemReporter().nullityMismatchingTypeAnnotation(expression, expression.resolvedType, requiredType, annotationStatus);
+	} else if (annotationStatus.isUnchecked()) {
+		flowContext.recordNullityMismatch(scope, expression, expression.resolvedType, requiredType, nullStatus);
+	}
 }
 
 /**
@@ -211,7 +290,7 @@ public void generateArguments(MethodBinding binding, Expression[] arguments, Blo
 
 public abstract void generateCode(BlockScope currentScope, CodeStream codeStream);
 
-protected boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
+public boolean isBoxingCompatible(TypeBinding expressionType, TypeBinding targetType, Expression expression, Scope scope) {
 	if (scope.isBoxingCompatibleWith(expressionType, targetType))
 		return true;
 
@@ -275,11 +354,41 @@ public Constant resolveCase(BlockScope scope, TypeBinding testType, SwitchStatem
 	return Constant.NotAConstant;
 }
 /** 
- * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#expectedType}
+ * Implementation of {@link org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType}
  * suitable at this level. Subclasses should override as necessary.
- * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#expectedType()
+ * @see org.eclipse.jdt.internal.compiler.lookup.InvocationSite#invocationTargetType()
  */
-public TypeBinding expectedType() {
+public TypeBinding invocationTargetType() {
 	return null;
+}
+/** Simpler notion of expected type, suitable for code assist purposes. */
+public TypeBinding expectedType() {
+	// for all but FunctionalExpressions, this is the same as invocationTargetType.
+	return invocationTargetType();
+}
+public ExpressionContext getExpressionContext() {
+	return ExpressionContext.VANILLA_CONTEXT;
+}
+/**
+ * For all constructor invocations: find the constructor binding; 
+ * if site.innersNeedUpdate() perform some post processing for those and produce
+ * any updates as side-effects into 'argumentTypes'.
+ */
+protected MethodBinding findConstructorBinding(BlockScope scope, Invocation site, ReferenceBinding receiverType, TypeBinding[] argumentTypes) {
+	MethodBinding ctorBinding = scope.getConstructor(receiverType, argumentTypes, site);
+	resolvePolyExpressionArguments(site, ctorBinding, argumentTypes, scope);
+	return ctorBinding;
+}
+/**
+ * If an exception-throwing statement is resolved within the scope of a lambda, record the exception type(s).
+ * It is likely wrong to do this during resolve, should probably use precise flow information.
+ */
+protected void recordExceptionsForEnclosingLambda(BlockScope scope, TypeBinding... thrownExceptions) {
+	MethodScope methodScope = scope.methodScope();
+	if (methodScope != null && methodScope.referenceContext instanceof LambdaExpression) {
+		LambdaExpression lambda = (LambdaExpression) methodScope.referenceContext;
+		for (int i = 0; i < thrownExceptions.length; i++)
+			lambda.throwsException(thrownExceptions[i]);
+	}
 }
 }

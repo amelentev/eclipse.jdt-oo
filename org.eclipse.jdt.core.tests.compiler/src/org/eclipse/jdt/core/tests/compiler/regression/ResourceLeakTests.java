@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 GK Software AG and others.
+ * Copyright (c) 2011, 2014 GK Software AG and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,8 @@
  *
  * Contributors:
  *     Stephan Herrmann - initial API and implementation
+ *     Nikolay Metchev (nikolaymetchev@gmail.com) - Contributions for
+ *								bug 411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -25,12 +27,24 @@ import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
 
 public class ResourceLeakTests extends AbstractRegressionTest {
 
-// well-known helper class:
+// well-known helper classes:
 private static final String GUAVA_CLOSEABLES_JAVA = "com/google/common/io/Closeables.java";
 private static final String GUAVA_CLOSEABLES_CONTENT = "package com.google.common.io;\n" +
 	"public class Closeables {\n" +
 	"    public static void closeQuietly(java.io.Closeable closeable) {}\n" +
 	"    public static void close(java.io.Closeable closeable, boolean flag) {}\n" +
+	"}\n";
+private static final String APACHE_DBUTILS_JAVA = "org/apache/commons/dbutils/DbUtils.java";
+private static final String APACHE_DBUTILS_CONTENT = "package org.apache.commons.dbutils;\n" +
+	"import java.sql.*;\n" +
+	"public class DbUtils {\n" +
+	"    public static void close(Connection connection) {}\n" +
+	"    public static void close(ResultSet resultSet) {}\n" +
+	"    public static void close(Statement statement) {}\n" +
+	"    public static void closeQuietly(Connection connection) {}\n" +
+	"    public static void closeQuietly(ResultSet resultSet) {}\n" +
+	"    public static void closeQuietly(Statement statement) {}\n" +
+	"    public static void closeQuietly(Connection conn, Statement stmt, ResultSet rs) {}\n" +
 	"}\n";
 
 static {
@@ -4077,6 +4091,62 @@ public void testBug381445_1() {
 		null);	
 }
 
+// Bug 405569 - Resource leak check false positive when using DbUtils.closeQuietly
+// A resource is closed using more known close helpers
+public void testBug381445_1b() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // need AutoCloseable in apache's DbUtils
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			APACHE_DBUTILS_JAVA,
+			APACHE_DBUTILS_CONTENT,
+			"Bug381445.java",
+			"import java.sql.*;\n" +
+			"\n" +
+			"public class Bug381445 {\n" +
+			"	public void performQuery1(String url, String q1, String q2) throws Exception {\n" +
+			"		Connection conn = DriverManager.getConnection(url);\n" +
+			"		Statement stat = conn.createStatement();\n" +
+			"		ResultSet rset = stat.executeQuery(q1);\n" +
+			"		ResultSet rset2 = stat.executeQuery(q2);\n" +
+			"		try {\n" +
+			"			// empty\n" +
+			"		} finally {\n" +
+			"			org.apache.commons.dbutils.DbUtils.closeQuietly(conn);\n" +
+			"			org.apache.commons.dbutils.DbUtils.close(stat);\n" +
+			"			org.apache.commons.dbutils.DbUtils.closeQuietly(rset);\n" +
+			"			Closeables.closeQuietly(rset2);\n" +
+			"		}\n" +
+			"	}\n" +
+			"	public void performQuery2(String url, String q1, String q2) throws Exception {\n" +
+			"		Connection conn = DriverManager.getConnection(url);\n" +
+			"		Statement stat = conn.createStatement();\n" +
+			"		ResultSet rset = stat.executeQuery(q1);\n" +
+			"		try {\n" +
+			"			// empty\n" +
+			"		} finally {\n" +
+			"			org.apache.commons.dbutils.DbUtils.closeQuietly(conn, stat, rset);\n" +
+			"		}\n" +
+			"	}\n" +
+			"}\n" +
+			"class Closeables {\n" + // fake, should not be recognized
+			"	public static void closeQuietly(java.lang.AutoCloseable closeable) {}\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in Bug381445.java (at line 8)\n" + 
+		"	ResultSet rset2 = stat.executeQuery(q2);\n" +
+		"	          ^^^^^\n" + 
+		"Potential resource leak: \'rset2\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options,
+		null);	
+}
+
 // Bug 381445 - [compiler][resource] Can the resource leak check be made aware of Closeables.closeQuietly?
 // A resource is closed in different places of the flow
 public void testBug381445_2() {
@@ -4409,5 +4479,314 @@ public void testBug376053() {
 		null,
 		true,
 		options);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test1() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.*;\n" + 
+			"\n" + 
+			"class A {\n" + 
+			"  void a(boolean b) throws Exception {\n" + 
+			"    try(FileInputStream in = b ? new FileInputStream(\"a\") : null){}\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test2() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"A.java",
+			"import java.io.*;\n"+
+			"class A {\n" + 
+			"  void a(boolean b) throws Exception {\n" + 
+			"    try(FileInputStream in = create(new FileInputStream(\"a\"))){}\n" + 
+			"  }\n" + 
+			"  FileInputStream create(FileInputStream ignored) throws IOException {\n" + 
+			"    return new FileInputStream(\"b\"); \n" + 
+			"  }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in A.java (at line 4)\n" + 
+		"	try(FileInputStream in = create(new FileInputStream(\"a\"))){}\n" + 
+		"	                                ^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Potential resource leak: '<unassigned Closeable value>' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test3() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"A.java",
+			"import java.io.*;\n" + 
+			"class A {\n" + 
+			"	void m() throws IOException {\n" + 
+			"		try (FileInputStream a = new FileInputStream(\"A\") {{\n" + 
+			"				FileInputStream b = new FileInputStream(\"B\");\n" + 
+			"				b.hashCode();\n" + 
+			"			}}){\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in A.java (at line 5)\n" + 
+		"	FileInputStream b = new FileInputStream(\"B\");\n" + 
+		"	                ^\n" + 
+		"Resource leak: 'b' is never closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test4() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.FileInputStream;\n" + 
+			"class A {\n" + 
+			"	void testB(boolean b) throws Exception {\n" + 
+			"		FileInputStream in = null;\n" + 
+			"		try {\n" + 
+			"			in = b ? new FileInputStream(\"a\") : null;\n" + 
+			"		} finally {\n" + 
+			"		in.close();\n" + 
+			"		}\n" + 
+			"	}\n" + 
+			"}"
+		},
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test5() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.FileInputStream;\n" + 
+			"class A {\n" + 
+			"  void testA(boolean b) throws Exception {\n" + 
+			"    FileInputStream in = b ? new FileInputStream(\"a\") : null;\n" + 
+			"    in.close();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+public void testBug411098_test6() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.FileInputStream;\n" + 
+			"class A {\n" + 
+			"  void testA(boolean b) throws Exception {\n" + 
+			"    FileInputStream in = b ? new FileInputStream(\"a\") : new FileInputStream(\"b\");\n" + 
+			"    in.close();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+// challenge nested resource allocations
+public void testBug411098_test7() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_7) return; // t-w-r used
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.io.*;\n" + 
+			"class A {\n" + 
+			"  void testA(boolean b) throws Exception {\n" + 
+			"    BufferedReader in = b ? new BufferedReader(new FileReader(\"a\")) : new BufferedReader(new FileReader(\"b\"));\n" + 
+			"    in.close();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
+}
+
+// https://bugs.eclipse.org/411098 - [compiler][resource] Invalid Resource Leak Warning using ternary operator inside try-with-resource
+// should report potential leak only. 
+public void testBug411098_comment19() {
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"A.java",
+			"import java.io.PrintWriter;\n" + 
+			"public class A {\n" + 
+			"	PrintWriter fWriter;\n" + 
+			"	void bug(boolean useField) {\n" + 
+			"		PrintWriter bug= useField ? fWriter : null;\n" + 
+			"		System.out.println(bug);\n" + 
+			"	}\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in A.java (at line 5)\n" + 
+		"	PrintWriter bug= useField ? fWriter : null;\n" + 
+		"	            ^^^\n" + 
+		"Potential resource leak: \'bug\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options
+		);
+}
+// normal java.util.stream.Stream doesn't hold on to any resources
+public void testStream1() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses JRE 8 API
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.util.*;\n" +
+			"import java.util.stream.Stream;\n" + 
+			"class A {\n" + 
+			"  long test(List<String> ss) {\n" + 
+			"    Stream<String> stream = ss.stream();\n" + 
+			"    return stream.count();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
+}
+// Functions java.nio.file.Files.x() returning *Stream* do produce a resource needing closing
+public void testStream2() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses JRE 8 API
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"A.java",
+			"import java.util.stream.Stream;\n" + 
+			"import java.nio.file.*;\n" + 
+			"class A {\n" + 
+			"  long test(Path start, FileVisitOption... options) throws java.io.IOException {\n" + 
+			"    Stream<Path> stream = Files.walk(start, options);\n" + 
+			"    return stream.count();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in A.java (at line 5)\n" + 
+		"	Stream<Path> stream = Files.walk(start, options);\n" + 
+		"	             ^^^^^^\n" + 
+		"Resource leak: \'stream\' is never closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options
+		);
+}
+// closeable, but Stream, but produced by Files.m, but only potentially closed:
+public void testStream3() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses JRE 8 API
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runNegativeTest(
+		new String[] {
+			"A.java",
+			"import java.util.stream.Stream;\n" + 
+			"import java.nio.file.*;\n" + 
+			"class A {\n" + 
+			"  void test(Path file) throws java.io.IOException {\n" + 
+			"    Stream<String> lines = Files.lines(file);\n" +
+			"    if (lines.count() > 0)" + 
+			"    	lines.close();\n" + 
+			"  }\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in A.java (at line 5)\n" + 
+		"	Stream<String> lines = Files.lines(file);\n" + 
+		"	               ^^^^^\n" + 
+		"Potential resource leak: \'lines\' may not be closed\n" + 
+		"----------\n",
+		null,
+		true,
+		options
+		);
+}
+// special stream from Files.m is properly handled by t-w-r
+public void testStream4() {
+	if (this.complianceLevel < ClassFileConstants.JDK1_8)
+		return; // uses JRE 8 API
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_ReportPotentiallyUnclosedCloseable, CompilerOptions.ERROR);
+	options.put(CompilerOptions.OPTION_ReportUnclosedCloseable, CompilerOptions.ERROR);
+	runConformTest(
+		new String[] {
+			"A.java",
+			"import java.util.stream.Stream;\n" + 
+			"import java.nio.file.*;\n" + 
+			"class A {\n" + 
+			"  void test(Path dir) throws java.io.IOException {\n" + 
+			"    try (Stream<Path> list = Files.list(dir)) {\n" +
+			"    	list.forEach(child -> System.out.println(child));\n" + 
+			"    }\n" + 
+			"  }\n" + 
+			"}"
+		},
+		options
+		);
 }
 }

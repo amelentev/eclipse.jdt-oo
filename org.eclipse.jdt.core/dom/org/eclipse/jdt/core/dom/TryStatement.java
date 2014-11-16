@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,14 +16,6 @@ import java.util.List;
 
 /**
  * Try statement AST node type.
- * For JLS2 and JLS3:
- * <pre>
- * TryStatement:
- *     <b>try</b> Block
- *         [ { CatchClause } ]
- *         [ <b>finally</b> Block ]
- * </pre>
- * For JLS4, resources were added:
  * <pre>
  * TryStatement:
  *     <b>try</b> [ <b>(</b> Resources <b>)</b> ]
@@ -39,6 +31,7 @@ import java.util.List;
  * @since 2.0
  * @noinstantiate This class is not intended to be instantiated by clients.
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class TryStatement extends Statement {
 
 	/**
@@ -160,7 +153,7 @@ public class TryStatement extends Statement {
 	 */
 	TryStatement(AST ast) {
 		super(ast);
-		if (ast.apiLevel >= AST.JLS4) {
+		if (ast.apiLevel >= AST.JLS4_INTERNAL) {
 			this.resources = new ASTNode.NodeList(RESOURCES_PROPERTY);
 		}
 	}
@@ -224,7 +217,7 @@ public class TryStatement extends Statement {
 		TryStatement result = new TryStatement(target);
 		result.setSourceRange(getStartPosition(), getLength());
 		result.copyLeadingComment(this);
-		if (this.ast.apiLevel >= AST.JLS4) {
+		if (this.ast.apiLevel >= AST.JLS4_INTERNAL) {
 			result.resources().addAll(
 					ASTNode.copySubtrees(target, resources()));
 		}
@@ -251,7 +244,7 @@ public class TryStatement extends Statement {
 		boolean visitChildren = visitor.visit(this);
 		if (visitChildren) {
 			// visit children in normal left to right reading order
-			if (this.ast.apiLevel >= AST.JLS4) {
+			if (this.ast.apiLevel >= AST.JLS4_INTERNAL) {
 				acceptChildren(visitor, this.resources);
 			}
 			acceptChild(visitor, getBody());
@@ -342,7 +335,7 @@ public class TryStatement extends Statement {
 	}
 
 	/**
-	 * Returns the live ordered list of resources for this try statement.
+	 * Returns the live ordered list of resources for this try statement (added in JLS4 API).
 	 *
 	 * @return the live list of resources
 	 *    (element type: {@link VariableDeclarationExpression})

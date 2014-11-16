@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -43,7 +43,7 @@ static {
 //	TESTS_NAMES = new String[] { "testBug351697" };
 }
 public static Test suite() {
-	TestSuite suite = (TestSuite) buildModelTestSuite(JavaProjectTests.class);
+	TestSuite suite = (TestSuite) buildModelTestSuite(JavaProjectTests.class, ALPHABETICAL_SORT);
 
 	// The following test must be at the end as it deletes a package and this would have side effects
 	// on other tests
@@ -402,7 +402,8 @@ public void testAddZIPArchive6() throws Exception {
  * the project.
  * (Regression test for PR #1G58NB8)
  */
-public void testAddNonJavaResourcePackageFragmentRoot() throws JavaModelException, CoreException {
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=423280.
+public void _testAddNonJavaResourcePackageFragmentRoot() throws JavaModelException, CoreException {
 	// get resources of source package fragment root at project level
 	IPackageFragmentRoot root = getPackageFragmentRoot("JavaProjectTests", "");
 	Object[] resources = root.getNonJavaResources();
@@ -2571,7 +2572,7 @@ public void testBug351697() throws Exception {
 		proj.getProject().build(IncrementalProjectBuilder.FULL_BUILD, null);
 
 		try {
-			ASTParser parser= ASTParser.newParser(AST.JLS4);
+			ASTParser parser= ASTParser.newParser(AST.JLS8);
 			parser.setSource(unit);
 			parser.setResolveBindings(true);
 			ASTNode node = parser.createAST(null);

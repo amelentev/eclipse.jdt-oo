@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,13 +7,15 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for  bug 365662 - [compiler][null] warn on contradictory and redundant null annotations
+ *     Stephan Herrmann - Contributions for
+ *								bug 365662 - [compiler][null] warn on contradictory and redundant null annotations
+ *								bug 401030 - [1.8][null] Null analysis support for lambda methods.
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
 import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.ASTNode;
-import org.eclipse.jdt.internal.compiler.ast.AbstractMethodDeclaration;
 import org.eclipse.jdt.internal.compiler.ast.Annotation;
 import org.eclipse.jdt.internal.compiler.ast.CaseStatement;
 import org.eclipse.jdt.internal.compiler.ast.TypeDeclaration;
@@ -23,7 +25,6 @@ public final class LocalTypeBinding extends NestedTypeBinding {
 	final static char[] LocalTypePrefix = { '$', 'L', 'o', 'c', 'a', 'l', '$' };
 
 	private InnerEmulationDependency[] dependents;
-	public ArrayBinding[] localArrayBindings; // used to cache array bindings of various dimensions for this local type
 	public CaseStatement enclosingCase; // from 1.4 on, local types should not be accessed across switch case blocks (52221)
 	public int sourceStart; // used by computeUniqueKey to uniquely identify this binding
 	public MethodBinding enclosingMethod;
@@ -42,10 +43,18 @@ public LocalTypeBinding(ClassScope scope, SourceTypeBinding enclosingType, CaseS
 	this.enclosingCase = switchCase;
 	this.sourceStart = typeDeclaration.sourceStart;
 	MethodScope methodScope = scope.enclosingMethodScope();
-	AbstractMethodDeclaration methodDeclaration = methodScope.referenceMethod();
-	if (methodDeclaration != null) {
-		this.enclosingMethod = methodDeclaration.binding;
+	MethodBinding methodBinding = methodScope.referenceMethodBinding();
+	if (methodBinding != null) {
+		this.enclosingMethod = methodBinding;
 	}
+}
+
+public LocalTypeBinding(LocalTypeBinding prototype) {
+	super(prototype);
+	this.dependents = prototype.dependents;
+	this.enclosingCase = prototype.enclosingCase;
+	this.sourceStart = prototype.sourceStart;
+	this.enclosingMethod = prototype.enclosingMethod;
 }
 
 /* Record a dependency onto a source target type which may be altered
@@ -53,6 +62,7 @@ public LocalTypeBinding(ClassScope scope, SourceTypeBinding enclosingType, CaseS
 * all its dependents so as to update them (see updateInnerEmulationDependents()).
 */
 public void addInnerEmulationDependent(BlockScope dependentScope, boolean wasEnclosingInstanceSupplied) {
+	if (!isPrototype()) throw new IllegalStateException();
 	int index;
 	if (this.dependents == null) {
 		index = 0;
@@ -72,6 +82,11 @@ public void addInnerEmulationDependent(BlockScope dependentScope, boolean wasEnc
  * Returns the anonymous original super type (in some error cases, superclass may get substituted with Object)
  */
 public ReferenceBinding anonymousOriginalSuperType() {
+	if (!isPrototype())
+		return ((LocalTypeBinding) this.prototype).anonymousOriginalSuperType();
+	if (this.superclass == null && this.scope != null)
+		return this.scope.getJavaLangObject();
+	
 	if (this.superInterfaces != Binding.NO_SUPERINTERFACES) {
 		return this.superInterfaces[0];
 	}
@@ -87,18 +102,29 @@ public ReferenceBinding anonymousOriginalSuperType() {
 	return this.superclass; // default answer
 }
 
-protected void checkRedundantNullnessDefaultRecurse(ASTNode location, Annotation[] annotations, long annotationTagBits) {
-	long outerDefault = this.enclosingMethod != null ? this.enclosingMethod.tagBits & ((TagBits.AnnotationNonNullByDefault|TagBits.AnnotationNullUnspecifiedByDefault)) : 0;
+protected void checkRedundantNullnessDefaultRecurse(ASTNode location, Annotation[] annotations, long nullBits, boolean isJdk18) {
+	
+	if (!isPrototype()) throw new IllegalStateException();
+	
+	long outerDefault = 0;
+	if (this.enclosingMethod != null) {
+		outerDefault = isJdk18 
+				? this.enclosingMethod.defaultNullness 
+				: this.enclosingMethod.tagBits & (TagBits.AnnotationNonNullByDefault|TagBits.AnnotationNullUnspecifiedByDefault);
+	}
 	if (outerDefault != 0) {
-		if (outerDefault == annotationTagBits) {
+		if (outerDefault == nullBits) {
 			this.scope.problemReporter().nullDefaultAnnotationIsRedundant(location, annotations, this.enclosingMethod);
 		}
 		return;
 	}
-	super.checkRedundantNullnessDefaultRecurse(location, annotations, annotationTagBits);
+	super.checkRedundantNullnessDefaultRecurse(location, annotations, nullBits, isJdk18);
 }
 
 public char[] computeUniqueKey(boolean isLeaf) {
+	if (!isPrototype())
+		return this.prototype.computeUniqueKey(isLeaf);
+	
 	char[] outerKey = outermostEnclosingType().computeUniqueKey(isLeaf);
 	int semicolon = CharOperation.lastIndexOf(';', outerKey);
 
@@ -125,6 +151,10 @@ public char[] computeUniqueKey(boolean isLeaf) {
 }
 
 public char[] constantPoolName() /* java/lang/Object */ {
+	if (this.constantPoolName != null)
+		return this.constantPoolName;
+	if (!isPrototype())
+		return this.constantPoolName = this.prototype.constantPoolName();
 	if (this.constantPoolName == null && this.scope != null) {
 		// https://bugs.eclipse.org/bugs/show_bug.cgi?id=322154, we do have some
 		// cases where the left hand does not know what the right is doing.
@@ -133,28 +163,25 @@ public char[] constantPoolName() /* java/lang/Object */ {
 	return this.constantPoolName;	
 }
 
-ArrayBinding createArrayType(int dimensionCount, LookupEnvironment lookupEnvironment) {
-	if (this.localArrayBindings == null) {
-		this.localArrayBindings = new ArrayBinding[] {new ArrayBinding(this, dimensionCount, lookupEnvironment)};
-		return this.localArrayBindings[0];
-	}
-	// find the cached array binding for this dimensionCount (if any)
-	int length = this.localArrayBindings.length;
-	for (int i = 0; i < length; i++)
-		if (this.localArrayBindings[i].dimensions == dimensionCount)
-			return this.localArrayBindings[i];
-
-	// no matching array
-	System.arraycopy(this.localArrayBindings, 0, this.localArrayBindings = new ArrayBinding[length + 1], 0, length);
-	return this.localArrayBindings[length] = new ArrayBinding(this, dimensionCount, lookupEnvironment);
+public TypeBinding clone(TypeBinding outerType) {
+	LocalTypeBinding copy = new LocalTypeBinding(this);
+	copy.enclosingType = (SourceTypeBinding) outerType;
+	return copy;
 }
 
+public int hashCode() {
+	return this.enclosingType.hashCode();
+}
 /*
  * Overriden for code assist. In this case, the constantPoolName() has not been computed yet.
  * Slam the source name so that the signature is syntactically correct.
  * (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=99686)
  */
 public char[] genericTypeSignature() {
+	
+	if (!isPrototype())
+		return this.prototype.genericTypeSignature();
+	
 	if (this.genericReferenceTypeSignature == null && this.constantPoolName == null) {
 		if (isAnonymousType())
 			setConstantPoolName(superclass().sourceName());
@@ -216,10 +243,20 @@ public char[] shortReadableName() /*Object*/ {
 
 // Record that the type is a local member type
 public void setAsMemberType() {
+	if (!isPrototype()) {
+		this.tagBits |= TagBits.MemberTypeMask;
+		((LocalTypeBinding) this.prototype).setAsMemberType();
+		return;
+	}
 	this.tagBits |= TagBits.MemberTypeMask;
 }
 
 public void setConstantPoolName(char[] computedConstantPoolName) /* java/lang/Object */ {
+	if (!isPrototype()) {
+		this.constantPoolName = computedConstantPoolName;
+		((LocalTypeBinding) this.prototype).setConstantPoolName(computedConstantPoolName);
+		return;
+	}
 	this.constantPoolName = computedConstantPoolName;
 }
 
@@ -229,6 +266,10 @@ public void setConstantPoolName(char[] computedConstantPoolName) /* java/lang/Ob
  * (see https://bugs.eclipse.org/bugs/show_bug.cgi?id=102284)
  */
 public char[] signature() {
+	
+	if (!isPrototype())
+		return this.prototype.signature();
+	
 	if (this.signature == null && this.constantPoolName == null) {
 		if (isAnonymousType())
 			setConstantPoolName(superclass().sourceName());
@@ -246,6 +287,9 @@ public char[] sourceName() {
 }
 
 public String toString() {
+	if (this.hasTypeAnnotations())
+		return annotatedDebugName() + " (local)"; //$NON-NLS-1$
+    
 	if (isAnonymousType())
 		return "Anonymous type : " + super.toString(); //$NON-NLS-1$
 	if (isMemberType())
@@ -257,6 +301,7 @@ public String toString() {
 * to be propagated to all dependent source types.
 */
 public void updateInnerEmulationDependents() {
+	if (!isPrototype()) throw new IllegalStateException();
 	if (this.dependents != null) {
 		for (int i = 0; i < this.dependents.length; i++) {
 			InnerEmulationDependency dependency = this.dependents[i];

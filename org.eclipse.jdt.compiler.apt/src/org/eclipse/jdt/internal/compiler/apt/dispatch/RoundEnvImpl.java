@@ -1,10 +1,10 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- *
+ * 
  * Contributors:
  *    IBM Corporation - initial API and implementation
  *    IBM Corporation - Fix for bug 328575
@@ -55,7 +55,9 @@ public class RoundEnvImpl implements RoundEnvironment
 		AnnotationDiscoveryVisitor visitor = new AnnotationDiscoveryVisitor(_processingEnv);
 		if (_units != null) {
 			for (CompilationUnitDeclaration unit : _units) {
+				unit.scope.suppressImportErrors = true;
 				unit.traverse(visitor, unit.scope);
+				unit.scope.suppressImportErrors = false;
 			}
 		}
 		_annoToUnit = visitor._annoToElement;
@@ -69,7 +71,7 @@ public class RoundEnvImpl implements RoundEnvironment
 			if (referenceBinding instanceof ParameterizedTypeBinding) {
 				referenceBinding = ((ParameterizedTypeBinding) referenceBinding).genericType();
 			}
-			AnnotationBinding[] annotationBindings = referenceBinding.getAnnotations();
+			AnnotationBinding[] annotationBindings = Factory.getPackedAnnotationBindings(referenceBinding.getAnnotations());
 			for (AnnotationBinding annotationBinding : annotationBindings) {
 				TypeElement anno = (TypeElement)_factory.newElement(annotationBinding.getAnnotationType()); 
 				Element element = _factory.newElement(referenceBinding);
@@ -77,7 +79,7 @@ public class RoundEnvImpl implements RoundEnvironment
 			}
 			FieldBinding[] fieldBindings = referenceBinding.fields();
 			for (FieldBinding fieldBinding : fieldBindings) {
-				annotationBindings = fieldBinding.getAnnotations();
+				annotationBindings = Factory.getPackedAnnotationBindings(fieldBinding.getAnnotations());
 				for (AnnotationBinding annotationBinding : annotationBindings) {
 					TypeElement anno = (TypeElement)_factory.newElement(annotationBinding.getAnnotationType()); 
 					Element element = _factory.newElement(fieldBinding);
@@ -86,7 +88,7 @@ public class RoundEnvImpl implements RoundEnvironment
 			}
 			MethodBinding[] methodBindings = referenceBinding.methods();
 			for (MethodBinding methodBinding : methodBindings) {
-				annotationBindings = methodBinding.getAnnotations();
+				annotationBindings = Factory.getPackedAnnotationBindings(methodBinding.getAnnotations());
 				for (AnnotationBinding annotationBinding : annotationBindings) {
 					TypeElement anno = (TypeElement)_factory.newElement(annotationBinding.getAnnotationType()); 
 					Element element = _factory.newElement(methodBinding);
@@ -172,9 +174,9 @@ public class RoundEnvImpl implements RoundEnvironment
 			if (searchedElement instanceof ParameterizedTypeBinding) {
 				searchedElement = ((ParameterizedTypeBinding) searchedElement).genericType();
 			}
-			AnnotationBinding[] annos = searchedElement.getAnnotations();
+			AnnotationBinding[] annos = Factory.getPackedAnnotationBindings(searchedElement.getAnnotations());
 			for (AnnotationBinding annoBinding : annos) {
-				if (annoBinding.getAnnotationType() == anno) {
+				if (annoBinding.getAnnotationType() == anno) { //$IDENTITY-COMPARISON$
 					// element is annotated with anno
 					return true;
 				}
@@ -216,7 +218,7 @@ public class RoundEnvImpl implements RoundEnvironment
 			}
 			if (this._binaryTypes != null) {
 				for (ReferenceBinding typeBinding : _binaryTypes) {
-					TypeElement element = (TypeElement)_factory.newElement(typeBinding);
+					Element element = _factory.newElement(typeBinding);
 					if (null == element) {
 						throw new IllegalArgumentException("Top-level type binding could not be converted to element: " + typeBinding); //$NON-NLS-1$
 					}

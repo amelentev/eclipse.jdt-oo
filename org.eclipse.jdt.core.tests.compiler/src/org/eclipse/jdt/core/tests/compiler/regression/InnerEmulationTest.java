@@ -7,7 +7,10 @@
  *
  * Contributors:
  *     IBM Corporation - initial API and implementation
+ *     Stephan Herrmann - Contribution for
+ *								Bug 388800 - [1.8] adjust tests to 1.8 JRE
  *     Keigo Imai - Contribution for  bug 388903 - Cannot extend inner class as an anonymous class when it extends the outer class
+>>>>>>> 11dd8a9 [388903] Cannot extend inner class as an anonymous class when it extends the outer class
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -6855,6 +6858,7 @@ public void test173() throws Exception {
 			"				compare(yourList != null ? yourList : myList, yourList);\n" + 
 			"				return 0;\n" + 
 			"			}\n" + 
+			COMPARATOR_RAW_IMPL_JRE8 +
 			"		};\n" + 
 			"		System.out.println(\"SUCCESS\");\n" + 
 			"	}\n" + 
@@ -6885,6 +6889,7 @@ public void test174() throws Exception {
 			"			private int foo(int i, int j) {\n" + 
 			"				return i - j;\n" + 
 			"			}\n" + 
+			COMPARATOR_RAW_IMPL_JRE8 +
 			"		};\n" + 
 			"		System.out.println(\"SUCCESS\");\n" + 
 			"	}\n" + 

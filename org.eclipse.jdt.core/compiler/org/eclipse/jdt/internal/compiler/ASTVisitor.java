@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2011 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -49,6 +49,9 @@ public abstract class ASTVisitor {
 		// do nothing by default
 	}
 	public void endVisit(ArrayInitializer arrayInitializer, BlockScope scope) {
+		// do nothing by default
+	}
+	public void endVisit(ArrayInitializer arrayInitializer, ClassScope scope) {
 		// do nothing by default
 	}
 	public void endVisit(
@@ -271,10 +274,24 @@ public abstract class ASTVisitor {
 		// do nothing by default
 	}
 	/**
+	 * @param annotation
+	 * @param scope
+	 */
+	public void endVisit(MarkerAnnotation annotation, ClassScope scope) {
+		// do nothing by default
+	}
+	/**
 	 * @param pair
 	 * @param scope
 	 */
 	public void endVisit(MemberValuePair pair, BlockScope scope) {
+		// do nothing by default
+	}
+	/**
+	 * @param pair
+	 * @param scope
+	 */
+	public void endVisit(MemberValuePair pair, ClassScope scope) {
 		// do nothing by default
 	}
 	public void endVisit(MessageSend messageSend, BlockScope scope) {
@@ -292,6 +309,9 @@ public abstract class ASTVisitor {
 	 * @since 3.1
 	 */
 	public void endVisit(NormalAnnotation annotation, BlockScope scope) {
+		// do nothing by default
+	}
+	public void endVisit(NormalAnnotation annotation, ClassScope scope) {
 		// do nothing by default
 	}
 	public void endVisit(NullLiteral nullLiteral, BlockScope scope) {
@@ -372,6 +392,13 @@ public abstract class ASTVisitor {
 	 * @since 3.1
 	 */
 	public void endVisit(SingleMemberAnnotation annotation, BlockScope scope) {
+		// do nothing by default
+	}
+	/**
+	 * @param annotation
+	 * @param scope
+	 */
+	public void endVisit(SingleMemberAnnotation annotation, ClassScope scope) {
 		// do nothing by default
 	}
 	public void endVisit(
@@ -466,6 +493,18 @@ public abstract class ASTVisitor {
 	public void endVisit(Wildcard wildcard, ClassScope scope) {
 		// do nothing by default
 	}
+	public void endVisit(LambdaExpression lambdaExpression, BlockScope blockScope) {
+		// do nothing by default
+	}
+	public void endVisit(ReferenceExpression referenceExpression, BlockScope blockScope) {
+		// do nothing by default	
+	}
+	public void endVisit(IntersectionCastTypeReference intersectionCastTypeReference, ClassScope scope) {
+		// do nothing by default
+	}
+	public void endVisit(IntersectionCastTypeReference intersectionCastTypeReference, BlockScope scope) {
+		// do nothing by default
+	}
 	public boolean visit(
     		AllocationExpression allocationExpression,
     		BlockScope scope) {
@@ -491,6 +530,9 @@ public abstract class ASTVisitor {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(ArrayInitializer arrayInitializer, BlockScope scope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(ArrayInitializer arrayInitializer, ClassScope scope) {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(
@@ -713,11 +755,25 @@ public abstract class ASTVisitor {
 		return true;
 	}
 	/**
+	 * @param annotation
+	 * @param scope
+	 */
+	public boolean visit(MarkerAnnotation annotation, ClassScope scope) {
+		return true;
+	}
+	/**
 	 * @param pair
 	 * @param scope
 	 * @since 3.1
 	 */
 	public boolean visit(MemberValuePair pair, BlockScope scope) {
+		return true;
+	}
+	/**
+	 * @param pair
+	 * @param scope
+	 */
+	public boolean visit(MemberValuePair pair, ClassScope scope) {
 		return true;
 	}
 	public boolean visit(MessageSend messageSend, BlockScope scope) {
@@ -737,6 +793,13 @@ public abstract class ASTVisitor {
 	 * @since 3.1
 	 */
 	public boolean visit(NormalAnnotation annotation, BlockScope scope) {
+		return true;
+	}
+	/**
+	 * @param annotation
+	 * @param scope
+	 */
+	public boolean visit(NormalAnnotation annotation, ClassScope scope) {
 		return true;
 	}
 	public boolean visit(NullLiteral nullLiteral, BlockScope scope) {
@@ -817,6 +880,13 @@ public abstract class ASTVisitor {
 	 * @since 3.1
 	 */
 	public boolean visit(SingleMemberAnnotation annotation, BlockScope scope) {
+		return true;
+	}
+	/**
+	 * @param annotation
+	 * @param scope
+	 */
+	public boolean visit(SingleMemberAnnotation annotation, ClassScope scope) {
 		return true;
 	}
 	public boolean visit(
@@ -909,6 +979,18 @@ public abstract class ASTVisitor {
 		return true; // do nothing by default, keep traversing
 	}
 	public boolean visit(Wildcard wildcard, ClassScope scope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(LambdaExpression lambdaExpression, BlockScope blockScope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(ReferenceExpression referenceExpression, BlockScope blockScope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(IntersectionCastTypeReference intersectionCastTypeReference, ClassScope scope) {
+		return true; // do nothing by default, keep traversing
+	}
+	public boolean visit(IntersectionCastTypeReference intersectionCastTypeReference, BlockScope scope) {
 		return true; // do nothing by default, keep traversing
 	}
 }

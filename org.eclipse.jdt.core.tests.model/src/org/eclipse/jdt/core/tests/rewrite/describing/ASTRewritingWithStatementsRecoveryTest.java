@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009 IBM Corporation and others.
+ * Copyright (c) 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -12,38 +12,29 @@ package org.eclipse.jdt.core.tests.rewrite.describing;
 import java.util.List;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.jdt.core.IPackageFragment;
-
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
-	private static final Class THIS= ASTRewritingWithStatementsRecoveryTest.class;
 
 	public ASTRewritingWithStatementsRecoveryTest(String name) {
 		super(name);
 	}
 
-	public static Test allTests() {
-		return new Suite(THIS);
-	}
-
-	public static Test setUpTest(Test someTest) {
-		TestSuite suite= new Suite("one test");
-		suite.addTest(someTest);
-		return suite;
+	public ASTRewritingWithStatementsRecoveryTest(String name, int apiLevel) {
+		super(name, apiLevel);
 	}
 
 	public static Test suite() {
-		return allTests();
+		return createSuite(ASTRewritingWithStatementsRecoveryTest.class);
 	}
 
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=272711
-	public void testBug272711_01() throws Exception {
+	public void testBug272711_01_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -54,7 +45,7 @@ public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu, true);
+		CompilationUnit astRoot= createAST(cu, true);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -86,7 +77,7 @@ public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
 	}
 	
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=272711
-	public void testBug272711_02() throws Exception {
+	public void testBug272711_02_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -97,7 +88,7 @@ public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu, true);
+		CompilationUnit astRoot= createAST(cu, true);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 
@@ -130,7 +121,7 @@ public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
 	}
 	
 	//https://bugs.eclipse.org/bugs/show_bug.cgi?id=272711
-	public void testBug272711_03() throws Exception {
+	public void testBug272711_03_since_3() throws Exception {
 		IPackageFragment pack1= this.sourceFolder.createPackageFragment("test1", false, null);
 		StringBuffer buf= new StringBuffer();
 		buf.append("package test1;\n");
@@ -142,7 +133,7 @@ public class ASTRewritingWithStatementsRecoveryTest extends ASTRewritingTest {
 		buf.append("}\n");
 		ICompilationUnit cu= pack1.createCompilationUnit("E.java", buf.toString(), false, null);
 
-		CompilationUnit astRoot= createAST3(cu, true);
+		CompilationUnit astRoot= createAST(cu, true);
 		AST ast= astRoot.getAST();
 		ASTRewrite rewrite= ASTRewrite.create(ast);
 

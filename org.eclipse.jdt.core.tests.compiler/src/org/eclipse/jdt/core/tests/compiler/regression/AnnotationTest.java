@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -15,6 +15,10 @@
  *								bug 386356 - Type mismatch error with annotations and generics
  *								bug 331649 - [compiler][null] consider null annotations for fields
  *								bug 376590 - Private fields with @Inject are ignored by unused field validation
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis 
+ *     Jesper S Moller  - Contributions for
+ *								bug 384567 - [1.5][compiler] Compiler accepts illegal modifiers on package declaration
+ *								bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -57,6 +61,8 @@ public class AnnotationTest extends AbstractComparableTest {
 	}
 
 	String reportMissingJavadocComments = null;
+	private String repeatableIntroText;
+	private String repeatableTrailerText;
 
 	public AnnotationTest(String name) {
 		super(name);
@@ -87,6 +93,14 @@ public class AnnotationTest extends AbstractComparableTest {
 	protected void setUp() throws Exception {
 		super.setUp();
 		this.reportMissingJavadocComments = null;
+		this.repeatableIntroText = this.complianceLevel >= ClassFileConstants.JDK1_8 ?
+		"Duplicate annotation of non-repeatable type "
+		:
+		"Duplicate annotation ";
+		this.repeatableTrailerText = this.complianceLevel >= ClassFileConstants.JDK1_8 ?
+		". Only annotation types marked @Repeatable can be used multiple times at one target.\n"
+		:
+		". Repeated annotations are allowed only at source level 1.8 or above\n";
 	}
 
 	public void test001() {
@@ -326,12 +340,12 @@ public class AnnotationTest extends AbstractComparableTest {
 			"1. ERROR in X.java (at line 1)\n" +
 			"	@Foo @Foo\n" +
 			"	^^^^\n" +
-			"Duplicate annotation @Foo\n" +
+			this.repeatableIntroText + "@Foo"+ this.repeatableTrailerText + 
 			"----------\n" +
 			"2. ERROR in X.java (at line 1)\n" +
 			"	@Foo @Foo\n" +
 			"	     ^^^^\n" +
-			"Duplicate annotation @Foo\n" +
+			this.repeatableIntroText + "@Foo"+ this.repeatableTrailerText + 
 			"----------\n");
 	}
 
@@ -1029,6 +1043,30 @@ public class AnnotationTest extends AbstractComparableTest {
 		"	           ^^^^\n" +
 		"Illegal modifier for the annotation attribute X.id; only public & abstract are permitted\n" +
 		"----------\n");
+	}
+
+	// check annotation member modifiers (validity unchanged despite grammar change from JSR 335 - default methods)
+	// and https://bugs.eclipse.org/bugs/show_bug.cgi?id=3383968
+	public void test039a() {
+		this.runNegativeTest(
+			new String[] {
+				"X.java",
+				"public @interface X {\n" +
+				"	strictfp double val() default 0.1;\n" +
+				"	synchronized String id() default \"zero\";\n" +
+				"}"
+			},
+			"----------\n" + 
+			"1. ERROR in X.java (at line 2)\n" + 
+			"	strictfp double val() default 0.1;\n" + 
+			"	                ^^^^^\n" + 
+			"Illegal modifier for the annotation attribute X.val; only public & abstract are permitted\n" + 
+			"----------\n" + 
+			"2. ERROR in X.java (at line 3)\n" + 
+			"	synchronized String id() default \"zero\";\n" + 
+			"	                    ^^^^\n" + 
+			"Illegal modifier for the annotation attribute X.id; only public & abstract are permitted\n" + 
+			"----------\n");
 	}
 
 	// check annotation array field initializer
@@ -4753,7 +4791,7 @@ public void test143() {
     		"1. ERROR in X.java (at line 3)\n" +
     		"	@interface Bar {\n" +
     		"	           ^^^\n" +
-    		"The member annotation Bar can only be defined inside a top-level class or interface\n" +
+    		"The member annotation Bar can only be defined inside a top-level class or interface or in a static context\n" +
     		"----------\n");
     }
 
@@ -8759,12 +8797,12 @@ public void test264() {
 }
 // https://bugs.eclipse.org/bugs/show_bug.cgi?id=258906 
 public void test265() {
-	if (new CompilerOptions(getCompilerOptions()).complianceLevel < ClassFileConstants.JDK1_6) return;
 
 	INameEnvironment nameEnvironment = new FileSystem(Util.getJavaClassLibs(), new String[] {}, null);
 	IErrorHandlingPolicy errorHandlingPolicy = new IErrorHandlingPolicy() {
 		public boolean proceedOnErrors() { return true; }
 		public boolean stopOnFirstError() { return false; }
+		public boolean ignoreAllErrors() { return false; }
 	};
 	Map options = getCompilerOptions();
 	options.put(CompilerOptions.OPTION_Process_Annotations, CompilerOptions.ENABLED);
@@ -8797,7 +8835,7 @@ public void test265() {
 		annotations = type.getAnnotations();
 	}
 	assertTrue ("Annotations missing on package-info interface", annotations != null && annotations.length == 1);
-	assertEquals("Wrong annotation on package-info interface ", "@XmlSchema{ namespace = (String)\"test\"}", annotations[0].toString());
+	assertEquals("Wrong annotation on package-info interface ", "@XmlSchema(namespace = (String)\"test\")", annotations[0].toString());
 	nameEnvironment.cleanup();
 	if (requestor.hasErrors)
 		System.err.print(requestor.problemLog); // problem log empty if no problems
@@ -8816,12 +8854,12 @@ public void test266() {
 		"1. ERROR in p\\package-info.java (at line 1)\n" + 
 		"	@Deprecated\n" + 
 		"	^^^^^^^^^^^\n" + 
-		"Duplicate annotation @Deprecated\n" + 
+		this.repeatableIntroText + "@Deprecated"+ this.repeatableTrailerText + 
 		"----------\n" + 
 		"2. ERROR in p\\package-info.java (at line 2)\n" + 
 		"	@Deprecated\n" + 
 		"	^^^^^^^^^^^\n" + 
-		"Duplicate annotation @Deprecated\n" + 
+		this.repeatableIntroText + "@Deprecated"+ this.repeatableTrailerText + 
 		"----------\n"
 	);
 }
@@ -9908,18 +9946,18 @@ public void testBug366003() {
 		"----------\n" + 
 		"7. ERROR in snippet\\Bug366003.java (at line 13)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
-		"	^^^^^^^^^^^^^^^^\n" + 
-		"Syntax error on tokens, delete these tokens\n" + 
+		"	            ^^^^\n" + 
+		"Syntax error, insert \"Identifier (\" to complete MethodHeaderName\n" + 
 		"----------\n" + 
 		"8. ERROR in snippet\\Bug366003.java (at line 13)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
 		"	            ^^^^\n" + 
-		"Syntax error, insert \"enum Identifier\" to complete EnumHeaderName\n" + 
+		"Syntax error, insert \")\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"9. ERROR in snippet\\Bug366003.java (at line 13)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
 		"	            ^^^^\n" + 
-		"Syntax error, insert \"EnumBody\" to complete EnumDeclaration\n" + 
+		"Syntax error, insert \";\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"10. ERROR in snippet\\Bug366003.java (at line 13)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
@@ -9994,18 +10032,18 @@ public void testBug366003b() {
 		"----------\n" + 
 		"6. ERROR in snippet\\Bug366003.java (at line 11)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
-		"	^^^^^^^^^^^^^^^^\n" + 
-		"Syntax error on tokens, delete these tokens\n" + 
+		"	            ^^^^\n" + 
+		"Syntax error, insert \"Identifier (\" to complete MethodHeaderName\n" + 
 		"----------\n" + 
 		"7. ERROR in snippet\\Bug366003.java (at line 11)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
 		"	            ^^^^\n" + 
-		"Syntax error, insert \"enum Identifier\" to complete EnumHeaderName\n" + 
+		"Syntax error, insert \")\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"8. ERROR in snippet\\Bug366003.java (at line 11)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
 		"	            ^^^^\n" + 
-		"Syntax error, insert \"EnumBody\" to complete EnumDeclaration\n" + 
+		"Syntax error, insert \";\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"9. ERROR in snippet\\Bug366003.java (at line 11)\n" + 
 		"	org.eclipse.User.User(@NonNull String name, int uid, @Nullable String email)\n" + 
@@ -10049,17 +10087,17 @@ public void testBug366003c() {
 		"1. ERROR in snippet\\Bug366003.java (at line 5)\n" + 
 		"	org.User(@Bla String a)\n" + 
 		"	^^^\n" + 
-		"Syntax error on token \"org\", delete this token\n" + 
+		"Syntax error, insert \"Identifier (\" to complete MethodHeaderName\n" + 
 		"----------\n" + 
 		"2. ERROR in snippet\\Bug366003.java (at line 5)\n" + 
 		"	org.User(@Bla String a)\n" + 
 		"	^^^\n" + 
-		"Syntax error, insert \"enum Identifier\" to complete EnumHeaderName\n" + 
+		"Syntax error, insert \")\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"3. ERROR in snippet\\Bug366003.java (at line 5)\n" + 
 		"	org.User(@Bla String a)\n" + 
 		"	^^^\n" + 
-		"Syntax error, insert \"EnumBody\" to complete EnumDeclaration\n" + 
+		"Syntax error, insert \";\" to complete MethodDeclaration\n" + 
 		"----------\n" + 
 		"4. ERROR in snippet\\Bug366003.java (at line 5)\n" + 
 		"	org.User(@Bla String a)\n" + 
@@ -10098,26 +10136,26 @@ public void testBug366003d() {
 			"	}\n" +
 			"}\n"
 		},
-		"----------\n" +
-		"1. ERROR in snippet\\Bug366003.java (at line 7)\n" +
-		"	e } catch (@Blah Exception eSecond) {\n" +
-		"	^\n" +
-		"Syntax error, insert \"AssignmentOperator Expression\" to complete Assignment\n" +
-		"----------\n" +
-		"2. ERROR in snippet\\Bug366003.java (at line 7)\n" +
-		"	e } catch (@Blah Exception eSecond) {\n" +
-		"	^\n" +
-		"Syntax error, insert \";\" to complete BlockStatements\n" +
-		"----------\n" +
-		"3. ERROR in snippet\\Bug366003.java (at line 8)\n" +
-		"	e }\n" +
-		"	^\n" +
-		"Syntax error, insert \"AssignmentOperator Expression\" to complete Expression\n" +
-		"----------\n" +
-		"4. ERROR in snippet\\Bug366003.java (at line 8)\n" +
-		"	e }\n" +
-		"	^\n" +
-		"Syntax error, insert \";\" to complete BlockStatements\n" +
+		"----------\n" + 
+		"1. ERROR in snippet\\Bug366003.java (at line 7)\n" + 
+		"	e } catch (@Blah Exception eSecond) {\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"VariableDeclarators\" to complete LocalVariableDeclaration\n" + 
+		"----------\n" + 
+		"2. ERROR in snippet\\Bug366003.java (at line 7)\n" + 
+		"	e } catch (@Blah Exception eSecond) {\n" + 
+		"	^\n" + 
+		"Syntax error, insert \";\" to complete BlockStatements\n" + 
+		"----------\n" + 
+		"3. ERROR in snippet\\Bug366003.java (at line 8)\n" + 
+		"	e }\n" + 
+		"	^\n" + 
+		"Syntax error, insert \"VariableDeclarators\" to complete LocalVariableDeclaration\n" + 
+		"----------\n" + 
+		"4. ERROR in snippet\\Bug366003.java (at line 8)\n" + 
+		"	e }\n" + 
+		"	^\n" + 
+		"Syntax error, insert \";\" to complete BlockStatements\n" + 
 		"----------\n");
 }
 public void testBug366003e() {
@@ -10305,7 +10343,7 @@ public void testBug365437d() {
 	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 	customOptions.put(CompilerOptions.OPTION_AnnotationBasedNullAnalysis, CompilerOptions.ENABLED);
-	customOptions.put(CompilerOptions.OPTION_NonNullAnnotationName, "p.NonNull");
+	customOptions.put(CompilerOptions.OPTION_NonNullByDefaultAnnotationName, "p.NonNullByDefault");
 	this.runNegativeTest(
 		true,
 		new String[] {
@@ -10328,7 +10366,7 @@ public void testBug365437d() {
 			"    public E2(long l) {}\n" +
 			"}\n" +
 			"class E3 {\n" +
-			"	 @p.NonNull\n" +
+			"	 @p.NonNullByDefault\n" +
 			"    private E3() {}\n" +
 			"    public E3(long l) {}\n" +
 			"}\n" +
@@ -10338,12 +10376,12 @@ public void testBug365437d() {
 			"    private E4() {}\n" +
 			"    public E4(long l) {}\n" +
 			"}\n",
-			"p/NonNull.java",
+			"p/NonNullByDefault.java",
 			"package p;\n" +
 			"import static java.lang.annotation.ElementType.*;\n" +
 			"import java.lang.annotation.*;\n" +
-			"@Target({TYPE, METHOD,PARAMETER,CONSTRUCTOR})\n" +
-			"public @interface NonNull {\n" +
+			"@Target({TYPE, METHOD,CONSTRUCTOR})\n" +
+			"public @interface NonNullByDefault {\n" +
 			"}",
 			"p/Annot.java",
 			"package p;\n" +
@@ -10456,7 +10494,7 @@ public void testBug365437f() {
 	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 	customOptions.put(CompilerOptions.OPTION_ReportUnusedPrivateMember, CompilerOptions.ERROR);
 	customOptions.put(CompilerOptions.OPTION_AnnotationBasedNullAnalysis, CompilerOptions.ENABLED);
-	customOptions.put(CompilerOptions.OPTION_NonNullAnnotationName, "p.NonNull");
+	customOptions.put(CompilerOptions.OPTION_NonNullByDefaultAnnotationName, "p.NonNullByDefault");
 	this.runNegativeTest(
 		true,
 		new String[] {
@@ -10474,7 +10512,7 @@ public void testBug365437f() {
 			"    private class E22{}\n" +
 			"}\n" +
 			"class E3 {\n" +
-			"	 @p.NonNull\n" +
+			"	 @p.NonNullByDefault\n" +
 			"    private class E33{}\n" +
 			"}\n" +
 			"class E4 {\n" +
@@ -10482,12 +10520,12 @@ public void testBug365437f() {
 			"	 @p.Annot\n" +
 			"    private class E44{}\n" +
 			"}\n",
-			"p/NonNull.java",
+			"p/NonNullByDefault.java",
 			"package p;\n" +
 			"import static java.lang.annotation.ElementType.*;\n" +
 			"import java.lang.annotation.*;\n" +
-			"@Target({TYPE, METHOD,PARAMETER,LOCAL_VARIABLE})\n" +
-			"public @interface NonNull {\n" +
+			"@Target({TYPE, METHOD,PARAMETER})\n" +
+			"public @interface NonNullByDefault {\n" +
 			"}",
 			"p/Annot.java",
 			"package p;\n" +
@@ -10888,5 +10926,184 @@ public void test398657_2() throws Exception {
 			"     inner name: #25 Annot, accessflags: 9737 public abstract static]\n";
 
 	checkDisassembledClassFile(OUTPUT_DIR + File.separator  +"X.class", "X", expectedOutput, ClassFileBytesDisassembler.DETAILED);
+}
+// check invalid and annotations on package
+public void test384567() {
+	this.runNegativeTest(
+		new String[] {
+			"xy/X.java",
+			"public final synchronized @Foo private package xy;\n" +
+			"class X {\n" +
+			"}\n" +
+			"\n" +
+			"@interface Foo {\n" +
+			"}\n"
+		},
+		"----------\n" + 
+		"1. ERROR in xy\\X.java (at line 1)\n" + 
+		"	public final synchronized @Foo private package xy;\n" + 
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Syntax error, modifiers are not allowed here\n" + 
+		"----------\n" + 
+		"2. ERROR in xy\\X.java (at line 1)\n" + 
+		"	public final synchronized @Foo private package xy;\n" + 
+		"	                          ^^^^\n" + 
+		"Package annotations must be in file package-info.java\n" + 
+		"----------\n");
+}
+//check invalid modifiers on package
+public void test384567_2() {
+	this.runNegativeTest(
+		new String[] {
+			"xy/X.java",
+			"public final synchronized private package xy;\n" +
+			"class X {\n" +
+			"}\n" +
+			"\n"
+		},
+		"----------\n" +
+		"1. ERROR in xy\\X.java (at line 1)\n" + 
+		"	public final synchronized private package xy;\n" + 
+		"	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n" + 
+		"Syntax error, modifiers are not allowed here\n" + 
+			"----------\n");
+}
+// Bug 416107 - Incomplete error message for member interface and annotation
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=416107
+public void test416107a() {
+    this.runNegativeTest(
+        new String[] {
+            "X.java",
+			"public class X {\n" +
+			"	class Y {\n" +
+			"		 @interface Bar {\n" +
+			"			public String bar = \"BUG\";\n" +
+			"		}\n" +
+			"	}\n" +
+			"}",
+        },
+        "----------\n" +
+		"1. ERROR in X.java (at line 3)\n" +
+		"	@interface Bar {\n" +
+		"	           ^^^\n" +
+		"The member annotation Bar can only be defined inside a top-level class or interface or in a static context\n" +
+		"----------\n");
+}
+public void test416107b() {
+	runNegativeTest(
+		new String[] {
+			"X.java",
+			"public class X {\n" +
+			"	class Y {\n" +
+			"		interface Bar {\n" +
+			"			public String bar = \"BUG\";\n" +
+			"		}\n" +
+			"	}\n" +
+			"}",
+		},
+		"----------\n" +
+		"1. ERROR in X.java (at line 3)\n" +
+		"	interface Bar {\n" +
+		"	          ^^^\n" +
+		"The member interface Bar can only be defined inside a top-level class or interface or in a static context\n" +
+		"----------\n");
+}
+// https://bugs.eclipse.org/bugs/show_bug.cgi?id=427367
+public void test427367() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) {
+		return;
+	}
+	Map options = getCompilerOptions();
+	options.put(CompilerOptions.OPTION_Source, CompilerOptions.VERSION_1_5);
+	options.put(CompilerOptions.OPTION_TargetPlatform, CompilerOptions.VERSION_1_4);
+	options.put(CompilerOptions.OPTION_Compliance, CompilerOptions.VERSION_1_5);
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"@interface Annot1 {\n" + 
+			"   Thread.State value() default Thread.State.NEW;\n" + 
+			"   int value2() default 1;\n" + 
+			"}\n" +
+			"@interface Annot2 {\n" + 
+			"   Thread.State value() default Thread.State.NEW;\n" + 
+			"}\n" +
+			"@Annot1(value = XXThread.State.BLOCKED, value2 = 42)\n" +
+			"@Annot2(value = XYThread.State.BLOCKED)\n" +
+			"public class X {}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 8)\n" + 
+		"	@Annot1(value = XXThread.State.BLOCKED, value2 = 42)\n" + 
+		"	                ^^^^^^^^\n" + 
+		"XXThread cannot be resolved to a variable\n" + 
+		"----------\n" + 
+		"2. ERROR in X.java (at line 9)\n" + 
+		"	@Annot2(value = XYThread.State.BLOCKED)\n" + 
+		"	                ^^^^^^^^\n" + 
+		"XYThread cannot be resolved to a variable\n" + 
+		"----------\n",
+		null,
+		true,
+		null,
+		true, // generate output
+		false,
+		false);
+
+	String expectedOutput = "@Annot1@Annot2\n" + 
+					"public class X {\n" + 
+					"  \n" + 
+					"  // Method descriptor #6 ()V\n" + 
+					"  // Stack: 3, Locals: 1\n" + 
+					"  public X();\n" + 
+					"     0  new java.lang.Error [8]\n" + 
+					"     3  dup\n" + 
+					"     4  ldc <String \"Unresolved compilation problems: \\n\\tXXThread cannot be resolved to a variable\\n\\tXYThread cannot be resolved to a variable\\n\"> [10]\n" + 
+					"     6  invokespecial java.lang.Error(java.lang.String) [12]\n" + 
+					"     9  athrow\n" + 
+					"      Line numbers:\n" + 
+					"        [pc: 0, line: 8]\n" + 
+					"      Local variable table:\n" + 
+					"        [pc: 0, pc: 10] local: this index: 0 type: X\n" + 
+					"\n" + 
+					"}";
+	try {
+		checkDisassembledClassFile(OUTPUT_DIR + File.separator  +"X.class", "X", expectedOutput, ClassFileBytesDisassembler.DETAILED);
+	} catch(org.eclipse.jdt.core.util.ClassFormatException cfe) {
+		fail("Error reading classfile");
+	}
+}
+//https://bugs.eclipse.org/bugs/show_bug.cgi?id=376977
+public void test376977() throws Exception {
+	if (this.complianceLevel < ClassFileConstants.JDK1_5) {
+		return;
+	}
+	this.runNegativeTest(
+		new String[] {
+			"X.java",
+			"import p.Outer;\n" +
+			"@Outer(nest= {@Nested()})\n" +
+			"public class X {}",
+			"p/Outer.java",
+			"package p;\n" + 
+			"public @interface Outer {\n" + 
+			"   Nested[] nest();" + 
+			"}",
+			"p/Nested.java",
+			"package p;\n" + 
+			"public @interface Nested {\n" + 
+			"}"
+		},
+		"----------\n" + 
+		"1. ERROR in X.java (at line 2)\n" + 
+		"	@Outer(nest= {@Nested()})\n" + 
+		"	               ^^^^^^\n" + 
+		"Nested cannot be resolved to a type\n" + 
+		"----------\n",
+		null,
+		true,
+		null,
+		false,
+		false,
+		false);
 }
 }

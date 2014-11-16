@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2013 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,6 +10,13 @@
  *     Stephan Herrmann - Contributions for
  *								bug 186342 - [compiler][null] Using annotations for null checking
  *								bug 358903 - Filter practically unimportant resource leak warnings
+ *								Bug 400874 - [1.8][compiler] Inference infrastructure should evolve to meet JLS8 18.x (Part G of JSR335 spec)
+ *        Andy Clement (GoPivotal, Inc) aclement@gopivotal.com - Contributions for
+ *								Bug 383624 - [1.8][compiler] Revive code generation support for type annotations (from Olivier's work)
+ *								bug 407191 - [1.8] Binary access support for type annotations
+ *       Jesper Steen Moeller - Contributions for:
+ *								Bug 406973 - [compiler] Parse MethodParameters attribute
+ *								Bug 412153 - [1.8][compiler] Check validity of annotations which may be repeatable
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.compiler.regression;
 
@@ -108,6 +115,37 @@ public static Test suite() {
 	ArrayList since_1_6 = new ArrayList();
 	since_1_6.add(StackMapAttributeTest.class);
 	since_1_6.add(Compliance_1_6.class);
+	
+	ArrayList since_1_7 = new ArrayList();
+	since_1_7.add(AssignmentTest_1_7.class);
+	since_1_7.add(BinaryLiteralTest.class);
+	since_1_7.add(UnderscoresInLiteralsTest.class);
+	since_1_7.add(TryStatement17Test.class);
+	since_1_7.add(TryWithResourcesStatementTest.class);
+	since_1_7.add(GenericsRegressionTest_1_7.class);
+	since_1_7.add(PolymorphicSignatureTest.class);
+	since_1_7.add(Compliance_1_7.class);
+	
+	ArrayList since_1_8 = new ArrayList();
+	since_1_8.add(NegativeTypeAnnotationTest.class);
+	since_1_8.add(NullTypeAnnotationTest.class);
+	since_1_8.add(NegativeLambdaExpressionsTest.class);
+	since_1_8.add(LambdaExpressionsTest.class);
+	since_1_8.add(SerializableLambdaTest.class);
+	since_1_8.add(OverloadResolutionTest8.class);
+	since_1_8.add(JSR335ClassFileTest.class);
+	since_1_8.add(ExpressionContextTests.class);
+	since_1_8.add(InterfaceMethodsTest.class);
+	since_1_8.add(GrammarCoverageTests308.class);
+	since_1_8.add(FlowAnalysisTest8.class);
+	since_1_8.add(TypeAnnotationTest.class);
+	since_1_8.add(JSR308SpecSnippetTests.class);
+	since_1_8.add(Deprecated18Test.class);
+	since_1_8.add(MethodParametersAttributeTest.class);
+	since_1_8.add(ClassFileReaderTest_1_8.class);
+	since_1_8.add(RepeatableAnnotationTest.class);
+	since_1_8.add(GenericsRegressionTest_1_8.class);
+	since_1_8.add(Unicode18Test.class);
 
 	// Build final test suite
 	TestSuite all = new TestSuite(TestAll.class.getName());
@@ -170,14 +208,7 @@ public static Test suite() {
 		tests_1_7.addAll(since_1_4);
 		tests_1_7.addAll(since_1_5);
 		tests_1_7.addAll(since_1_6);
-		tests_1_7.add(AssignmentTest_1_7.class);
-		tests_1_7.add(BinaryLiteralTest.class);
-		tests_1_7.add(UnderscoresInLiteralsTest.class);
-		tests_1_7.add(TryStatement17Test.class);
-		tests_1_7.add(TryWithResourcesStatementTest.class);
-		tests_1_7.add(GenericsRegressionTest_1_7.class);
-		tests_1_7.add(PolymorphicSignatureTest.class);
-		tests_1_7.add(Compliance_1_7.class);
+		tests_1_7.addAll(since_1_7);
 		// Reset forgotten subsets tests
 		TestCase.TESTS_PREFIX = null;
 		TestCase.TESTS_NAMES = null;
@@ -185,6 +216,21 @@ public static Test suite() {
 		TestCase.TESTS_RANGE = null;
 		TestCase.RUN_ONLY_ID = null;
 		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_7, tests_1_7));
+	}
+	if ((possibleComplianceLevels & AbstractCompilerTest.F_1_8) != 0) {
+		ArrayList tests_1_8 = (ArrayList)standardTests.clone();
+		tests_1_8.addAll(since_1_4);
+		tests_1_8.addAll(since_1_5);
+		tests_1_8.addAll(since_1_6);
+		tests_1_8.addAll(since_1_7);
+		tests_1_8.addAll(since_1_8);
+		// Reset forgotten subsets tests
+		TestCase.TESTS_PREFIX = null;
+		TestCase.TESTS_NAMES = null;
+		TestCase.TESTS_NUMBERS= null;
+		TestCase.TESTS_RANGE = null;
+		TestCase.RUN_ONLY_ID = null;
+		all.addTest(AbstractCompilerTest.buildComplianceTestSuite(ClassFileConstants.JDK1_8, tests_1_8));
 	}
 	all.addTest(new TestSuite(Jsr14Test.class));
 	return all;

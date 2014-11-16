@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2005, 2011 IBM Corporation and others.
+ * Copyright (c) 2005, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -16,6 +16,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,11 +59,11 @@ public class AnnotationMirrorImpl implements AnnotationMirror, InvocationHandler
 			}
 			return equals(this._binding, ((AnnotationMirrorImpl) obj)._binding);
 		}
-		return false;
+		return obj == null ? false : obj.equals(this); // obj could be wrapped by a proxy.
 	}
 
 	private static boolean equals(AnnotationBinding annotationBinding, AnnotationBinding annotationBinding2) {
-		if (annotationBinding.getAnnotationType() != annotationBinding2.getAnnotationType()) return false;
+		if (annotationBinding.getAnnotationType() != annotationBinding2.getAnnotationType()) return false; //$IDENTITY-COMPARISON$
 		final ElementValuePair[] elementValuePairs = annotationBinding.getElementValuePairs();
 		final ElementValuePair[] elementValuePairs2 = annotationBinding2.getElementValuePairs();
 		final int length = elementValuePairs.length;
@@ -79,8 +80,12 @@ public class AnnotationMirrorImpl implements AnnotationMirror, InvocationHandler
 						}
 						return false;
 					} else {
-						if (pair2.value == null
-								|| !pair2.value.equals(pair.value)) {
+						if (pair2.value == null) return false;
+						if (pair2.value instanceof Object[] && pair.value instanceof Object[]) {
+							if (!Arrays.equals((Object[]) pair.value, (Object[]) pair2.value)) {
+								return false;
+							}
+						} else if (!pair2.value.equals(pair.value)){
 							return false;
 						}
 					}

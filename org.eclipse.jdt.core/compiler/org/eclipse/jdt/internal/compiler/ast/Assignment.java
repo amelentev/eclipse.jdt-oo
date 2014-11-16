@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2013 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -25,10 +25,15 @@
  *							bug 383368 - [compiler][null] syntactic null analysis for field references
  *							bug 402993 - [null] Follow up of bug 401088: Missing warning about redundant null check
  *							bug 403147 - [compiler][null] FUP of bug 400761: consolidate interaction between unboxing, NPE, and deferred checking
+ *							Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis
+ *							Bug 427438 - [1.8][compiler] NPE at org.eclipse.jdt.internal.compiler.ast.ConditionalExpression.generateCode(ConditionalExpression.java:280)
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.ast;
 
+import static org.eclipse.jdt.internal.compiler.ast.ExpressionContext.ASSIGNMENT_CONTEXT;
+
 import org.eclipse.jdt.internal.compiler.ASTVisitor;
+import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.*;
 import org.eclipse.jdt.internal.compiler.flow.*;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
@@ -87,9 +92,9 @@ public FlowInfo analyseCode(BlockScope currentScope, FlowContext flowContext, Fl
 		}
 	}
 	if (compilerOptions.isAnnotationBasedNullAnalysisEnabled) {
-		VariableBinding var = this.lhs.nullAnnotatedVariableBinding();
+		VariableBinding var = this.lhs.nullAnnotatedVariableBinding(compilerOptions.sourceLevel >= ClassFileConstants.JDK1_8);
 		if (var != null) {
-			nullStatus = checkAssignmentAgainstNullAnnotation(currentScope, flowContext, var, nullStatus, this.expression, this.expression.resolvedType);
+			nullStatus = NullAnnotationMatching.checkAssignment(currentScope, flowContext, var, nullStatus, this.expression, this.expression.resolvedType);
 			if (nullStatus == FlowInfo.NON_NULL
 					&& var instanceof FieldBinding
 					&& this.lhs instanceof Reference
@@ -193,13 +198,14 @@ public TypeBinding resolveType(BlockScope scope) {
 		return null;
 	}
 	TypeBinding lhsType = this.lhs.resolveType(scope);
+	this.expression.setExpressionContext(ASSIGNMENT_CONTEXT);
 	this.expression.setExpectedType(lhsType); // needed in case of generic method invocation
 	if (lhsType != null) {
 		this.resolvedType = lhsType.capture(scope, this.sourceEnd);
 	}
 	LocalVariableBinding localVariableBinding = this.lhs.localVariableBinding();
-	if (localVariableBinding != null) {
-		localVariableBinding.tagBits &= ~TagBits.IsEffectivelyFinal;
+	if (localVariableBinding != null && (localVariableBinding.isCatchParameter() || localVariableBinding.isParameter())) { 
+		localVariableBinding.tagBits &= ~TagBits.IsEffectivelyFinal;  // as it is already definitely assigned, we can conclude already. Also note: catch parameter cannot be compound assigned.
 	}
 	TypeBinding rhsType = this.expression.resolveType(scope);
 	if (lhsType == null || rhsType == null) {
@@ -229,7 +235,7 @@ public TypeBinding resolveType(BlockScope scope) {
 
 	// Compile-time conversion of base-types : implicit narrowing integer into byte/short/character
 	// may require to widen the rhs expression at runtime
-	if (lhsType != rhsType) { // must call before computeConversion() and typeMismatchError()
+	if (TypeBinding.notEquals(lhsType, rhsType)) { // must call before computeConversion() and typeMismatchError()
 		scope.compilationUnitScope().recordTypeConversion(lhsType, rhsType);
 	}
 	if (this.expression.isConstantValueOfTypeAssignableToType(rhsType, lhsType)
@@ -263,8 +269,8 @@ public TypeBinding resolveTypeExpecting(BlockScope scope, TypeBinding expectedTy
 	TypeBinding lhsType = this.resolvedType;
 	TypeBinding rhsType = this.expression.resolvedType;
 	// signal possible accidental boolean assignment (instead of using '==' operator)
-	if (expectedType == TypeBinding.BOOLEAN
-			&& lhsType == TypeBinding.BOOLEAN
+	if (TypeBinding.equalsEquals(expectedType, TypeBinding.BOOLEAN)
+			&& TypeBinding.equalsEquals(lhsType, TypeBinding.BOOLEAN)
 			&& (this.lhs.bits & IsStrictlyAssigned) != 0) {
 		scope.problemReporter().possibleAccidentalBooleanAssignment(this);
 	}
@@ -281,5 +287,8 @@ public void traverse(ASTVisitor visitor, BlockScope scope) {
 }
 public LocalVariableBinding localVariableBinding() {
 	return this.lhs.localVariableBinding();
+}
+public boolean statementExpression() {
+	return true;
 }
 }

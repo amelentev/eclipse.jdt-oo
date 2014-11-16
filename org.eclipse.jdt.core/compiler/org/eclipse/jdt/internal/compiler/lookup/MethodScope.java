@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2000, 2012 IBM Corporation and others.
+ * Copyright (c) 2000, 2014 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -10,12 +10,21 @@
  *     Stephan Herrmann - Contributions for
  *								bug 349326 - [1.7] new warning for missing try-with-resources
  *								bug 374605 - Unreasonable warning for enum-based switch statements
+ *								bug 382353 - [1.8][compiler] Implementation property modifiers should be accepted on default methods.
+ *								bug 382354 - [1.8][compiler] Compiler silent on conflicting modifier
+ *								bug 401030 - [1.8][null] Null analysis support for lambda methods.
+ *								Bug 416176 - [1.8][compiler][null] null type annotations cause grief on type variables
+ *								Bug 429958 - [1.8][null] evaluate new DefaultLocation attribute of @NonNullByDefault
+ *     Jesper S Moller - Contributions for
+ *							bug 382701 - [1.8][compiler] Implement semantic analysis of Lambda expressions & Reference expression
  *******************************************************************************/
 package org.eclipse.jdt.internal.compiler.lookup;
 
+import org.eclipse.jdt.core.compiler.CharOperation;
 import org.eclipse.jdt.internal.compiler.ast.*;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.codegen.CodeStream;
+import org.eclipse.jdt.internal.compiler.codegen.ConstantPool;
 import org.eclipse.jdt.internal.compiler.flow.FlowInfo;
 import org.eclipse.jdt.internal.compiler.flow.UnconditionalFlowInfo;
 import org.eclipse.jdt.internal.compiler.impl.ReferenceContext;
@@ -46,21 +55,23 @@ public class MethodScope extends BlockScope {
 	public long[] definiteInits = new long[4];
 	public long[][] extraDefiniteInits = new long[4][];
 
-	// annotation support
-	public boolean insideTypeAnnotation = false;
-
 	// inner-emulation
 	public SyntheticArgumentBinding[] extraSyntheticArguments;
 
 	// remember suppressed warning re missing 'default:' to give hints on possibly related flow problems
 	public boolean hasMissingSwitchDefault; // TODO(stephan): combine flags to a bitset?
 
-public MethodScope(ClassScope parent, ReferenceContext context, boolean isStatic) {
+public MethodScope(Scope parent, ReferenceContext context, boolean isStatic) {
 	super(METHOD_SCOPE, parent);
 	this.locals = new LocalVariableBinding[5];
 	this.referenceContext = context;
 	this.isStatic = isStatic;
 	this.startIndex = 0;
+}
+
+public MethodScope(Scope parent, ReferenceContext context, boolean isStatic, int lastVisibleFieldID) {
+	this(parent, context, isStatic);
+	this.lastVisibleFieldID = lastVisibleFieldID;
 }
 
 String basicToString(int tab) {
@@ -166,11 +177,35 @@ private void checkAndSetModifiersForMethod(MethodBinding methodBinding) {
 
 	// set the requested modifiers for a method in an interface/annotation
 	if (declaringClass.isInterface()) {
-		if ((realModifiers & ~(ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract)) != 0) {
+		int expectedModifiers = ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract;
+		boolean isDefaultMethod = (modifiers & ExtraCompilerModifiers.AccDefaultMethod) != 0; // no need to check validity, is done by the parser
+		boolean reportIllegalModifierCombination = false;
+		boolean isJDK18orGreater = false;
+		if (compilerOptions().sourceLevel >= ClassFileConstants.JDK1_8 && !declaringClass.isAnnotationType()) {
+			expectedModifiers |= ClassFileConstants.AccStrictfp
+					| ExtraCompilerModifiers.AccDefaultMethod | ClassFileConstants.AccStatic;
+			isJDK18orGreater = true;
+			if (!methodBinding.isAbstract()) {
+				reportIllegalModifierCombination = isDefaultMethod && methodBinding.isStatic();
+			} else {
+				reportIllegalModifierCombination = isDefaultMethod || methodBinding.isStatic();
+				if (methodBinding.isStrictfp()) {
+					problemReporter().illegalAbstractModifierCombinationForMethod((AbstractMethodDeclaration) this.referenceContext);
+				}
+			}
+			if (reportIllegalModifierCombination) {
+				problemReporter().illegalModifierCombinationForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext);
+			}
+			// Kludge - The AccDefaultMethod bit is outside the lower 16 bits and got removed earlier. Putting it back.
+			if (isDefaultMethod) {
+				realModifiers |= ExtraCompilerModifiers.AccDefaultMethod;
+			}
+		}
+		if ((realModifiers & ~expectedModifiers) != 0) {
 			if ((declaringClass.modifiers & ClassFileConstants.AccAnnotation) != 0)
 				problemReporter().illegalModifierForAnnotationMember((AbstractMethodDeclaration) this.referenceContext);
 			else
-				problemReporter().illegalModifierForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext);
+				problemReporter().illegalModifierForInterfaceMethod((AbstractMethodDeclaration) this.referenceContext, isJDK18orGreater);
 		}
 		return;
 	}
@@ -267,7 +302,7 @@ public void computeLocalVariablePositions(int initOffset, CodeStream codeStream)
 		// assign variable position
 		local.resolvedPosition = this.offset;
 
-		if ((local.type == TypeBinding.LONG) || (local.type == TypeBinding.DOUBLE)) {
+		if ((TypeBinding.equalsEquals(local.type, TypeBinding.LONG)) || (TypeBinding.equalsEquals(local.type, TypeBinding.DOUBLE))) {
 			this.offset += 2;
 		} else {
 			this.offset++;
@@ -284,7 +319,7 @@ public void computeLocalVariablePositions(int initOffset, CodeStream codeStream)
 		for (int iarg = 0, maxArguments = this.extraSyntheticArguments.length; iarg < maxArguments; iarg++){
 			SyntheticArgumentBinding argument = this.extraSyntheticArguments[iarg];
 			argument.resolvedPosition = this.offset;
-			if ((argument.type == TypeBinding.LONG) || (argument.type == TypeBinding.DOUBLE)){
+			if ((TypeBinding.equalsEquals(argument.type, TypeBinding.LONG)) || (TypeBinding.equalsEquals(argument.type, TypeBinding.DOUBLE))){
 				this.offset += 2;
 			} else {
 				this.offset++;
@@ -315,8 +350,13 @@ MethodBinding createMethod(AbstractMethodDeclaration method) {
 		method.binding = new MethodBinding(modifiers, null, null, declaringClass);
 		checkAndSetModifiersForConstructor(method.binding);
 	} else {
-		if (declaringClass.isInterface()) // interface or annotation type
-			modifiers |= ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract;
+		if (declaringClass.isInterface()) {// interface or annotation type
+			if (method.isDefaultMethod() || method.isStatic()) {
+				modifiers |= ClassFileConstants.AccPublic; // default method is not abstract
+			} else {
+				modifiers |= ClassFileConstants.AccPublic | ClassFileConstants.AccAbstract;
+			}
+		}
 		method.binding =
 			new MethodBinding(modifiers, method.selector, null, null, null, declaringClass);
 		checkAndSetModifiersForMethod(method.binding);
@@ -325,12 +365,29 @@ MethodBinding createMethod(AbstractMethodDeclaration method) {
 
 	Argument[] argTypes = method.arguments;
 	int argLength = argTypes == null ? 0 : argTypes.length;
-	if (argLength > 0 && compilerOptions().sourceLevel >= ClassFileConstants.JDK1_5) {
-		if (argTypes[--argLength].isVarArgs())
+	long sourceLevel = compilerOptions().sourceLevel;
+	if (argLength > 0) {
+		Argument argument = argTypes[--argLength];
+		if (argument.isVarArgs() && sourceLevel >= ClassFileConstants.JDK1_5)
 			method.binding.modifiers |= ClassFileConstants.AccVarargs;
+		if (CharOperation.equals(argument.name, ConstantPool.This)) {
+			problemReporter().illegalThisDeclaration(argument);
+		}
 		while (--argLength >= 0) {
-			if (argTypes[argLength].isVarArgs())
-				problemReporter().illegalVararg(argTypes[argLength], method);
+			argument = argTypes[argLength];
+			if (argument.isVarArgs() && sourceLevel >= ClassFileConstants.JDK1_5)
+				problemReporter().illegalVararg(argument, method);
+			if (CharOperation.equals(argument.name, ConstantPool.This)) {
+				problemReporter().illegalThisDeclaration(argument);
+			}
+		}
+	}
+	if (method.receiver != null) {
+		if (sourceLevel <= ClassFileConstants.JDK1_7) {
+			problemReporter().illegalSourceLevelForThis(method.receiver);
+		}
+		if (method.receiver.annotations != null) {
+			method.bits |= ASTNode.HasTypeAnnotations;
 		}
 	}
 
@@ -365,7 +422,7 @@ public FieldBinding findField(TypeBinding receiverType, char[] fieldName, Invoca
 	if (field.isStatic())
 		return field; // static fields are always accessible
 
-	if (!this.isConstructorCall || receiverType != enclosingSourceType())
+	if (!this.isConstructorCall || TypeBinding.notEquals(receiverType, enclosingSourceType()))
 		return field;
 
 	if (invocationSite instanceof SingleNameReference)
@@ -394,6 +451,10 @@ public boolean isInsideConstructor() {
 
 public boolean isInsideInitializer() {
 	return (this.referenceContext instanceof TypeDeclaration);
+}
+
+public boolean isLambdaScope() {
+	return this.referenceContext instanceof LambdaExpression;
 }
 
 public boolean isInsideInitializerOrConstructor() {
@@ -471,10 +532,21 @@ public final int recordInitializationStates(FlowInfo flowInfo) {
 }
 
 /**
- *  Answer the reference method of this scope, or null if initialization scope.
+ *  Answer the reference method of this scope, or null if initialization scope or lambda scope.
  */
 public AbstractMethodDeclaration referenceMethod() {
 	if (this.referenceContext instanceof AbstractMethodDeclaration) return (AbstractMethodDeclaration) this.referenceContext;
+	return null;
+}
+
+/**
+ * Answers the binding of the reference method or reference lambda expression.
+ */
+public MethodBinding referenceMethodBinding() {
+	if (this.referenceContext instanceof LambdaExpression)
+		return ((LambdaExpression)this.referenceContext).binding;
+	if (this.referenceContext instanceof AbstractMethodDeclaration)
+		return ((AbstractMethodDeclaration)this.referenceContext).binding;
 	return null;
 }
 
@@ -483,6 +555,20 @@ public AbstractMethodDeclaration referenceMethod() {
  * It is the nearest enclosing type of this scope.
  */
 public TypeDeclaration referenceType() {
-	return ((ClassScope) this.parent).referenceContext;
+	ClassScope scope = enclosingClassScope();
+	return scope == null ? null : scope.referenceContext;
+}
+
+void resolveTypeParameter(TypeParameter typeParameter) {
+	typeParameter.resolve(this);
+}
+@Override
+public boolean hasDefaultNullnessFor(int location) {
+	if (this.referenceContext instanceof AbstractMethodDeclaration) {
+		MethodBinding binding = ((AbstractMethodDeclaration) this.referenceContext).binding;
+		if (binding != null && binding.defaultNullness != 0)
+			return (binding.defaultNullness & location) != 0;
+	}
+	return this.parent.hasDefaultNullnessFor(location);
 }
 }

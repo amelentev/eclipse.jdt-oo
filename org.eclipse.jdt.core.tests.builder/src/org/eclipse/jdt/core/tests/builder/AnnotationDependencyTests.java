@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2012 Walter Harley and others.
+ * Copyright (c) 2009, 2014 Walter Harley and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -8,7 +8,9 @@
  * Contributors:
  *     Walter Harley (eclipse@cafewalter.com) - initial implementation
  *     IBM Corporation - initial API and implementation
- *     Stephan Herrmann - Contribution for bug 365992 - [builder] [null] Change of nullness for a parameter doesn't trigger a build for the files that call the method
+ *     Stephan Herrmann - Contributions for
+ *								bug 365992 - [builder] [null] Change of nullness for a parameter doesn't trigger a build for the files that call the method
+ *								Bug 392099 - [1.8][compiler][null] Apply null annotation on types for null analysis 
  *******************************************************************************/
 package org.eclipse.jdt.core.tests.builder;
 
@@ -28,6 +30,7 @@ import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.core.compiler.CategorizedProblem;
 import org.eclipse.jdt.core.tests.util.Util;
+import org.osgi.framework.Bundle;
 
 /**
  * Tests to verify that annotation changes cause recompilation of dependent types.
@@ -140,7 +143,8 @@ public class AnnotationDependencyTests extends BuilderTests {
 	
 	void setupProjectForNullAnnotations() throws IOException, JavaModelException {
 		// add the org.eclipse.jdt.annotation library (bin/ folder or jar) to the project:
-		File bundleFile = FileLocator.getBundleFile(Platform.getBundle("org.eclipse.jdt.annotation"));
+		Bundle[] bundles = Platform.getBundles("org.eclipse.jdt.annotation","[1.1.0,2.0.0)");
+		File bundleFile = FileLocator.getBundleFile(bundles[0]);
 		String annotationsLib = bundleFile.isDirectory() ? bundleFile.getPath()+"/bin" : bundleFile.getPath();
 		IJavaProject javaProject = env.getJavaProject(this.projectPath);
 		IClasspathEntry[] rawClasspath = javaProject.getRawClasspath();
@@ -1481,7 +1485,7 @@ public class AnnotationDependencyTests extends BuilderTests {
 		env.addClass( this.srcRoot, "p1", "Test2", test2CodeB );
 		incrementalBuild( this.projectPath );
 		expectingProblemsFor(test1Path, 
-			"Problem : Null type mismatch: required \'@NonNull Object\' but the provided value is inferred as @Nullable [ resource : </Project/src/p1/Test1.java> range : <126,143> category : <90> severity : <2>]");
+			"Problem : Null type mismatch: required \'@NonNull Object\' but the provided value is specified as @Nullable [ resource : </Project/src/p1/Test1.java> range : <126,143> category : <90> severity : <2>]");
 
 		// verify that Test1 was recompiled
 		expectingUniqueCompiledClasses(new String[] { "p1.Test1", "p1.Test2" });
@@ -1494,7 +1498,7 @@ public class AnnotationDependencyTests extends BuilderTests {
 		env.addClass( this.srcRoot, "p1", "Test2", test2CodeC );
 		incrementalBuild( this.projectPath );
 		expectingProblemsFor(test1Path, 
-			"Problem : Null type safety: The expression of type Object needs unchecked conversion to conform to \'@NonNull Object\' [ resource : </Project/src/p1/Test1.java> range : <126,143> category : <90> severity : <1>]");
+			"Problem : Null type safety: The expression of type 'Object' needs unchecked conversion to conform to \'@NonNull Object\' [ resource : </Project/src/p1/Test1.java> range : <126,143> category : <90> severity : <1>]");
 
 		// verify that Test1 was recompiled
 		expectingUniqueCompiledClasses(new String[] { "p1.Test1", "p1.Test2" });
@@ -1557,4 +1561,109 @@ public class AnnotationDependencyTests extends BuilderTests {
 		// verify that Test2 only was recompiled
 		expectingUniqueCompiledClasses(new String[] { "p1.Test2" });
 	}
+
+	 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=411771
+	 //[compiler][null] Enum constants not recognized as being NonNull.
+	 //This test case exposes the bug mentioned in the defect. The enum
+	 //definition comes from a file different from where it is accessed.
+	 public void test411771a() throws IOException, JavaModelException {
+		 setupProjectForNullAnnotations();
+		 String testEnumCode = "package p1;\n" +
+				 "enum TestEnum {FOO };\n";
+		 env.addClass( this.srcRoot, "p1", "TestEnum", testEnumCode );
+		 fullBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 String nullTestCode = "package p1;\n" +
+				 "import org.eclipse.jdt.annotation.NonNull;\n" +
+				 "public class NullTest {\n" +
+				 "	public static TestEnum bla() {\n" +
+				 "		@NonNull final TestEnum t = TestEnum.FOO;\n" +
+				 "		return t;\n" +
+				 "	}\n" +
+				 "}";
+		 env.addClass( this.srcRoot, "p1", "NullTest", nullTestCode );
+		 incrementalBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 expectingUniqueCompiledClasses(new String[] { "p1.NullTest" });
+	 }
+
+	 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=411771
+	 //[compiler][null] Enum constants not recognized as being NonNull.
+	 //Distinguish between enum constant and enum type. The enum type should not
+	 //be marked as NonNull.
+	 public void test411771b() throws IOException, JavaModelException {
+		 setupProjectForNullAnnotations();
+		 String testEnumCode = "package p1;\n" +
+				 "enum TestEnum { FOO };\n";
+		 env.addClass( this.srcRoot, "p1", "TestEnum", testEnumCode );
+		 fullBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 String testClass = "package p1;\n" +
+				 "public class X { TestEnum f; };\n";
+		 env.addClass( this.srcRoot, "p1", "X", testClass );
+		 incrementalBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 String nullTestCode = "package p1;\n" +
+				 "import org.eclipse.jdt.annotation.NonNull;\n" +
+				 "public class NullTest {\n" +
+				 "	public static TestEnum bla(X x) {\n" +
+				 "		@NonNull final TestEnum t = x.f;\n" +
+				 "		return t;\n" +
+				 "	}\n" +
+				 "}\n";
+		 IPath test1Path = env.addClass( this.srcRoot, "p1", "NullTest", nullTestCode );
+		 incrementalBuild( this.projectPath );
+
+		 expectingProblemsFor(test1Path,
+				 "Problem : Null type safety: The expression of type 'TestEnum' needs unchecked conversion to conform to " +
+				 "'@NonNull TestEnum' [ resource : </Project/src/p1/NullTest.java> range : <144,147> category : <90> severity : <1>]");
+
+		 expectingUniqueCompiledClasses(new String[] { "p1.NullTest" });
+	 }
+
+	 //https://bugs.eclipse.org/bugs/show_bug.cgi?id=411771
+	 //[compiler][null] Enum constants not recognized as being NonNull.
+	 //A enum may contain fields other than predefined constants. We
+	 //should not tag them as NonNull.
+	 public void test411771c() throws IOException, JavaModelException {
+		 setupProjectForNullAnnotations();
+		 String testClass = "package p1;\n" +
+				 "public class A {}";
+		 env.addClass( this.srcRoot, "p1", "A", testClass );
+		 fullBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 String testEnumCode = "package p1;\n" +
+				 "enum TestEnum {\n" +
+				 "	FOO;\n" +
+				 "	public static A a;" +
+				 "};\n";
+		 env.addClass( this.srcRoot, "p1", "TestEnum", testEnumCode );
+		 incrementalBuild( this.projectPath );
+		 expectingNoProblems();
+
+		 String nullTestCode = "package p1;\n" +
+				 "import org.eclipse.jdt.annotation.NonNull;\n" +
+				 "public class NullTest {\n" +
+				 "	public static TestEnum bla() {\n" +
+				 "		@NonNull final TestEnum t = TestEnum.FOO;\n" +
+				 "		return t;\n" +
+				 "	}\n" +
+				 "	public A testint() {\n" +
+				 "	@NonNull A a = TestEnum.a;\n" +
+				 "		return a;\n" +
+				 "	}\n" +
+				 "}";
+		 IPath test1Path = env.addClass( this.srcRoot, "p1", "NullTest", nullTestCode );
+		 incrementalBuild( this.projectPath );
+		 expectingProblemsFor(test1Path,
+				 "Problem : Null type safety: The expression of type 'A' needs unchecked conversion to conform to " +
+				 "'@NonNull A' [ resource : </Project/src/p1/NullTest.java> range : <208,218> category : <90> severity : <1>]");
+
+		 expectingUniqueCompiledClasses(new String[] { "p1.NullTest" });
+	 }
 }
